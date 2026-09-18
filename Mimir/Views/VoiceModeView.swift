@@ -106,7 +106,7 @@ struct VoiceModeView: View {
                 guard !isSummarizing else { return }
                 isSummarizing = true
                 Task {
-                    await session?.generateMinutes()
+                    await session.generateMinutes()
                     isSummarizing = false
                 }
             } label: {
