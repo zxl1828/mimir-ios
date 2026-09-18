@@ -40,11 +40,15 @@ enum StartupCoordinator {
     @MainActor
     static func seedIfNeeded(context: ModelContext) {
         do {
-            let skillCount = try context.fetchCount(FetchDescriptor<Skill>())
-            if skillCount == 0 {
-                for skill in Skill.builtinSeeds() {
-                    context.insert(skill)
-                }
+            // 内置技能按名称幂等补齐：新版本新增的内置技能会自动出现，
+            // 用户自己改过的同名技能不会被覆盖。
+            let existingSkills = try context.fetch(FetchDescriptor<Skill>())
+            let existingSkillNames = Set(existingSkills.map(\.name))
+            var nextSkillIndex = (existingSkills.map(\.sortIndex).max() ?? -1) + 1
+            for skill in Skill.builtinSeeds() where !existingSkillNames.contains(skill.name) {
+                skill.sortIndex = nextSkillIndex
+                nextSkillIndex += 1
+                context.insert(skill)
             }
 
             let agentCount = try context.fetchCount(FetchDescriptor<AgentDockItem>())

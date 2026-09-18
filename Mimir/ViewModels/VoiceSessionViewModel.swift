@@ -384,6 +384,77 @@ final class VoiceSessionViewModel {
         }
     }
 
+    /// 把本次语音会话的转写整理成会议纪要，写回同一个对话。
+    @discardableResult
+    func generateMinutes() async -> Bool {
+        let transcript = lines
+            .map { ($0.isUser ? "用户：" : "助手：") + $0.text }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !transcript.isEmpty else {
+            infoText = "这次会话还没有可整理的转写内容。"
+            return false
+        }
+        guard settings.hasUsableCredential else {
+            infoText = "还没有配置 API Key。"
+            return false
+        }
+
+        let prefix = skillPrefix(named: "会议纪要") ?? Self.fallbackMinutesPrefix
+        var parameters = settings.parameters.applying(.thinking)
+        parameters.streamsResponse = false
+        parameters.maxTokens = min(max(parameters.maxTokens, 1_024), 4_096)
+        parameters.systemPrompt = prefix
+        if let modelID = conversation?.modelID, !modelID.isEmpty {
+            parameters.modelID = modelID
+        }
+
+        let credential = settings.resolvedCredential
+        let client = LLMClientFactory.make(for: credential)
+        var collected = ""
+        do {
+            let stream = client.streamChat(
+                messages: [LLMChatMessage(role: .user, text: transcript)],
+                parameters: parameters,
+                credential: credential,
+                tools: []
+            )
+            for try await event in stream {
+                if case .textDelta(let chunk) = event { collected += chunk }
+                if case .finished = event { break }
+            }
+        } catch {
+            infoText = (error as? LLMError)?.errorDescription ?? error.localizedDescription
+            return false
+        }
+
+        let minutes = collected.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !minutes.isEmpty else {
+            infoText = "模型没有返回内容。"
+            return false
+        }
+
+        lines.append(VoiceTranscriptLine(isUser: false, text: minutes, isFinal: true))
+        persistAssistantMessage(minutes)
+        infoText = "已把纪要写入当前对话。"
+        Haptics.notify(.success)
+        return true
+    }
+
+    /// 取内置「会议纪要」技能的提示词；用户改过就用用户的版本。
+    private func skillPrefix(named name: String) -> String? {
+        let descriptor = FetchDescriptor<Skill>(predicate: #Predicate { $0.name == name })
+        guard let skill = (try? modelContext.fetch(descriptor))?.first,
+              !skill.promptPrefix.isEmpty else { return nil }
+        return skill.promptPrefix
+    }
+
+    private static let fallbackMinutesPrefix = """
+    请把下面的语音记录整理成会议纪要：结论、待办（事项—负责人—截止时间）、讨论要点、待澄清。
+    只写记录中确有的信息，不要补充推测。
+    """
+
     /// 手动停止聆听 / 继续聆听。
     func toggleListening() {
         switch state {

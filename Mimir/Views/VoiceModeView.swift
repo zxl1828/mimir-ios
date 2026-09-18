@@ -14,6 +14,7 @@ struct VoiceModeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var session: VoiceSessionViewModel?
+    @State private var isSummarizing = false
 
     var body: some View {
         ZStack {
@@ -101,7 +102,28 @@ struct VoiceModeView: View {
 
             Spacer()
 
-            Color.clear.frame(width: 36, height: 36)
+            Button {
+                guard !isSummarizing else { return }
+                isSummarizing = true
+                Task {
+                    await session?.generateMinutes()
+                    isSummarizing = false
+                }
+            } label: {
+                if isSummarizing {
+                    ProgressView().controlSize(.small).tint(AppColor.primaryText)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(AppColor.secondaryText.opacity(0.12)))
+                } else {
+                    Image(systemName: "text.badge.checkmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppColor.primaryText)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(AppColor.secondaryText.opacity(0.12)))
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("把这次语音整理成会议纪要")
         }
         .padding(.top, 8)
         .overlay(alignment: .bottom) {

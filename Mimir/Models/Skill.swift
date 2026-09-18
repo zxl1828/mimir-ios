@@ -168,6 +168,129 @@ extension Skill {
                 triggerKeywords: ["想法", "点子", "方案", "头脑风暴", "创意", "灵感"],
                 intentLabel: "brainstorm",
                 sortIndex: 5
+            ),
+            Skill(
+                name: "做幻灯片",
+                slashCommand: "做幻灯片",
+                icon: "rectangle.on.rectangle.angled",
+                summary: "逐页输出 PPT 结构与讲稿",
+                promptPrefix: """
+                请把下面的内容整理成一份演示文稿，逐页输出，每页包含：
+                【页码 · 标题】
+                要点（不超过 3 条，每条不超过 18 字）
+                讲稿备注（一两句话，说明这一页要讲什么）
+
+                写作要求（很重要）：
+                - 用具体名词和数字，不要用「赋能」「闭环」「抓手」「生态」「next-generation」这类空话
+                - 能用短句就不用长句，能删的形容词就删掉
+                - 标题写结论，不要写「关于……的汇报」这种没有信息量的封面标题
+                - 每页只讲一件事，不要在一页里堆两个主题
+                """,
+                triggerKeywords: ["PPT", "ppt", "幻灯片", "演示", "汇报", "deck", "slides", "宣讲"],
+                intentLabel: "makeSlides",
+                sortIndex: 6
+            ),
+            Skill(
+                name: "写文档",
+                slashCommand: "写文档",
+                icon: "doc.text",
+                summary: "按结论先行的结构写报告",
+                promptPrefix: """
+                请按下面的结构写一份文档：
+                1. 结论先行：开头一段说清楚最终建议或结论
+                2. 依据：支撑结论的事实、数据、推理
+                3. 其他方案与取舍：为什么不选它们
+                4. 行动项：谁在什么时候做什么
+
+                语言要求：直接、具体、少用形容词，不写「随着……的发展」这类套话。
+                """,
+                triggerKeywords: ["文档", "报告", "方案", "说明书", "白皮书", "总结报告"],
+                intentLabel: "writeDocument",
+                sortIndex: 7
+            ),
+            Skill(
+                name: "整理表格",
+                slashCommand: "整理表格",
+                icon: "tablecells",
+                summary: "把杂乱信息理成表格",
+                promptPrefix: """
+                请把下面的信息整理成 Markdown 表格：先根据内容决定列（不超过 6 列），
+                每行一条记录，单元格内容尽量简短。表格之后用一句话说明表格里最值得注意的一行。
+                如果信息不足以填满整列，宁可留空也不要编造。
+                """,
+                triggerKeywords: ["表格", "整理成表", "对比表", "清单", "CSV", "列出来"],
+                intentLabel: "makeTable",
+                sortIndex: 8
+            ),
+            Skill(
+                name: "画流程图",
+                slashCommand: "画流程图",
+                icon: "flowchart",
+                summary: "输出可直接渲染的 Mermaid 图",
+                promptPrefix: """
+                请用 Mermaid 语法输出一张图，放在 ```mermaid 代码块里：
+                流程用 flowchart TD，时序用 sequenceDiagram，状态用 stateDiagram-v2。
+                节点文字用中文短语，不要塞长句子；节点数量控制在 12 个以内。
+                图之后用两三句话解释关键分支。
+                """,
+                triggerKeywords: ["流程图", "架构图", "时序图", "关系图", "mermaid", "画个图", "示意图"],
+                intentLabel: "drawDiagram",
+                sortIndex: 9
+            ),
+            Skill(
+                name: "读长文",
+                slashCommand: "读长文",
+                icon: "text.book.closed",
+                summary: "把长文压成可行动的理解",
+                promptPrefix: """
+                请阅读下面的长文并输出四部分：
+                1. 一句话结论（作者到底想说什么）
+                2. 关键论点（3–5 条，每条带原文依据）
+                3. 对我的意义（如果我是做……的，该怎么用）
+                4. 存疑之处（论据薄弱或与常识冲突的地方）
+
+                不要复述原文，不要写读后感式的空话。
+                """,
+                triggerKeywords: ["这篇文章", "这份文档", "PDF", "长文", "论文", "读一下", "帮我看看这篇"],
+                intentLabel: "readLongform",
+                sortIndex: 10
+            ),
+            Skill(
+                name: "会议纪要",
+                slashCommand: "会议纪要",
+                icon: "list.bullet.rectangle.portrait",
+                summary: "把记录整理成决议、待办与待澄清",
+                promptPrefix: """
+                请把下面的内容整理成会议纪要，固定四段：
+                ## 结论
+                ## 待办（每条：事项 — 负责人 — 截止时间；缺失的写「未提及」）
+                ## 讨论要点（按主题归并，不要按发言顺序记流水账）
+                ## 待澄清
+
+                只写记录中确有的信息，不要补充推测；人名、数字、时间要原样保留。
+                """,
+                triggerKeywords: ["会议", "纪要", "开会", "讨论", "决议", "例会", "复盘"],
+                intentLabel: "meetingMinutes",
+                sortIndex: 11
+            ),
+            Skill(
+                name: "语音速记",
+                slashCommand: "语音速记",
+                icon: "waveform.badge.mic",
+                summary: "把口语转写整理成书面记录",
+                promptPrefix: """
+                下面是一段语音转写，可能存在口语、重复、断句错误和同音错别字。
+                请整理成通顺的书面记录：
+                - 保留原意与所有关键数字、人名、时间
+                - 去掉口头语、重复和自我更正
+                - 修正明显的同音错字，但不要改动专有名词
+                - 按主题分段，必要时加小标题
+
+                不要添加原文没有的信息。如果某句话实在无法理解，原样保留并用「（听不清）」标注。
+                """,
+                triggerKeywords: ["录音", "转写", "语音记录", "速记", "听写", "整理一下刚才"],
+                intentLabel: "voiceNotes",
+                sortIndex: 12
             )
         ]
     }
