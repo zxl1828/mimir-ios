@@ -1,7 +1,14 @@
 # DeepSeek iOS 26 客户端
 
+[![Build iOS IPA](https://github.com/zxl1828/deepseek-ios/actions/workflows/build-ipa.yml/badge.svg)](https://github.com/zxl1828/deepseek-ios/actions/workflows/build-ipa.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/Platform-iOS%2026%2B-lightgrey)
+![Swift](https://img.shields.io/badge/Swift-6-orange)
+
 本地优先的专属 DeepSeek 客户端，SwiftUI + MVVM，最低支持 iOS 26，
 界面完全自定义并使用液态玻璃（Liquid Glass）原生材质。
+
+> 非官方项目，与 DeepSeek 官方无隶属或背书关系；「DeepSeek」为相应权利人的商标。
 
 ## 主要能力
 
@@ -99,3 +106,34 @@ xcodebuild -project DeepSeekClient.xcodeproj -scheme DeepSeekClient \
 - 自定义模型目录的数据结构已就绪，但还没有对应的管理界面
 - Mermaid 与 KaTeX 渲染依赖 WebView 加载 CDN，离线时回退显示源码
 - stdio 传输的 MCP 服务器在 iOS 上不可用（系统不允许派生子进程），仅支持 HTTP/SSE
+
+## 开源许可
+
+本项目以 [MIT 许可证](LICENSE) 开源：可自由使用、修改、分发，包括商业用途，
+只需保留版权与许可声明。
+
+随 App 打包的第三方组件与模型见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+（MCP Swift SDK、Kokoro-82M CoreML 语音模型，均为 Apache-2.0 兼容许可）。
+
+参与贡献请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)；安全问题请按
+[SECURITY.md](SECURITY.md) 私下报告。
+
+## English
+
+An unofficial, local-first DeepSeek client for iOS 26 built with SwiftUI and
+Liquid Glass: streaming chat, on-device voice (VAD + speech recognition +
+bundled Kokoro-82M CoreML TTS), local vector memory, skills, MCP tools,
+App Intents, and a fully custom UI.
+
+Build with Xcode 26 + [XcodeGen](https://github.com/yonaskolb/XcodeGen):
+
+```bash
+bash scripts/fetch-voice-models.sh
+xcodegen generate
+xcodebuild -project DeepSeekClient.xcodeproj -scheme DeepSeekClient \
+  -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+CI produces an unsigned IPA on every push to `main`. Licensed under MIT —
+see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
