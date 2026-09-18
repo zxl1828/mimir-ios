@@ -81,7 +81,7 @@ struct AuroraBackground: View {
                 baseGradient
 
                 Circle()
-                    .fill(AppColor.brandIndigo.opacity(scheme == .dark ? 0.42 : 0.30) * intensity)
+                    .fill(AppColor.brandIndigo.opacity((scheme == .dark ? 0.42 : 0.30) * intensity))
                     .frame(width: size.width * 0.95, height: size.width * 0.95)
                     .blur(radius: 120)
                     .offset(
@@ -90,7 +90,7 @@ struct AuroraBackground: View {
                     )
 
                 Circle()
-                    .fill(AppColor.brandPurple.opacity(scheme == .dark ? 0.36 : 0.24) * intensity)
+                    .fill(AppColor.brandPurple.opacity((scheme == .dark ? 0.36 : 0.24) * intensity))
                     .frame(width: size.width * 0.85, height: size.width * 0.85)
                     .blur(radius: 130)
                     .offset(
@@ -99,7 +99,7 @@ struct AuroraBackground: View {
                     )
 
                 Circle()
-                    .fill(AppColor.brandTeal.opacity(scheme == .dark ? 0.22 : 0.16) * intensity)
+                    .fill(AppColor.brandTeal.opacity((scheme == .dark ? 0.22 : 0.16) * intensity))
                     .frame(width: size.width * 0.7, height: size.width * 0.7)
                     .blur(radius: 110)
                     .offset(

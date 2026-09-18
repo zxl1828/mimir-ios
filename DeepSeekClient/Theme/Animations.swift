@@ -30,6 +30,7 @@ enum AppAnimation {
 }
 
 /// 触觉反馈统一出口，便于在真机上集中调校。
+@MainActor
 enum Haptics {
     static func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .light) {
         let generator = UIImpactFeedbackGenerator(style: style)

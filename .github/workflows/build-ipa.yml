@@ -14,10 +14,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Select newest Xcode 26
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Available Xcode installations:"
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          LATEST="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)"
+          if [ -z "$LATEST" ]; then
+            LATEST="$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1 || true)"
+          fi
+          if [ -n "$LATEST" ]; then
+            echo "Selecting $LATEST"
+            sudo xcode-select -s "$LATEST"
+          fi
+
       - name: Print toolchain
         run: |
           xcodebuild -version
-          xcodebuild -showsdks | grep -i iphoneos || true
+          xcodebuild -showsdks | grep -i "iphoneos" || true
 
       - name: Install XcodeGen
         run: brew install xcodegen
