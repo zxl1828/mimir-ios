@@ -85,24 +85,26 @@ enum DailyBriefService {
     }
 
     /// 后台轻量刷新：只做本地维护（清理过期会话、整理记忆索引）。
-    static func refreshInBackground() async {
+    @discardableResult
+    static func refreshInBackground() async -> Bool {
         let settings = AppSettings()
-        guard let cutoff = settings.retention.cutoff else { return }
+        guard let cutoff = settings.retention.cutoff else { return true }
 
         let storeURL = URL.applicationSupportDirectory.appending(path: "DeepSeekClient.store")
         guard let container = try? ModelContainer(for: Conversation.self, configurations: ModelConfiguration(url: storeURL)) else {
-            return
+            return false
         }
         let context = container.mainContext
         let descriptor = FetchDescriptor<Conversation>(
             predicate: #Predicate { $0.isPinned == false }
         )
-        guard let conversations = try? context.fetch(descriptor) else { return }
+        guard let conversations = try? context.fetch(descriptor) else { return false }
         var removed = false
         for conversation in conversations where conversation.usesAutoDelete && conversation.updatedAt < cutoff {
             context.delete(conversation)
             removed = true
         }
         if removed { try? context.save() }
+        return true
     }
 }
