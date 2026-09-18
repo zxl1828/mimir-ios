@@ -4,6 +4,15 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+/// MCP 服务器的不可变快照：流式任务里只用它，避免跨隔离域传引用类型。
+struct MCPServerSnapshot: Sendable, Equatable {
+    var id: UUID
+    var name: String
+    var allowsDataUpload: Bool
+    var isEnabled: Bool
+    var toolNames: [String]
+}
+
 /// 对话状态与流式响应处理。
 ///
 /// 负责：组装请求（系统提示词 + 历史 + 记忆上下文）、消费流式事件、
@@ -325,6 +334,16 @@ final class ChatViewModel {
         let availableTools = MCPToolAdapter.definitions(
             from: MCPClientManager.shared.allTools(configs: mcpConfigs).filter(\.allowsDataUpload)
         )
+        // 流式任务里只使用不可变的纯值快照，避免跨隔离域传递持久化对象。
+        let serverSnapshots: [MCPServerSnapshot] = mcpConfigs.map { config in
+            MCPServerSnapshot(
+                id: config.id,
+                name: config.displayName,
+                allowsDataUpload: config.allowsDataUpload,
+                isEnabled: config.isEnabled,
+                toolNames: (MCPClientManager.shared.toolsByServer[config.id] ?? []).map(\.name)
+            )
+        }
 
         streamTask = Task { [weak self] in
             var accumulated = ""
@@ -388,18 +407,15 @@ final class ChatViewModel {
                 )
 
                 for call in pendingToolCalls {
-                    let configs = self?.mcpConfigs ?? []
-                    let preferredServerID = Self.preferredServerID(for: call, configs: configs)
-                    let descriptor = MCPClientManager.shared
-                        .allTools(configs: configs)
-                        .first { $0.name == call.name && $0.serverID == preferredServerID }
-                        ?? MCPClientManager.shared.allTools(configs: configs).first { $0.name == call.name }
+                    let preferred = serverSnapshots.first { snapshot in
+                        snapshot.isEnabled && snapshot.allowsDataUpload && snapshot.toolNames.contains(call.name)
+                    } ?? serverSnapshots.first { $0.toolNames.contains(call.name) }
 
                     let result = await MCPClientManager.shared.callTool(
-                        serverID: descriptor?.serverID ?? UUID(),
+                        serverID: preferred?.id ?? UUID(),
                         toolName: call.name,
                         argumentsJSON: call.argumentsJSON,
-                        serverName: descriptor?.serverName ?? "MCP"
+                        serverName: preferred?.name ?? "MCP"
                     )
                     workingMessages.append(
                         LLMChatMessage(
@@ -431,14 +447,6 @@ final class ChatViewModel {
             self.persist(force: true)
             self.runPostProcessing(for: conversation, credential: credential, parameters: parameters)
         }
-    }
-
-    /// 工具名可能在不同服务器间重名，这里优先匹配已连接且允许上传的服务器。
-    @MainActor
-    private static func preferredServerID(for call: LLMToolCall, configs: [MCPServerConfig]) -> UUID? {
-        configs.first(where: { config in
-            config.isEnabled && config.allowsDataUpload && (MCPClientManager.shared.toolsByServer[config.id] ?? []).contains { $0.name == call.name }
-        })?.id
     }
 
     /// 生成结束后的后台收尾：记忆整理、长对话摘要、端侧建议回复。
