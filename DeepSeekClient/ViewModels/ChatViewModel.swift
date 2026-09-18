@@ -322,9 +322,8 @@ final class ChatViewModel {
         assistant.memoryHitIDs = hits.map(\.id)
 
         // 只有明确授权上传数据的 MCP 工具才会暴露给云端模型。
-        let mcpConfigsSnapshot = mcpConfigs
         let availableTools = MCPToolAdapter.definitions(
-            from: MCPClientManager.shared.allTools(configs: mcpConfigsSnapshot).filter(\.allowsDataUpload)
+            from: MCPClientManager.shared.allTools(configs: mcpConfigs).filter(\.allowsDataUpload)
         )
 
         streamTask = Task { [weak self] in
@@ -389,11 +388,12 @@ final class ChatViewModel {
                 )
 
                 for call in pendingToolCalls {
-                    let preferredServerID = Self.preferredServerID(for: call, configs: mcpConfigsSnapshot)
+                    let configs = self?.mcpConfigs ?? []
+                    let preferredServerID = Self.preferredServerID(for: call, configs: configs)
                     let descriptor = MCPClientManager.shared
-                        .allTools(configs: mcpConfigsSnapshot)
+                        .allTools(configs: configs)
                         .first { $0.name == call.name && $0.serverID == preferredServerID }
-                        ?? MCPClientManager.shared.allTools(configs: mcpConfigsSnapshot).first { $0.name == call.name }
+                        ?? MCPClientManager.shared.allTools(configs: configs).first { $0.name == call.name }
 
                     let result = await MCPClientManager.shared.callTool(
                         serverID: descriptor?.serverID ?? UUID(),
