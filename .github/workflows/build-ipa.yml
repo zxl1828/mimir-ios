@@ -1,0 +1,73 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print toolchain
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Fetch bundled voice models
+        run: |
+          set -euo pipefail
+          if [ -f scripts/fetch-voice-models.sh ]; then
+            bash scripts/fetch-voice-models.sh
+          else
+            echo "no voice model script, skipping"
+          fi
+        continue-on-error: true
+
+      - name: Build unsigned app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project DeepSeekClient.xcodeproj \
+            -scheme DeepSeekClient \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath Build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find Build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)"
+          echo "App: $APP_PATH"
+          du -sh "$APP_PATH"
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -qry DeepSeek-unsigned.ipa Payload
+          ls -lh DeepSeek-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeepSeek-ipa
+          path: DeepSeek-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

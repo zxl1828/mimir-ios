@@ -1,0 +1,30 @@
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+build/
+Build/
+*.xcarchive
+*.ipa
+*.dSYM.zip
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+
+# SPM
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 工作区（非交付物）
+outputs/
+work/
+release/
+*.log

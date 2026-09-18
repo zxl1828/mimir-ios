@@ -1,0 +1,62 @@
+name: DeepSeekClient
+options:
+  bundleIdPrefix: com.zxl
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: zh-Hans
+  groupSortPosition: top
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+targets:
+  DeepSeekClient:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: DeepSeekClient
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.zxl.deepseekclient
+        PRODUCT_NAME: DeepSeek
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DeepSeek
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        INFOPLIST_KEY_UIRequiredDeviceCapabilities: arm64
+        INFOPLIST_KEY_CFBundleShortVersionString: "1.0"
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "语音对话需要访问麦克风，音频仅在本机处理，不会上传。"
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "用于把你说的话在本机转成文字，识别完全离线完成。"
+        INFOPLIST_KEY_NSCameraUsageDescription: "用于拍照提问和扫描文档，图片只在你的设备上处理。"
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "用于从相册选取图片提问。"
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "用于把生成的图片保存到相册。"
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.0"
+        ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_EMIT_LOC_STRINGS: YES
+        OTHER_LDFLAGS: "$(inherited) -ObjC"
+schemes:
+  DeepSeekClient:
+    build:
+      targets:
+        DeepSeekClient: all
+    run:
+      config: Debug
+    archive:
+      config: Release
