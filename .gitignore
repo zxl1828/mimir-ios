@@ -28,3 +28,6 @@ outputs/
 work/
 release/
 *.log
+
+# 本地交接文档（含环境细节，不随公开仓库发布）
+*.local.md
