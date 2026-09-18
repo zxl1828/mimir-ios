@@ -8,7 +8,7 @@ set -euo pipefail
 REPO="Jud/kokoro-coreml"
 TAG="${KOKORO_MODEL_TAG:-models-2026-03-23}"
 ASSET="kokoro-models.tar.gz"
-DEST="DeepSeekClient/Resources/Models/kokoro"
+DEST="Mimir/Resources/Models/kokoro"
 
 if [ -d "$DEST/voices" ] && [ -d "$DEST/kokoro_frontend.mlmodelc" ]; then
   echo "Voice models already present at $DEST"

@@ -1,4 +1,4 @@
-name: DeepSeekClient
+name: Mimir
 options:
   bundleIdPrefix: com.zxl
   deploymentTarget:
@@ -21,14 +21,14 @@ packages:
     url: https://github.com/modelcontextprotocol/swift-sdk
     from: "0.11.0"
 targets:
-  DeepSeekClient:
+  Mimir:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
     info:
-      path: DeepSeekClient/Info.plist
+      path: Mimir/Info.plist
       properties:
-        CFBundleDisplayName: DeepSeek
+        CFBundleDisplayName: Mimir
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations:
@@ -51,17 +51,17 @@ targets:
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: true
         BGTaskSchedulerPermittedIdentifiers:
-          - com.zxl.deepseekclient.refresh
-          - com.zxl.deepseekclient.dailybrief
+          - com.zxl.mimir.refresh
+          - com.zxl.mimir.dailybrief
         UIBackgroundModes:
           - fetch
           - processing
     sources:
-      - path: DeepSeekClient
+      - path: Mimir
         excludes:
           - "Resources/Models"
       # 语音模型以文件夹引用的方式整体打入 App Bundle，保持目录结构。
-      - path: DeepSeekClient/Resources/Models
+      - path: Mimir/Resources/Models
         type: folder
         optional: true
       - path: Shared
@@ -70,12 +70,12 @@ targets:
         product: KokoroCoreML
       - package: MCP
         product: MCP
-      - target: DeepSeekWidgets
+      - target: MimirWidgets
         embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.zxl.deepseekclient
-        PRODUCT_NAME: DeepSeek
+        PRODUCT_BUNDLE_IDENTIFIER: com.zxl.mimir
+        PRODUCT_NAME: Mimir
         GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
@@ -87,32 +87,32 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_EMIT_LOC_STRINGS: YES
         OTHER_LDFLAGS: "$(inherited) -ObjC"
-  DeepSeekWidgets:
+  MimirWidgets:
     type: app-extension
     platform: iOS
     deploymentTarget: "26.0"
     info:
-      path: DeepSeekWidgets/Info.plist
+      path: MimirWidgets/Info.plist
       properties:
-        CFBundleDisplayName: DeepSeek
+        CFBundleDisplayName: Mimir
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     sources:
-      - path: DeepSeekWidgets
+      - path: MimirWidgets
       - path: Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.zxl.deepseekclient.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.zxl.mimir.widgets
         SKIP_INSTALL: YES
         TARGETED_DEVICE_FAMILY: "1,2"
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "1.0"
 schemes:
-  DeepSeekClient:
+  Mimir:
     build:
       targets:
-        DeepSeekClient: all
-        DeepSeekWidgets: all
+        Mimir: all
+        MimirWidgets: all
     run:
       config: Debug
     archive:

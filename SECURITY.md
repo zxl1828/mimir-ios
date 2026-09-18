@@ -3,7 +3,7 @@
 ## 报告问题
 
 发现安全漏洞时请**不要**开公开 Issue，改用 GitHub 的
-[私密漏洞报告](https://github.com/zxl1828/deepseek-ios/security/advisories/new)，
+[私密漏洞报告](https://github.com/zxl1828/mimir-ios/security/advisories/new)，
 或通过仓库所有者主页上的联系方式私下告知。
 
 报告里尽量说明：影响范围、复现步骤、可能后果，以及（如有）修复建议。

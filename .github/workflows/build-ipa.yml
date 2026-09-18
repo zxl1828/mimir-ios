@@ -63,8 +63,8 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild \
-            -project DeepSeekClient.xcodeproj \
-            -scheme DeepSeekClient \
+            -project Mimir.xcodeproj \
+            -scheme Mimir \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
@@ -84,14 +84,14 @@ jobs:
           rm -rf Payload
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
-          zip -qry DeepSeek-unsigned.ipa Payload
-          ls -lh DeepSeek-unsigned.ipa
+          zip -qry Mimir-unsigned.ipa Payload
+          ls -lh Mimir-unsigned.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: DeepSeek-ipa
-          path: DeepSeek-unsigned.ipa
+          name: Mimir-ipa
+          path: Mimir-unsigned.ipa
           if-no-files-found: error
           retention-days: 30
 
@@ -104,7 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="build-$(date -u +%Y%m%d-%H%M%S)"
-          gh release create "$TAG" DeepSeek-unsigned.ipa \
-            --title "DeepSeek iOS $TAG" \
+          gh release create "$TAG" Mimir-unsigned.ipa \
+            --title "Mimir iOS $TAG" \
             --notes "Automated unsigned IPA build from $GITHUB_SHA"
           echo "released: $TAG"

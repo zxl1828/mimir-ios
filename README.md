@@ -1,11 +1,11 @@
-# DeepSeek iOS 26 客户端
+# Mimir
 
-[![Build iOS IPA](https://github.com/zxl1828/deepseek-ios/actions/workflows/build-ipa.yml/badge.svg)](https://github.com/zxl1828/deepseek-ios/actions/workflows/build-ipa.yml)
+[![Build iOS IPA](https://github.com/zxl1828/mimir-ios/actions/workflows/build-ipa.yml/badge.svg)](https://github.com/zxl1828/mimir-ios/actions/workflows/build-ipa.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2026%2B-lightgrey)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
 
-本地优先的专属 DeepSeek 客户端，SwiftUI + MVVM，最低支持 iOS 26，
+本地优先的私人 AI 客户端，SwiftUI + MVVM，最低支持 iOS 26，
 界面完全自定义并使用液态玻璃（Liquid Glass）原生材质。
 
 > 非官方项目，与 DeepSeek 官方无隶属或背书关系；「DeepSeek」为相应权利人的商标。
@@ -69,7 +69,7 @@
 推送到 `main` 分支即触发 GitHub Actions 构建，产出**未签名** IPA：
 
 ```
-https://github.com/zxl1828/deepseek-ios/actions
+https://github.com/zxl1828/mimir-ios/actions
 ```
 
 构建流程：选择 Xcode 26 → 下载语音模型（约 99MB，打包进 App）→
@@ -80,7 +80,7 @@ https://github.com/zxl1828/deepseek-ios/actions
 ```bash
 bash scripts/fetch-voice-models.sh
 xcodegen generate
-xcodebuild -project DeepSeekClient.xcodeproj -scheme DeepSeekClient \
+xcodebuild -project Mimir.xcodeproj -scheme Mimir \
   -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
   CODE_SIGNING_ALLOWED=NO build
 ```
@@ -120,7 +120,7 @@ xcodebuild -project DeepSeekClient.xcodeproj -scheme DeepSeekClient \
 
 ## English
 
-An unofficial, local-first DeepSeek client for iOS 26 built with SwiftUI and
+An unofficial, local-first AI client for iOS 26 - works with DeepSeek, any OpenAI-compatible gateway and Anthropic endpoints - built with SwiftUI and
 Liquid Glass: streaming chat, on-device voice (VAD + speech recognition +
 bundled Kokoro-82M CoreML TTS), local vector memory, skills, MCP tools,
 App Intents, and a fully custom UI.
@@ -130,7 +130,7 @@ Build with Xcode 26 + [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 ```bash
 bash scripts/fetch-voice-models.sh
 xcodegen generate
-xcodebuild -project DeepSeekClient.xcodeproj -scheme DeepSeekClient \
+xcodebuild -project Mimir.xcodeproj -scheme Mimir \
   -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
   CODE_SIGNING_ALLOWED=NO build
 ```

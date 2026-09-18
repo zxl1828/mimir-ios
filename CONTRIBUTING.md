@@ -11,7 +11,7 @@
 
 ```bash
 xcodegen generate
-open DeepSeekClient.xcodeproj
+open Mimir.xcodeproj
 ```
 
 `.xcodeproj` 由 `Project.yml` 生成，请不要提交工程文件改动；要改构建设置请改 `Project.yml`。
@@ -22,12 +22,12 @@ open DeepSeekClient.xcodeproj
 - UI 一律 SwiftUI，视觉遵循 Liquid Glass（`glassEffect` / `GlassEffectContainer`），
   不要自绘仿制材质
 - API Key、Token 只能进 Keychain，不得写入 `UserDefaults`、日志或导出文件
-- 网络请求统一走 `DeepSeekClient/Services/API` 下的客户端，不在视图里直接发请求
+- 网络请求统一走 `Mimir/Services/API` 下的客户端，不在视图里直接发请求
 - 端侧能力（语音、嵌入、OCR）保持零上传
 - 提交前本地跑通一次无签名构建：
 
 ```bash
-xcodebuild -project DeepSeekClient.xcodeproj -scheme DeepSeekClient \
+xcodebuild -project Mimir.xcodeproj -scheme Mimir \
   -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
   CODE_SIGNING_ALLOWED=NO build
 ```
