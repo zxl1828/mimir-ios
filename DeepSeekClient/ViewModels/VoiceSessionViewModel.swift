@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftData
 import AVFoundation
+import UIKit
 
 /// 语音会话状态机：端侧识别 → 云端推理 → 端侧合成，支持随时打断。
 @MainActor
