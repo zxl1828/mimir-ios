@@ -30,6 +30,37 @@ targets:
         product: KokoroCoreML
       - package: MCP
         product: MCP
+    info:
+      path: DeepSeekClient/Info.plist
+      properties:
+        CFBundleDisplayName: DeepSeek
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIRequiredDeviceCapabilities:
+          - arm64
+        LSApplicationCategoryType: public.app-category.productivity
+        NSMicrophoneUsageDescription: 语音对话需要访问麦克风，音频仅在本机处理，不会上传。
+        NSSpeechRecognitionUsageDescription: 用于把你说的话在本机转成文字，识别完全离线完成。
+        NSCameraUsageDescription: 用于拍照提问和扫描文档，图片只在你的设备上处理。
+        NSPhotoLibraryUsageDescription: 用于从相册选取图片提问。
+        NSPhotoLibraryAddUsageDescription: 用于把生成的图片保存到相册。
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.zxl.deepseekclient.refresh
+          - com.zxl.deepseekclient.dailybrief
+        UIBackgroundModes:
+          - fetch
+          - processing
     sources:
       - path: DeepSeekClient
         excludes:
@@ -42,23 +73,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.zxl.deepseekclient
         PRODUCT_NAME: DeepSeek
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: DeepSeek
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        INFOPLIST_KEY_UIRequiredDeviceCapabilities: arm64
-        INFOPLIST_KEY_CFBundleShortVersionString: "1.0"
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: "语音对话需要访问麦克风，音频仅在本机处理，不会上传。"
-        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "用于把你说的话在本机转成文字，识别完全离线完成。"
-        INFOPLIST_KEY_NSCameraUsageDescription: "用于拍照提问和扫描文档，图片只在你的设备上处理。"
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "用于从相册选取图片提问。"
-        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "用于把生成的图片保存到相册。"
-        INFOPLIST_KEY_NSSupportsLiveActivities: YES
-        INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates: YES
-        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDefault
-        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        GENERATE_INFOPLIST_FILE: NO
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         CURRENT_PROJECT_VERSION: "1"

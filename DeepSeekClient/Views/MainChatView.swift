@@ -29,6 +29,9 @@ struct MainChatView: View {
     @State private var editingText = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var showPhotoPicker = false
+    @State private var showAttachmentOptions = false
+    @State private var showCamera = false
+    @State private var showScanner = false
     @State private var toast: String?
     @FocusState private var inputFocused: Bool
 
@@ -85,6 +88,32 @@ struct MainChatView: View {
         }
         .sheet(isPresented: $showMCPServers) {
             MCPServersView()
+        }
+        .confirmationDialog("添加图片", isPresented: $showAttachmentOptions, titleVisibility: .visible) {
+            Button("从相册选择") { showPhotoPicker = true }
+            Button("拍照") { showCamera = true }
+            Button("扫描文档") { showScanner = true }
+            Button("取消", role: .cancel) {}
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView(
+                onCapture: { image in
+                    appendImage(image)
+                    showCamera = false
+                },
+                onCancel: { showCamera = false }
+            )
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showScanner) {
+            DocumentScannerView(
+                onFinish: { images in
+                    images.forEach(appendImage)
+                    showScanner = false
+                },
+                onCancel: { showScanner = false }
+            )
+            .ignoresSafeArea()
         }
         .alert("重命名对话", isPresented: $editingTitle) {
             TextField("对话名称", text: $titleDraft)
@@ -330,7 +359,7 @@ struct MainChatView: View {
                 isGenerating: chat?.isGenerating ?? false,
                 onSend: { chat?.send() },
                 onStop: { chat?.stopGenerating() },
-                onAttach: { showPhotoPicker = true },
+                onAttach: { showAttachmentOptions = true },
                 onVoice: { showVoiceMode = true },
                 onTextChanged: { chat?.handleInputChange($0) },
                 onKeyCommand: { chat?.handleKeyCommand($0) ?? false }
@@ -516,6 +545,12 @@ struct MainChatView: View {
             }
             photoItem = nil
         }
+    }
+
+    private func appendImage(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.85) else { return }
+        chat?.attachedImages.append(data)
+        Haptics.impact(.light)
     }
 
     private func showToast(_ text: String) {

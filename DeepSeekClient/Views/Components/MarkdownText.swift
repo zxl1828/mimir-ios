@@ -77,7 +77,14 @@ struct MarkdownText: View {
             Divider().opacity(0.5)
 
         case .code(let language, let content):
-            CodeBlockView(language: language, code: content)
+            if language.lowercased() == "mermaid" {
+                MermaidBlockView(source: content)
+            } else {
+                CodeBlockView(language: language, code: content)
+            }
+
+        case .math(let latex):
+            LatexBlockView(source: latex)
 
         case .table(let header, let rows):
             MarkdownTableView(header: header, rows: rows)
@@ -143,6 +150,7 @@ enum MarkdownBlock: Hashable {
     case quote(String)
     case divider
     case code(language: String, content: String)
+    case math(String)
     case table(header: [String], rows: [[String]])
     case raw(String)
 
@@ -178,6 +186,36 @@ enum MarkdownBlock: Hashable {
                 }
                 blocks.append(.code(language: language, content: codeLines.joined(separator: "\n")))
                 index += 1
+                continue
+            }
+
+            // 独立成行的数学公式块
+            if trimmed.hasPrefix("$$") {
+                flushParagraph()
+                let remainder = String(trimmed.dropFirst(2))
+                if remainder.hasSuffix("$$"), remainder.count > 2 {
+                    let body = String(remainder.dropLast(2)).trimmingCharacters(in: .whitespaces)
+                    blocks.append(.math(body))
+                    index += 1
+                    continue
+                }
+                var formulaLines: [String] = []
+                if !remainder.trimmingCharacters(in: .whitespaces).isEmpty {
+                    formulaLines.append(remainder)
+                }
+                index += 1
+                while index < lines.count {
+                    let candidate = lines[index].trimmingCharacters(in: .whitespaces)
+                    if candidate.hasSuffix("$$") {
+                        let body = String(candidate.dropLast(2)).trimmingCharacters(in: .whitespaces)
+                        if !body.isEmpty { formulaLines.append(body) }
+                        index += 1
+                        break
+                    }
+                    formulaLines.append(lines[index])
+                    index += 1
+                }
+                blocks.append(.math(formulaLines.joined(separator: "\n")))
                 continue
             }
 

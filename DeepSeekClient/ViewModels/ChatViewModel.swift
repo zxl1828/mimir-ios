@@ -316,7 +316,6 @@ final class ChatViewModel {
         streamingMessageID = assistant.id
         waitingForNetwork = false
 
-        let payload = buildPayload(for: conversation)
         let credential = settings.resolvedCredential
         var parameters = settings.parameters.applying(thinkingMode)
         parameters.modelID = conversation.modelID
@@ -331,7 +330,7 @@ final class ChatViewModel {
         assistant.memoryHitIDs = hits.map(\.id)
 
         // 只有明确授权上传数据的 MCP 工具才会暴露给云端模型。
-        let availableTools = MCPToolAdapter.definitions(
+        let availableTools = SystemToolRegistry.definitions + MCPToolAdapter.definitions(
             from: MCPClientManager.shared.allTools(configs: mcpConfigs).filter(\.allowsDataUpload)
         )
         // 流式任务里只使用不可变的纯值快照，避免跨隔离域传递持久化对象。
@@ -350,7 +349,8 @@ final class ChatViewModel {
             var reasoning = ""
             var failure: String?
             var wasInterrupted = false
-            var workingMessages = payload
+            guard let self else { return }
+            var workingMessages = await self.buildPayloadWithImages(for: conversation)
             var round = 0
             let maximumRounds = 4
 
@@ -386,7 +386,7 @@ final class ChatViewModel {
                         case .toolCallsReady(let calls):
                             pendingToolCalls = calls
                         }
-                        self?.persistThrottled()
+                        self.persistThrottled()
                     }
                 } catch let error as LLMError {
                     if case .cancelled = error {
@@ -407,20 +407,32 @@ final class ChatViewModel {
                 )
 
                 for call in pendingToolCalls {
-                    let preferred = serverSnapshots.first { snapshot in
-                        snapshot.isEnabled && snapshot.allowsDataUpload && snapshot.toolNames.contains(call.name)
-                    } ?? serverSnapshots.first { $0.toolNames.contains(call.name) }
+                    let toolText: String
+                    if SystemToolRegistry.isLocalTool(call.name) {
+                        toolText = await SystemToolRegistry.invoke(
+                            name: call.name,
+                            argumentsJSON: call.argumentsJSON,
+                            attachedImageData: conversation.orderedMessages
+                                .last(where: { $0.role == .user })?
+                                .attachmentData
+                        )
+                    } else {
+                        let preferred = serverSnapshots.first { snapshot in
+                            snapshot.isEnabled && snapshot.allowsDataUpload && snapshot.toolNames.contains(call.name)
+                        } ?? serverSnapshots.first { $0.toolNames.contains(call.name) }
 
-                    let result = await MCPClientManager.shared.callTool(
-                        serverID: preferred?.id ?? UUID(),
-                        toolName: call.name,
-                        argumentsJSON: call.argumentsJSON,
-                        serverName: preferred?.name ?? "MCP"
-                    )
+                        let result = await MCPClientManager.shared.callTool(
+                            serverID: preferred?.id ?? UUID(),
+                            toolName: call.name,
+                            argumentsJSON: call.argumentsJSON,
+                            serverName: preferred?.name ?? "MCP"
+                        )
+                        toolText = result.isError ? "工具返回错误：\(result.text)" : result.text
+                    }
                     workingMessages.append(
                         LLMChatMessage(
                             role: .tool,
-                            text: result.isError ? "工具返回错误：\(result.text)" : result.text,
+                            text: toolText,
                             toolCallID: call.id,
                             toolName: call.name
                         )
@@ -428,7 +440,6 @@ final class ChatViewModel {
                 }
             }
 
-            guard let self else { return }
             assistant.isStreaming = false
             assistant.isInterrupted = wasInterrupted
             if let failure, accumulated.isEmpty {
@@ -529,6 +540,48 @@ final class ChatViewModel {
             case .assistant:
                 guard !message.text.isEmpty else { continue }
                 payload.append(LLMChatMessage(role: .assistant, text: message.text))
+            case .system, .tool:
+                continue
+            }
+        }
+        return payload
+    }
+
+    /// 构造请求上下文；带图片的消息会先在本机做一次视觉预处理，
+    /// 把 OCR / 条码结果作为附加上下文一起送出，并压缩图片体积。
+    private func buildPayloadWithImages(for conversation: Conversation) async -> [LLMChatMessage] {
+        var payload: [LLMChatMessage] = []
+        let systemText = buildSystemPrompt(for: conversation)
+        if !systemText.isEmpty {
+            payload.append(LLMChatMessage(role: .system, text: systemText))
+        }
+
+        let ordered = conversation.orderedMessages.filter { !$0.isStreaming }
+        for message in ordered {
+            switch message.role {
+            case .user:
+                var text = message.text
+                var images: [Data] = []
+
+                if let data = message.attachmentData {
+                    var caption = message.attachmentCaption
+                    if caption.isEmpty {
+                        let analysis = await ImageAnalyzer.analyze(data)
+                        caption = analysis.summaryForModel
+                        message.attachmentCaption = caption
+                    }
+                    if !caption.isEmpty {
+                        text += "\n\n[本机图像分析]\n\(caption)"
+                    }
+                    images = [ImageAnalyzer.compress(data)]
+                }
+
+                payload.append(LLMChatMessage(role: .user, text: text, images: images))
+
+            case .assistant:
+                guard !message.text.isEmpty else { continue }
+                payload.append(LLMChatMessage(role: .assistant, text: message.text))
+
             case .system, .tool:
                 continue
             }
