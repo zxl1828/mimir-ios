@@ -37,9 +37,6 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Generate Xcode project
-        run: xcodegen generate
-
       - name: Fetch bundled voice models
         run: |
           set -euo pipefail
@@ -49,6 +46,9 @@ jobs:
             echo "no voice model script, skipping"
           fi
         continue-on-error: true
+
+      - name: Generate Xcode project
+        run: xcodegen generate
 
       - name: Build unsigned app
         shell: bash

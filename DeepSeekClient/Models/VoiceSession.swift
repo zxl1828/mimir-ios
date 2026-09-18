@@ -40,9 +40,38 @@ struct VoiceTranscriptLine: Identifiable, Sendable, Equatable {
 }
 
 /// 语音相关设置。
+enum VoiceSynthesisPreference: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// 中文用系统合成，英文用内置模型。
+    case automatic
+    /// 尽量使用内置模型。
+    case builtIn
+    /// 始终使用系统合成。
+    case system
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .automatic: return "自动"
+        case .builtIn: return "内置模型优先"
+        case .system: return "系统语音"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .automatic: return "英文用内置模型，中文用系统语音，兼顾自然度和中文质量"
+        case .builtIn: return "尽可能使用随包内置的语音模型"
+        case .system: return "始终使用系统语音合成，体积占用最小"
+        }
+    }
+}
+
 struct VoicePreferences: Codable, Sendable, Equatable {
     /// TTS 引擎：内置 Kokoro 优先，失败回退系统合成。
     var prefersBuiltInTTS: Bool = true
+    /// 合成引擎偏好（新增字段，旧数据缺失时为 nil 并按自动处理）。
+    var synthesisPreference: VoiceSynthesisPreference?
     var voiceIdentifier: String = "af_heart"
     var speechRate: Double = 1.0
     /// VAD 参数（能量阈值）。
@@ -52,6 +81,10 @@ struct VoicePreferences: Codable, Sendable, Equatable {
     /// 是否允许云端 STT 回退（默认关闭，且必须显式授权）。
     var allowsCloudSTTFallback: Bool = false
     var allowsBargeIn: Bool = true
+
+    var resolvedSynthesisPreference: VoiceSynthesisPreference {
+        synthesisPreference ?? .automatic
+    }
 }
 
 /// 语音不可用的原因，用于给出可操作的提示。

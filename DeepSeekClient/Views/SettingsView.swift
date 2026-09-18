@@ -186,6 +186,18 @@ struct SettingsView: View {
 
     private func voiceSection(settings: Bindable<AppSettings>) -> some View {
         Section {
+            Picker(
+                "合成引擎",
+                selection: Binding(
+                    get: { settings.wrappedValue.voice.resolvedSynthesisPreference },
+                    set: { settings.voice.synthesisPreference = $0 }
+                )
+            ) {
+                ForEach(VoiceSynthesisPreference.allCases) { option in
+                    Text(option.title).tag(option)
+                }
+            }
+
             Toggle("使用内置语音合成模型", isOn: settings.voice.prefersBuiltInTTS)
             Toggle("允许打断（Barge-in）", isOn: settings.voice.allowsBargeIn)
 
@@ -213,7 +225,7 @@ struct SettingsView: View {
         } header: {
             Text("语音")
         } footer: {
-            Text("语音识别与合成都默认在本机完成，音频不会离开设备。只有在你主动打开云端回退后，音频才会被发送出去。")
+            Text("语音识别与合成都默认在本机完成，音频不会离开设备。内置模型随 App 一起打包，中文朗读会自动使用系统语音以保证自然度。")
         }
     }
 

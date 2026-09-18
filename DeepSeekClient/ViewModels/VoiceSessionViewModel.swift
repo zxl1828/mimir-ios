@@ -299,15 +299,18 @@ final class VoiceSessionViewModel {
     // MARK: - 合成与播放
 
     private func prepareSynthesisEngine() {
-        let engine = SystemSpeechEngine()
-        engine.onLevelUpdate = { [weak self] level in
+        let router = VoiceSynthesisRouter(preference: settings.voice.resolvedSynthesisPreference)
+        router.onLevelUpdate = { [weak self] level in
             self?.outputLevel = level
         }
-        engine.onFinish = { [weak self] in
+        router.onFinish = { [weak self] in
             self?.handleSpeechQueueDrained()
         }
-        try? engine.prepare()
-        ttsEngine = engine
+        router.onEngineChanged = { [weak self] isBuiltIn in
+            self?.usesBuiltInVoice = isBuiltIn
+        }
+        try? router.prepare()
+        ttsEngine = router
         usesBuiltInVoice = false
     }
 
