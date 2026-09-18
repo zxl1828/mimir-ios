@@ -154,20 +154,20 @@ final class MCPClientManager {
         do {
             let arguments = try Self.decodeArguments(argumentsJSON)
             let (content, isError) = try await client.callTool(name: toolName, arguments: arguments)
+            let failed = isError ?? false
             let text = Self.plainText(from: content)
             let images = content.filter {
-                if case .image = $0 { return true }
-                return false
+                Self.kindName(of: $0) == "image"
             }.count
 
             finishProgress(
                 progressID,
-                phase: isError ? .failed("工具返回错误") : .succeeded,
-                detail: isError ? String(text.prefix(60)) : "完成"
+                phase: failed ? .failed("工具返回错误") : .succeeded,
+                detail: failed ? String(text.prefix(60)) : "完成"
             )
 
             return MCPToolCallResult(
-                isError: isError,
+                isError: failed,
                 text: text,
                 imageCount: images,
                 rawContentCount: content.count
@@ -235,20 +235,51 @@ final class MCPClientManager {
     }
 
     /// 把工具返回的内容压成一段纯文本，供模型继续推理。
+    ///
+    /// SDK 对内容类型有多个近似定义，这里用反射读取枚举负载，
+    /// 避免把实现细节写死在某一个 case 形状上。
     static func plainText(from content: [Tool.Content]) -> String {
         let parts: [String] = content.map { item in
-            switch item {
-            case .text(let text):
-                return text
-            case .image:
+            let kind = kindName(of: item)
+            switch kind {
+            case "text":
+                return stringPayload(of: item) ?? String(describing: item)
+            case "image":
                 return "[图片结果，已在本地接收]"
-            case .audio:
+            case "audio":
                 return "[音频结果]"
+            case "resource":
+                return "[嵌入资源]"
+            case "resourceLink":
+                return "[资源链接]"
             default:
-                return "[结构化内容]"
+                return String(describing: item)
             }
         }
         let joined = parts.filter { !$0.isEmpty }.joined(separator: "\n")
         return joined.isEmpty ? "（工具没有返回内容）" : joined
+    }
+
+    /// 反射读取枚举 case 名称。
+    private static func kindName(of item: Tool.Content) -> String {
+        let mirror = Mirror(reflecting: item)
+        if let label = mirror.children.first?.label {
+            return label
+        }
+        let description = String(describing: item)
+        if let name = description.split(separator: "(").first {
+            return String(name)
+        }
+        return description
+    }
+
+    /// 从负载里取出文本：既支持 `case text(String)`，也支持带标签的元组形式。
+    private static func stringPayload(of item: Tool.Content) -> String? {
+        guard let child = Mirror(reflecting: item).children.first else { return nil }
+        if let value = child.value as? String { return value }
+        for sub in Mirror(reflecting: child.value).children where sub.label == "text" {
+            if let value = sub.value as? String { return value }
+        }
+        return nil
     }
 }

@@ -389,9 +389,10 @@ final class ChatViewModel {
                 )
 
                 for call in pendingToolCalls {
+                    let preferredServerID = Self.preferredServerID(for: call, configs: mcpConfigsSnapshot)
                     let descriptor = MCPClientManager.shared
                         .allTools(configs: mcpConfigsSnapshot)
-                        .first { $0.name == call.name && $0.serverID == activeToolServerID(call, configs: mcpConfigsSnapshot) }
+                        .first { $0.name == call.name && $0.serverID == preferredServerID }
                         ?? MCPClientManager.shared.allTools(configs: mcpConfigsSnapshot).first { $0.name == call.name }
 
                     let result = await MCPClientManager.shared.callTool(
@@ -433,7 +434,8 @@ final class ChatViewModel {
     }
 
     /// 工具名可能在不同服务器间重名，这里优先匹配已连接且允许上传的服务器。
-    private func activeToolServerID(_ call: LLMToolCall, configs: [MCPServerConfig]) -> UUID? {
+    @MainActor
+    private static func preferredServerID(for call: LLMToolCall, configs: [MCPServerConfig]) -> UUID? {
         configs.first(where: { config in
             config.isEnabled && config.allowsDataUpload && (MCPClientManager.shared.toolsByServer[config.id] ?? []).contains { $0.name == call.name }
         })?.id

@@ -41,7 +41,7 @@ struct LLMChatMessage: Sendable, Codable, Equatable {
 }
 
 /// 编码任意 JSON 值（把工具 schema 透传给服务端时使用）。
-struct AnyEncodable: Encodable, Sendable {
+struct AnyEncodable: Encodable {
     let value: Any
 
     init(_ value: Any) {
