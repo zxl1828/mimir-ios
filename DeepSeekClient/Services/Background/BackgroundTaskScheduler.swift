@@ -75,29 +75,33 @@ enum BackgroundTaskScheduler {
 
     private static func handleRefresh(_ task: BGAppRefreshTask) {
         scheduleAppRefresh()
+        // BGTask 本身不是 Sendable，但它只在主线程被操作；
+        // 这里显式标注以避免把整个调度器标记成非隔离。
+        nonisolated(unsafe) let backgroundTask = task
         let work = Task {
             await DailyBriefService.refreshInBackground()
         }
-        task.expirationHandler = {
+        backgroundTask.expirationHandler = {
             work.cancel()
         }
         Task {
             await work.value
-            task.setTaskCompleted(success: !work.isCancelled)
+            backgroundTask.setTaskCompleted(success: !work.isCancelled)
         }
     }
 
     private static func handleDailyBrief(_ task: BGProcessingTask) {
         scheduleDailyBrief()
+        nonisolated(unsafe) let backgroundTask = task
         let work = Task {
             await DailyBriefService.generateBrief()
         }
-        task.expirationHandler = {
+        backgroundTask.expirationHandler = {
             work.cancel()
         }
         Task {
             let succeeded = await work.value
-            task.setTaskCompleted(success: succeeded)
+            backgroundTask.setTaskCompleted(success: succeeded)
         }
     }
 }
