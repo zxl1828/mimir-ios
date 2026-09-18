@@ -27,6 +27,11 @@ struct MainChatView: View {
     @State private var titleDraft = ""
     @State private var editingMessage: ChatMessage?
     @State private var editingText = ""
+    @State private var branchTarget: ChatMessage?
+    @State private var showGlobalSearch = false
+    @State private var exportTarget: Conversation?
+    @State private var pendingScrollTarget: UUID?
+    @State private var highlightedMessageID: UUID?
     @State private var photoItem: PhotosPickerItem?
     @State private var showPhotoPicker = false
     @State private var showAttachmentOptions = false
@@ -89,6 +94,14 @@ struct MainChatView: View {
         .sheet(isPresented: $showMCPServers) {
             MCPServersView()
         }
+        .sheet(isPresented: $showGlobalSearch) {
+            GlobalSearchView { conversationID, messageID in
+                openSearchResult(conversationID: conversationID, messageID: messageID)
+            }
+        }
+        .sheet(item: $exportTarget) { conversation in
+            ExportConversationSheet(conversation: conversation)
+        }
         .confirmationDialog("添加图片", isPresented: $showAttachmentOptions, titleVisibility: .visible) {
             Button("从相册选择") { showPhotoPicker = true }
             Button("拍照") { showCamera = true }
@@ -132,6 +145,20 @@ struct MainChatView: View {
                 }
                 editingMessage = nil
             }
+        }
+        .alert("从这里重新生成？", isPresented: Binding(
+            get: { branchTarget != nil },
+            set: { if !$0 { branchTarget = nil } }
+        )) {
+            Button("取消", role: .cancel) { branchTarget = nil }
+            Button("继续") {
+                if let target = branchTarget {
+                    chat?.regenerateFrom(message: target)
+                }
+                branchTarget = nil
+            }
+        } message: {
+            Text(branchDeletionHint)
         }
         .overlay(alignment: .top) { toastView }
     }
@@ -217,8 +244,13 @@ struct MainChatView: View {
                     ForEach(chat?.messages ?? []) { message in
                         MessageBubble(
                             message: message,
+                            isHighlighted: highlightedMessageID == message.id,
                             onCopy: {},
-                            onRegenerate: { chat?.regenerateLast() },
+                            onRegenerate: { chat?.regenerate(message: message) },
+                            onRegenerateHere: { branchTarget = message },
+                            onSwitchVersion: { index in
+                                chat?.switchVersion(of: message, to: index)
+                            },
                             onQuote: { quote(message) },
                             onEdit: {
                                 editingText = message.text
@@ -246,6 +278,19 @@ struct MainChatView: View {
             }
             .onChange(of: lastMessageLength) { _, _ in
                 scrollToBottom(proxy, animated: false)
+            }
+            .task(id: pendingScrollTarget) {
+                guard let target = pendingScrollTarget else { return }
+                try? await Task.sleep(for: .milliseconds(140))
+                withAnimation(AppAnimation.bubble) {
+                    proxy.scrollTo(target, anchor: .center)
+                }
+                highlightedMessageID = target
+                pendingScrollTarget = nil
+                try? await Task.sleep(for: .seconds(1.8))
+                withAnimation(.easeOut(duration: 0.3)) {
+                    highlightedMessageID = nil
+                }
             }
         }
         .overlay(alignment: .bottom) { floatingPanels }
@@ -436,6 +481,14 @@ struct MainChatView: View {
                 closeSidebar()
                 showMCPServers = true
             },
+            onSearchAll: {
+                closeSidebar()
+                showGlobalSearch = true
+            },
+            onExportConversation: { conversation in
+                closeSidebar()
+                exportTarget = conversation
+            },
             onSelectAgent: { agent in
                 chat?.activeAgent = agent
                 settings.selectedAgentName = agent?.name ?? ""
@@ -530,9 +583,34 @@ struct MainChatView: View {
         list?.rename(conversation, to: titleDraft)
     }
 
+    /// 从全局搜索跳转：切到目标对话，并把命中的消息滚到屏幕中间高亮一下。
+    private func openSearchResult(conversationID: UUID, messageID: UUID?) {
+        guard let list, let chat else { return }
+        guard let conversation = list.conversations.first(where: { $0.id == conversationID }) else { return }
+        chat.attach(to: conversation)
+        list.markUsed(conversation)
+        if let messageID {
+            pendingScrollTarget = messageID
+        }
+    }
+
     private func quote(_ message: ChatMessage) {
         chat?.quotedMessage = message
         inputFocused = true
+    }
+
+    /// 提示这次分支操作会折叠多少条后续消息。
+    private var branchDeletionHint: String {
+        guard let target = branchTarget,
+              let ordered = chat?.conversation?.orderedMessages,
+              let index = ordered.firstIndex(where: { $0.id == target.id }) else {
+            return "这条消息会被重新生成，旧版本保留，可随时切换对比。"
+        }
+        let trailing = ordered.count - index - 1
+        if trailing <= 0 {
+            return "这条消息会保留旧版本，生成一个新的回答，之后可以左右切换对比。"
+        }
+        return "这条消息之后的 \(trailing) 条消息会收进分支（不会丢失），切回旧版本时可以原样恢复。"
     }
 
     private func loadPickedPhoto(_ item: PhotosPickerItem?) {

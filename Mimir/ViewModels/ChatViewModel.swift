@@ -265,10 +265,68 @@ final class ChatViewModel {
         let ordered = conversation.orderedMessages
         guard let lastAssistant = ordered.last(where: { $0.role == .assistant }) else { return }
         guard ordered.last?.id == lastAssistant.id else { return }
+        regenerate(message: lastAssistant)
+    }
 
-        modelContext.delete(lastAssistant)
+    /// 就地重新生成：只给这条消息多存一个版本，后续对话保持不动。
+    func regenerate(message: ChatMessage) {
+        guard let conversation, !isGenerating, message.role == .assistant else { return }
+        beginStreaming(
+            in: conversation,
+            reusing: message,
+            contextCutoffIndex: message.orderIndex
+        )
+    }
+
+    /// 从这里重新生成：后续内容折叠成分支保存，切回旧版本时可以恢复。
+    func regenerateFrom(message: ChatMessage) {
+        guard let conversation, !isGenerating, message.role == .assistant else { return }
+        let ordered = conversation.orderedMessages
+        guard let index = ordered.firstIndex(where: { $0.id == message.id }) else { return }
+
+        let tail = Array(ordered[(index + 1)...])
+        if !tail.isEmpty {
+            conversation.stashBranch(anchor: message.id, version: message.activeVersionIndex, messages: tail)
+            for trailing in ordered[(index + 1)...] {
+                modelContext.delete(trailing)
+            }
+        }
+
         persist(force: true)
-        beginStreaming(in: conversation)
+        beginStreaming(
+            in: conversation,
+            reusing: message,
+            contextCutoffIndex: message.orderIndex
+        )
+    }
+
+    /// 切换某条消息当前显示的版本：当前后续存成分支，目标版本的分支恢复出来。
+    func switchVersion(of message: ChatMessage, to index: Int) {
+        guard let conversation, message.versionCount > 1, !isGenerating else { return }
+        let clamped = min(max(index, 0), message.versionCount - 1)
+        guard clamped != message.activeVersionIndex else { return }
+
+        let ordered = conversation.orderedMessages
+        if let position = ordered.firstIndex(where: { $0.id == message.id }) {
+            let tail = Array(ordered[(position + 1)...])
+            if !tail.isEmpty {
+                conversation.stashBranch(anchor: message.id, version: message.activeVersionIndex, messages: tail)
+                for trailing in tail {
+                    modelContext.delete(trailing)
+                }
+            }
+
+            message.switchVersion(to: clamped)
+
+            if let snapshots = conversation.takeBranch(anchor: message.id, version: clamped) {
+                conversation.restoreBranch(snapshots, after: message, context: modelContext)
+            }
+        } else {
+            message.switchVersion(to: clamped)
+        }
+
+        persist(force: true)
+        Haptics.selectionChanged()
     }
 
     /// 以指定文本重跑（编辑后重发）。
@@ -299,18 +357,39 @@ final class ChatViewModel {
 
     // MARK: - 流式生成
 
-    private func beginStreaming(in conversation: Conversation) {
-        let assistant = ChatMessage(
-            role: .assistant,
-            text: "",
-            orderIndex: conversation.nextOrderIndex,
-            thinkingMode: thinkingMode
-        )
+    private func beginStreaming(
+        in conversation: Conversation,
+        reusing target: ChatMessage? = nil,
+        contextCutoffIndex: Int? = nil
+    ) {
+        let assistant: ChatMessage
+        if let target {
+            // 重新生成：保留旧版本，新开一个版本承接流式内容。
+            assistant = target
+            assistant.isError = false
+            assistant.errorText = ""
+            assistant.isInterrupted = false
+            assistant.thinkingText = ""
+            assistant.memoryHitIDs = []
+            assistant.beginNewVersion()
+        } else {
+            let fresh = ChatMessage(
+                role: .assistant,
+                text: "",
+                orderIndex: conversation.nextOrderIndex,
+                thinkingMode: thinkingMode
+            )
+            modelContext.insert(fresh)
+            fresh.conversation = conversation
+            assistant = fresh
+        }
         assistant.isStreaming = true
-        assistant.agentName = activeAgent?.name ?? ""
-        assistant.skillName = activeSkill?.name ?? ""
-        modelContext.insert(assistant)
-        assistant.conversation = conversation
+        if assistant.agentName.isEmpty {
+            assistant.agentName = activeAgent?.name ?? ""
+        }
+        if assistant.skillName.isEmpty {
+            assistant.skillName = activeSkill?.name ?? ""
+        }
 
         isGenerating = true
         streamingMessageID = assistant.id
@@ -333,7 +412,10 @@ final class ChatViewModel {
         let client = LLMClientFactory.make(for: credential)
 
         // 记录本条回答引用到的记忆，供气泡上的标签跳转。
-        let query = conversation.orderedMessages.last(where: { $0.role == .user })?.text ?? ""
+        let query = conversation.orderedMessages
+            .filter { contextCutoffIndex == nil || $0.orderIndex < contextCutoffIndex! }
+            .last(where: { $0.role == .user })?
+            .displayText ?? ""
         let hits = settings.memoryEnabled && !query.isEmpty
             ? MemoryStore.shared.search(query, limit: 4)
             : []
@@ -360,7 +442,10 @@ final class ChatViewModel {
             var failure: String?
             var wasInterrupted = false
             guard let self else { return }
-            var workingMessages = await self.buildPayloadWithImages(for: conversation)
+            var workingMessages = await self.buildPayloadWithImages(
+                for: conversation,
+                beforeIndex: contextCutoffIndex
+            )
             var round = 0
             let maximumRounds = 4
 
@@ -385,7 +470,7 @@ final class ChatViewModel {
                         case .textDelta(let chunk):
                             roundText += chunk
                             accumulated += chunk
-                            assistant.text = accumulated
+                            assistant.streamingText = accumulated
                         case .reasoningDelta(let chunk):
                             reasoning += chunk
                             assistant.thinkingText = reasoning
@@ -451,6 +536,11 @@ final class ChatViewModel {
             }
 
             assistant.isStreaming = false
+            if accumulated.isEmpty {
+                assistant.discardEmptyVersion()
+            } else {
+                assistant.commitStreamingVersion()
+            }
             assistant.isInterrupted = wasInterrupted
             if let failure, accumulated.isEmpty {
                 assistant.isError = true
@@ -532,6 +622,11 @@ final class ChatViewModel {
            let message = conversation?.orderedMessages.first(where: { $0.id == id }) {
             message.isStreaming = false
             message.isInterrupted = markInterrupted
+            if message.streamingText.isEmpty {
+                message.discardEmptyVersion()
+            } else {
+                message.commitStreamingVersion()
+            }
         }
         streamingMessageID = nil
         persist(force: true)
@@ -539,23 +634,28 @@ final class ChatViewModel {
 
     // MARK: - 请求组装
 
-    private func buildPayload(for conversation: Conversation) -> [LLMChatMessage] {
+    private func buildPayload(for conversation: Conversation, beforeIndex: Int? = nil) -> [LLMChatMessage] {
         var payload: [LLMChatMessage] = []
         let systemText = buildSystemPrompt(for: conversation)
         if !systemText.isEmpty {
             payload.append(LLMChatMessage(role: .system, text: systemText))
         }
 
-        let ordered = conversation.orderedMessages.filter { !$0.isStreaming }
+        let ordered = conversation.orderedMessages.filter { message in
+            guard !message.isStreaming else { return false }
+            guard let beforeIndex else { return true }
+            return message.orderIndex < beforeIndex
+        }
         for message in ordered {
             switch message.role {
             case .user:
                 var images: [Data] = []
                 if let data = message.attachmentData { images = [data] }
-                payload.append(LLMChatMessage(role: .user, text: message.text, images: images))
+                payload.append(LLMChatMessage(role: .user, text: message.displayText, images: images))
             case .assistant:
-                guard !message.text.isEmpty else { continue }
-                payload.append(LLMChatMessage(role: .assistant, text: message.text))
+                let body = message.displayText
+                guard !body.isEmpty else { continue }
+                payload.append(LLMChatMessage(role: .assistant, text: body))
             case .system, .tool:
                 continue
             }
@@ -565,18 +665,25 @@ final class ChatViewModel {
 
     /// 构造请求上下文；带图片的消息会先在本机做一次视觉预处理，
     /// 把 OCR / 条码结果作为附加上下文一起送出，并压缩图片体积。
-    private func buildPayloadWithImages(for conversation: Conversation) async -> [LLMChatMessage] {
+    private func buildPayloadWithImages(
+        for conversation: Conversation,
+        beforeIndex: Int? = nil
+    ) async -> [LLMChatMessage] {
         var payload: [LLMChatMessage] = []
         let systemText = buildSystemPrompt(for: conversation)
         if !systemText.isEmpty {
             payload.append(LLMChatMessage(role: .system, text: systemText))
         }
 
-        let ordered = conversation.orderedMessages.filter { !$0.isStreaming }
+        let ordered = conversation.orderedMessages.filter { message in
+            guard !message.isStreaming else { return false }
+            guard let beforeIndex else { return true }
+            return message.orderIndex < beforeIndex
+        }
         for message in ordered {
             switch message.role {
             case .user:
-                var text = message.text
+                var text = message.displayText
                 var images: [Data] = []
 
                 if let data = message.attachmentData {
@@ -595,8 +702,9 @@ final class ChatViewModel {
                 payload.append(LLMChatMessage(role: .user, text: text, images: images))
 
             case .assistant:
-                guard !message.text.isEmpty else { continue }
-                payload.append(LLMChatMessage(role: .assistant, text: message.text))
+                let body = message.displayText
+                guard !body.isEmpty else { continue }
+                payload.append(LLMChatMessage(role: .assistant, text: body))
 
             case .system, .tool:
                 continue

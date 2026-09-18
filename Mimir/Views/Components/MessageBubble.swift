@@ -6,8 +6,11 @@ struct MessageBubble: View {
 
     let message: ChatMessage
     var showsThinkingByDefault: Bool = false
+    var isHighlighted: Bool = false
     var onCopy: () -> Void = {}
     var onRegenerate: () -> Void = {}
+    var onRegenerateHere: () -> Void = {}
+    var onSwitchVersion: (Int) -> Void = { _ in }
     var onQuote: () -> Void = {}
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
@@ -91,11 +94,15 @@ struct MessageBubble: View {
                 }
                 .padding(.vertical, 4)
             } else {
-                MarkdownText(raw: message.text, isStreaming: message.isStreaming)
+                MarkdownText(raw: message.renderedText, isStreaming: message.isStreaming)
             }
 
             if !message.memoryHitIDs.isEmpty {
                 memoryChips
+            }
+
+            if message.versionCount > 1 {
+                versionSwitcher
             }
 
             metaRow(isUser: false)
@@ -105,6 +112,13 @@ struct MessageBubble: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: 22)
         .glassHairline(cornerRadius: 22)
+        .overlay {
+            if isHighlighted {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(AppColor.brandIndigo.opacity(0.85), lineWidth: 1.6)
+                    .allowsHitTesting(false)
+            }
+        }
         .contextMenu { menuItems }
     }
 
@@ -204,6 +218,52 @@ struct MessageBubble: View {
         }
     }
 
+    /// 多版本切换器：同一位置保留多次生成的回答，横向切换对比。
+    private var versionSwitcher: some View {
+        HStack(spacing: 8) {
+            Button {
+                Haptics.selectionChanged()
+                onSwitchVersion(message.activeVersionIndex - 1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 22, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(message.activeVersionIndex <= 0)
+            .opacity(message.activeVersionIndex <= 0 ? 0.35 : 1)
+
+            Text(message.versionLabel)
+                .font(AppFont.chipCompact)
+                .foregroundStyle(AppColor.secondaryText)
+                .monospacedDigit()
+
+            Button {
+                Haptics.selectionChanged()
+                onSwitchVersion(message.activeVersionIndex + 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 22, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(message.activeVersionIndex >= message.versionCount - 1)
+            .opacity(message.activeVersionIndex >= message.versionCount - 1 ? 0.35 : 1)
+
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(AppColor.secondaryText)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 3)
+        .background(
+            Capsule(style: .continuous)
+                .fill(AppColor.secondaryText.opacity(0.09))
+        )
+        .frame(maxWidth: 120, alignment: .leading)
+    }
+
     private func metaRow(isUser: Bool) -> some View {
         HStack(spacing: 8) {
             if !message.agentName.isEmpty {
@@ -269,6 +329,12 @@ struct MessageBubble: View {
                 onRegenerate()
             } label: {
                 Label("重新生成", systemImage: "arrow.clockwise")
+            }
+
+            Button {
+                onRegenerateHere()
+            } label: {
+                Label("从这里重新生成", systemImage: "arrow.triangle.branch")
             }
         }
 

@@ -1,7 +1,7 @@
 # Mimir
 
 [![Build iOS IPA](https://github.com/zxl1828/mimir-ios/actions/workflows/build-ipa.yml/badge.svg)](https://github.com/zxl1828/mimir-ios/actions/workflows/build-ipa.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT + Commons Clause](https://img.shields.io/badge/License-MIT%20%2B%20Commons%20Clause-blue.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2026%2B-lightgrey)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
 
@@ -10,10 +10,18 @@
 
 > 非官方项目，与 DeepSeek 官方无隶属或背书关系；「DeepSeek」为相应权利人的商标。
 
+> **许可：MIT + Commons Clause** —— 可自由使用、修改、分发，但**不得倒卖**：
+> 不得把本软件或其核心功能包装成收费产品、收费服务提供给第三方。
+> 完整条款见 [LICENSE](LICENSE)。
+
 ## 主要能力
 
 ### 对话
 - 流式输出（逐字渲染），支持随时停止、重新生成、引用、编辑重发、删除
+- 任意一条回答都能重新生成并保留多个版本，`< 2/3 >` 左右切换对比；
+  「从这里重新生成」会把后续内容收进分支，切回旧版本即可原样恢复
+- 对话可导出为长图（浅色 / 深色两种样式），全程本机离屏渲染，
+  支持保存到相册或直接分享
 - Markdown 渲染：标题、列表、引用、代码块（可复制）、表格、`$$LaTeX$$` 公式、Mermaid 图表
 - 多模型接入：DeepSeek 原生 / 任何 OpenAI 兼容网关 / Anthropic 协议，
   根据 API Key 前缀自动识别格式与端点
@@ -26,6 +34,8 @@
   关键词与端侧语义双层意图推荐、JSON 导入导出
 - **思考模式滑块**：快速 / 思考 / 专家 / Ultra 四档，冷 → 暖渐变轨道，
   Ultra 档带光晕扩散、呼吸脉冲、流光、粒子与标签扫光
+- **全局搜索**：跨全部对话检索标题、正文、推理过程、智能体与技能标签，
+  命中词高亮、按提问 / 回答与时间范围过滤，点击结果直接跳回并定位到那条消息
 - 侧边栏抽屉：会话记录（搜索 / 重命名 / 置顶 / 复制 / 删除）、智能体、技能、
   设置、记忆浏览器、MCP 服务器、数据流向
 
@@ -107,13 +117,19 @@ xcodebuild -project Mimir.xcodeproj -scheme Mimir \
 - Mermaid 与 KaTeX 渲染依赖 WebView 加载 CDN，离线时回退显示源码
 - stdio 传输的 MCP 服务器在 iOS 上不可用（系统不允许派生子进程），仅支持 HTTP/SSE
 
-## 开源许可
+## 许可
 
-本项目以 [MIT 许可证](LICENSE) 开源：可自由使用、修改、分发，包括商业用途，
-只需保留版权与许可声明。
+本项目以 **MIT + Commons Clause** 发布，完整条款见 [LICENSE](LICENSE)。
 
-随 App 打包的第三方组件与模型见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-（MCP Swift SDK、Kokoro-82M CoreML 语音模型，均为 Apache-2.0 兼容许可）。
+- 可以自由使用、修改、分发，包括个人项目、学习研究与公司内部使用
+- 二次开发后可以按同样条款开源发布
+- **不得出售本软件**，也不得把本软件或其核心功能包装成收费产品、收费服务提供给第三方（例如付费上架应用商店、作为付费托管服务提供、收取授权费）
+
+这是一份「源码公开（source-available）」许可，而非 OSI 定义的开源许可 —— 因为
+OSI 开源定义不允许限制商业使用。除「不得倒卖」这一条外，其余自由与 MIT 完全一致。
+
+随 App 打包的第三方组件与模型见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，
+它们仍遵循各自的原始许可，不受本附加条款影响。
 
 参与贡献请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)；安全问题请按
 [SECURITY.md](SECURITY.md) 私下报告。
@@ -135,5 +151,5 @@ xcodebuild -project Mimir.xcodeproj -scheme Mimir \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-CI produces an unsigned IPA on every push to `main`. Licensed under MIT —
+CI produces an unsigned IPA on every push to `main`. Licensed under MIT with Commons Clause (source-available; reselling is not permitted) —
 see [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).

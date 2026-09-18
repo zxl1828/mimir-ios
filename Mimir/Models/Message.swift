@@ -46,6 +46,14 @@ final class ChatMessage {
     var reasoningTokens: Int = 0
     var orderIndex: Int = 0
 
+    /// 同一位置的其他回答版本（重新生成产生）。
+    /// 索引 0 对应 `text`（原始版本），索引 n 对应 `alternativeBodies[n-1]`。
+    var alternativeBodies: [String] = []
+    /// 当前显示的版本。0 表示原始 `text`。
+    var activeVersionIndex: Int = 0
+    /// 流式生成中的临时文本，不落库。
+    @Transient var streamingText: String = ""
+
     var conversation: Conversation?
 
     init(
@@ -97,18 +105,75 @@ extension ChatMessage {
 
     var hasAttachment: Bool { attachmentData != nil }
 
+    // MARK: - 版本
+
+    /// 版本总数（含原始版本）。
+    var versionCount: Int { 1 + alternativeBodies.count }
+
+    /// 当前应当显示的正文。
+    var displayText: String {
+        guard activeVersionIndex > 0 else { return text }
+        let index = activeVersionIndex - 1
+        guard alternativeBodies.indices.contains(index) else { return text }
+        return alternativeBodies[index]
+    }
+
+    /// 生成过程中实际渲染的内容。
+    var renderedText: String {
+        isStreaming && !streamingText.isEmpty ? streamingText : displayText
+    }
+
+    /// 追加一个空版本并激活它，返回新版本序号。
+    @discardableResult
+    func beginNewVersion() -> Int {
+        alternativeBodies.append("")
+        activeVersionIndex = alternativeBodies.count
+        streamingText = ""
+        return activeVersionIndex
+    }
+
+    /// 生成结束时把流式内容写回当前版本。
+    func commitStreamingVersion() {
+        guard !streamingText.isEmpty else { return }
+        if activeVersionIndex > 0, alternativeBodies.indices.contains(activeVersionIndex - 1) {
+            alternativeBodies[activeVersionIndex - 1] = streamingText
+        } else {
+            text = streamingText
+        }
+        streamingText = ""
+    }
+
+    /// 生成失败或被打断时丢弃空的占位版本。
+    func discardEmptyVersion() {
+        streamingText = ""
+        guard activeVersionIndex > 0, alternativeBodies.indices.contains(activeVersionIndex - 1) else { return }
+        if alternativeBodies[activeVersionIndex - 1].isEmpty {
+            alternativeBodies.remove(at: activeVersionIndex - 1)
+            activeVersionIndex = 0
+        }
+    }
+
+    func switchVersion(to index: Int) {
+        activeVersionIndex = min(max(index, 0), versionCount - 1)
+    }
+
+    var versionLabel: String {
+        "\(min(activeVersionIndex + 1, versionCount))/\(versionCount)"
+    }
+
     /// 发送给云端 API 的纯文本内容。
-    var apiContent: String { text }
+    var apiContent: String { displayText }
 
     /// 复制到剪贴板的内容（助手消息带上推理过程更有用）。
     var copyableText: String {
-        guard hasVisibleThinking else { return text }
+        let body = displayText
+        guard hasVisibleThinking else { return body }
         return """
         【推理过程】
         \(thinkingText)
 
         【回答】
-        \(text)
+        \(body)
         """
     }
 }

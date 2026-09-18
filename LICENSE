@@ -1,4 +1,4 @@
-MIT License
+MIT License with Commons Clause
 
 Copyright (c) 2026 zxl1828
 
@@ -19,3 +19,41 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+"Commons Clause" License Condition v1.0
+
+The Software is provided to you by the Licensor under the License, as defined
+below, subject to the following condition.
+
+Without limiting other conditions in the License, the grant of rights under the
+License will not include, and the License does not grant to you, the right to
+Sell the Software.
+
+For purposes of the foregoing, "Sell" means practicing any or all of the rights
+granted to you under the License to provide to third parties, for a fee or other
+consideration (including without limitation fees for hosting or
+consulting/support services related to the Software), a product or service
+whose value derives, entirely or substantially, from the functionality of the
+Software. Any license notice or attribution required by the License must also
+include this Commons Clause License Condition notice.
+
+License: MIT
+Licensor: zxl1828
+
+-------------------------------------------------------------------------------
+
+中文说明（仅供参考，以英文条款为准）
+
+你可以自由地使用、修改、合并、发布和分发本软件，包括用于个人学习和
+非商业性的二次开发。
+
+你**不得**出售本软件，也不得把本软件（或其主要功能）包装成收费产品或
+收费服务提供给第三方 —— 这包括但不限于：在应用商店付费上架、作为付费
+托管服务提供、以本软件为主要卖点收取授权费或服务费。
+
+如需商业授权，请先与作者联系取得书面许可。
+
+随本软件分发的第三方组件与模型（见 THIRD_PARTY_NOTICES.md）仍遵循其各自
+的原始许可，本附加条款不改变第三方部分的授权。

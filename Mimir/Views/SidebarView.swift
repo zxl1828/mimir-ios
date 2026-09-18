@@ -16,6 +16,8 @@ struct SidebarView: View {
     var onOpenMemory: () -> Void
     var onOpenDataFlow: () -> Void
     var onOpenMCP: () -> Void
+    var onSearchAll: () -> Void
+    var onExportConversation: (Conversation) -> Void
     var onSelectAgent: (AgentDockItem?) -> Void
     var onSelectSkill: (Skill) -> Void
 
@@ -132,6 +134,25 @@ struct SidebarView: View {
         .liquidGlassClear(cornerRadius: 12)
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
+        .overlay(alignment: .bottom) {
+            Button {
+                Haptics.impact(.light)
+                onSearchAll()
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "text.magnifyingglass")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("搜索全部对话与记忆")
+                        .font(AppFont.chipCompact)
+                }
+                .foregroundStyle(AppColor.brandIndigo)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule(style: .continuous).fill(AppColor.brandIndigo.opacity(0.10)))
+            }
+            .buttonStyle(.plain)
+            .offset(y: 13)
+        }
     }
 
     // MARK: - 对话记录
@@ -211,6 +232,11 @@ struct SidebarView: View {
                 list?.duplicate(conversation)
             } label: {
                 Label("复制对话", systemImage: "doc.on.doc")
+            }
+            Button {
+                onExportConversation(conversation)
+            } label: {
+                Label("导出为图片", systemImage: "photo.on.rectangle")
             }
             Divider()
             Button(role: .destructive) {
