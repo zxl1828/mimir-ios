@@ -316,6 +316,16 @@ final class ChatViewModel {
         streamingMessageID = assistant.id
         waitingForNetwork = false
 
+        if settings.liveActivitiesEnabled {
+            ChatActivityManager.start(
+                conversationID: conversation.id.uuidString,
+                title: conversation.title,
+                status: "正在生成",
+                preview: "",
+                enabled: true
+            )
+        }
+
         let credential = settings.resolvedCredential
         var parameters = settings.parameters.applying(thinkingMode)
         parameters.modelID = conversation.modelID
@@ -456,6 +466,12 @@ final class ChatViewModel {
             self.streamingMessageID = nil
             self.streamTask = nil
             self.persist(force: true)
+            if self.settings.liveActivitiesEnabled {
+                ChatActivityManager.end(
+                    status: wasInterrupted ? "已停止生成" : "回答完成",
+                    preview: accumulated
+                )
+            }
             self.runPostProcessing(for: conversation, credential: credential, parameters: parameters)
         }
     }
@@ -651,6 +667,16 @@ final class ChatViewModel {
         guard now.timeIntervalSince(lastPersistAt) > 0.4 else { return }
         lastPersistAt = now
         try? modelContext.save()
+        if settings.liveActivitiesEnabled,
+           let id = streamingMessageID,
+           let message = conversation?.orderedMessages.first(where: { $0.id == id }) {
+            ChatActivityManager.update(
+                status: "正在生成",
+                preview: message.text,
+                isGenerating: true,
+                tokenCount: message.usage.total
+            )
+        }
     }
 
     private func persist(force: Bool) {
