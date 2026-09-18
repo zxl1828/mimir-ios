@@ -17,6 +17,9 @@ packages:
   KokoroCoreML:
     url: https://github.com/Jud/kokoro-coreml
     from: "0.8.0"
+  MCP:
+    url: https://github.com/modelcontextprotocol/swift-sdk
+    from: "0.11.0"
 targets:
   DeepSeekClient:
     type: application
@@ -25,6 +28,8 @@ targets:
     dependencies:
       - package: KokoroCoreML
         product: KokoroCoreML
+      - package: MCP
+        product: MCP
     sources:
       - path: DeepSeekClient
         excludes:

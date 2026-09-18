@@ -15,6 +15,7 @@ struct SidebarView: View {
     var onOpenSettings: () -> Void
     var onOpenMemory: () -> Void
     var onOpenDataFlow: () -> Void
+    var onOpenMCP: () -> Void
     var onSelectAgent: (AgentDockItem?) -> Void
     var onSelectSkill: (Skill) -> Void
 
@@ -340,6 +341,7 @@ struct SidebarView: View {
             VStack(spacing: 2) {
                 footerRow("设置", icon: "gearshape") { onOpenSettings() }
                 footerRow("记忆浏览器", icon: "brain.head.profile") { onOpenMemory() }
+                footerRow("MCP 服务器", icon: "point.3.connected.trianglepath.dotted") { onOpenMCP() }
                 footerRow("数据流向", icon: "arrow.left.arrow.right.circle") { onOpenDataFlow() }
             }
             .padding(.horizontal, 10)

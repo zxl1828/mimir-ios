@@ -29,6 +29,15 @@ struct OpenAICompatibleClient: LLMClient {
             var include_usage: Bool = true
         }
         struct Message: Encodable {
+            struct ToolCall: Encodable {
+                struct Function: Encodable {
+                    var name: String
+                    var arguments: String
+                }
+                var id: String
+                var type: String = "function"
+                var function: Function
+            }
             struct ImageURL: Encodable { var url: String }
             struct Part: Encodable {
                 var type: String
@@ -37,6 +46,7 @@ struct OpenAICompatibleClient: LLMClient {
             }
             var role: String
             var content: Content
+            var tool_calls: [ToolCall]?
             var tool_call_id: String?
             var name: String?
 
@@ -58,6 +68,7 @@ struct OpenAICompatibleClient: LLMClient {
 
         var model: String
         var messages: [Message]
+        var tools: [ToolPayload]?
         var stream: Bool
         var temperature: Double
         var top_p: Double
@@ -65,6 +76,16 @@ struct OpenAICompatibleClient: LLMClient {
         var frequency_penalty: Double
         var presence_penalty: Double
         var stream_options: StreamOptions?
+    }
+
+    private struct ToolPayload: Encodable {
+        struct Function: Encodable {
+            var name: String
+            var description: String
+            var parameters: AnyEncodable
+        }
+        var type: String = "function"
+        var function: Function
     }
 
     private struct StreamChunk: Decodable {
@@ -300,10 +321,17 @@ struct OpenAICompatibleClient: LLMClient {
                 return RequestBody.Message(
                     role: message.role.rawValue,
                     content: content,
+                    tool_calls: message.toolCalls.isEmpty ? nil : message.toolCalls.map { call in
+                        RequestBody.Message.ToolCall(
+                            id: call.id,
+                            function: .init(name: call.name, arguments: call.argumentsJSON)
+                        )
+                    },
                     tool_call_id: message.toolCallID,
                     name: message.toolName
                 )
             },
+            tools: Self.toolPayloads(from: tools),
             stream: parameters.streamsResponse,
             temperature: parameters.temperature,
             top_p: parameters.topP,
@@ -312,8 +340,6 @@ struct OpenAICompatibleClient: LLMClient {
             presence_penalty: parameters.presencePenalty,
             stream_options: parameters.streamsResponse ? RequestBody.StreamOptions() : nil
         )
-        _ = tools // OpenAI 兼容端点的工具定义按需在后续版本注入
-
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -327,6 +353,22 @@ struct OpenAICompatibleClient: LLMClient {
         }
         request.httpBody = try JSONEncoder().encode(body)
         return request
+    }
+
+    /// 把统一的工具定义转换成请求体的 tools 字段。
+    private static func toolPayloads(from tools: [LLMToolDefinition]) -> [ToolPayload]? {
+        guard !tools.isEmpty else { return nil }
+        return tools.map { tool in
+            let object = (try? JSONSerialization.jsonObject(with: Data(tool.parametersJSON.utf8)))
+                ?? ["type": "object", "properties": [:]]
+            return ToolPayload(
+                function: .init(
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: AnyEncodable(object)
+                )
+            )
+        }
     }
 
     /// 拼接 Base URL 与路径：兼容带/不带 `/v1` 的写法。

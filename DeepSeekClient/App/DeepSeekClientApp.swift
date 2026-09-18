@@ -11,7 +11,8 @@ struct DeepSeekClientApp: App {
             ChatMessage.self,
             MemoryEntry.self,
             Skill.self,
-            AgentDockItem.self
+            AgentDockItem.self,
+            MCPServerConfig.self
         ])
         let configuration = ModelConfiguration(
             schema: schema,

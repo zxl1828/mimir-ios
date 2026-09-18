@@ -13,6 +13,7 @@ struct MainChatView: View {
     @State private var list: ConversationListViewModel?
     @State private var agents: [AgentDockItem] = []
     @State private var skills: [Skill] = []
+    @State private var mcpConfigs: [MCPServerConfig] = []
 
     @State private var sidebarOpen = false
     @State private var dragOffset: CGFloat = 0
@@ -21,6 +22,7 @@ struct MainChatView: View {
     @State private var showMemoryBrowser = false
     @State private var showDataFlow = false
     @State private var showAgentManager = false
+    @State private var showMCPServers = false
     @State private var editingTitle = false
     @State private var titleDraft = ""
     @State private var editingMessage: ChatMessage?
@@ -80,6 +82,9 @@ struct MainChatView: View {
         }
         .sheet(isPresented: $showAgentManager) {
             AgentManagerView()
+        }
+        .sheet(isPresented: $showMCPServers) {
+            MCPServersView()
         }
         .alert("重命名对话", isPresented: $editingTitle) {
             TextField("对话名称", text: $titleDraft)
@@ -221,7 +226,11 @@ struct MainChatView: View {
     @ViewBuilder
     private var floatingPanels: some View {
         if let chat {
-            if chat.isSkillPickerVisible {
+            if !MCPClientManager.shared.activeCalls.isEmpty {
+                ToolProgressView(calls: MCPClientManager.shared.activeCalls)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 10)
+            } else if chat.isSkillPickerVisible {
                 SkillPicker(
                     skills: chat.filteredSkills,
                     query: chat.slashQuery ?? "",
@@ -394,6 +403,10 @@ struct MainChatView: View {
                 closeSidebar()
                 showDataFlow = true
             },
+            onOpenMCP: {
+                closeSidebar()
+                showMCPServers = true
+            },
             onSelectAgent: { agent in
                 chat?.activeAgent = agent
                 settings.selectedAgentName = agent?.name ?? ""
@@ -458,7 +471,13 @@ struct MainChatView: View {
         chat = chatViewModel
         list = listViewModel
         chatViewModel.skills = skills
+        mcpConfigs = (try? modelContext.fetch(FetchDescriptor<MCPServerConfig>())) ?? []
+        chatViewModel.mcpConfigs = mcpConfigs
         MemoryStore.shared.warmUp(context: modelContext)
+
+        Task {
+            await MCPClientManager.shared.reconnectAll(configs: mcpConfigs)
+        }
 
         if let last = listViewModel.conversations.first {
             chatViewModel.attach(to: last)

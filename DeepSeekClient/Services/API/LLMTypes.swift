@@ -18,6 +18,8 @@ struct LLMChatMessage: Sendable, Codable, Equatable {
     var text: String
     /// 图片附件（JPEG / PNG 原始数据）。
     var images: [Data]
+    /// 助手消息请求调用的工具（工具调用回环用）。
+    var toolCalls: [LLMToolCall]
     var toolCallID: String?
     var toolName: String?
 
@@ -25,14 +27,47 @@ struct LLMChatMessage: Sendable, Codable, Equatable {
         role: Role,
         text: String,
         images: [Data] = [],
+        toolCalls: [LLMToolCall] = [],
         toolCallID: String? = nil,
         toolName: String? = nil
     ) {
         self.role = role
         self.text = text
         self.images = images
+        self.toolCalls = toolCalls
         self.toolCallID = toolCallID
         self.toolName = toolName
+    }
+}
+
+/// 编码任意 JSON 值（把工具 schema 透传给服务端时使用）。
+struct AnyEncodable: Encodable, Sendable {
+    let value: Any
+
+    init(_ value: Any) {
+        self.value = value
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch value {
+        case let value as String:
+            try container.encode(value)
+        case let value as Bool:
+            try container.encode(value)
+        case let value as Int:
+            try container.encode(value)
+        case let value as Double:
+            try container.encode(value)
+        case let value as [Any]:
+            try container.encode(value.map { AnyEncodable($0) })
+        case let value as [String: Any]:
+            try container.encode(value.mapValues { AnyEncodable($0) })
+        case is NSNull:
+            try container.encodeNil()
+        default:
+            try container.encodeNil()
+        }
     }
 }
 

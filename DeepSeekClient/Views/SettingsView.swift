@@ -20,6 +20,7 @@ struct SettingsView: View {
     @State private var showAgentManager = false
     @State private var showMemoryBrowser = false
     @State private var showSkillManager = false
+    @State private var showMCPServers = false
     @State private var confirmClearMemories = false
     @State private var confirmClearConversations = false
     @State private var exportURL: URL?
@@ -33,6 +34,7 @@ struct SettingsView: View {
                 parameterSection(settings: $settings)
                 voiceSection(settings: $settings)
                 privacySection(settings: $settings)
+                extensionsSection
                 usageSection
                 aboutSection
             }
@@ -49,6 +51,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showMemoryBrowser) { MemoryBrowserView() }
         .sheet(isPresented: $showAgentManager) { AgentManagerView() }
         .sheet(isPresented: $showSkillManager) { SkillManagerView() }
+        .sheet(isPresented: $showMCPServers) { MCPServersView() }
         .alert("清空全部记忆？", isPresented: $confirmClearMemories) {
             Button("取消", role: .cancel) {}
             Button("清空", role: .destructive) { clearMemories() }
@@ -270,30 +273,6 @@ struct SettingsView: View {
             }
 
             Button {
-                showSkillManager = true
-            } label: {
-                HStack {
-                    Text("技能管理")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AppColor.tertiaryText)
-                }
-            }
-
-            Button {
-                showAgentManager = true
-            } label: {
-                HStack {
-                    Text("智能体管理")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AppColor.tertiaryText)
-                }
-            }
-
-            Button {
                 if let url = MemoryExporter.exportMemories(context: modelContext) {
                     exportURL = url
                     presentShareSheet([url])
@@ -314,6 +293,48 @@ struct SettingsView: View {
     }
 
     // MARK: - 用量
+
+    private var extensionsSection: some View {
+        Section {
+            Button {
+                showSkillManager = true
+            } label: {
+                extensionRow(title: "技能管理", icon: "wand.and.stars", tint: AppColor.brandPurple)
+            }
+
+            Button {
+                showAgentManager = true
+            } label: {
+                extensionRow(title: "智能体管理", icon: "person.2.badge.gearshape", tint: AppColor.brandIndigo)
+            }
+
+            Button {
+                showMCPServers = true
+            } label: {
+                extensionRow(title: "MCP 服务器", icon: "point.3.connected.trianglepath.dotted", tint: AppColor.brandTeal)
+            }
+        } header: {
+            Text("扩展")
+        } footer: {
+            Text("MCP 工具的返回值默认只在本机使用，需要为每台服务器单独授权后才会随对话发送到云端。")
+        }
+    }
+
+    private func extensionRow(title: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(tint.opacity(0.12)))
+            Text(title)
+                .foregroundStyle(AppColor.primaryText)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(AppColor.tertiaryText)
+        }
+    }
 
     private var usageSection: some View {
         Section {

@@ -31,6 +31,7 @@ final class ChatViewModel {
     var activeSkill: Skill?
     var replySuggestions: [String] = []
     var skills: [Skill] = []
+    var mcpConfigs: [MCPServerConfig] = []
     /// 斜杠命令上下文：非 nil 表示技能选择器应当展开。
     var slashQuery: String?
     var slashRange: Range<String.Index>?
@@ -320,48 +321,94 @@ final class ChatViewModel {
             : []
         assistant.memoryHitIDs = hits.map(\.id)
 
+        // 只有明确授权上传数据的 MCP 工具才会暴露给云端模型。
+        let mcpConfigsSnapshot = mcpConfigs
+        let availableTools = MCPToolAdapter.definitions(
+            from: MCPClientManager.shared.allTools(configs: mcpConfigsSnapshot).filter(\.allowsDataUpload)
+        )
+
         streamTask = Task { [weak self] in
             var accumulated = ""
             var reasoning = ""
             var failure: String?
             var wasInterrupted = false
+            var workingMessages = payload
+            var round = 0
+            let maximumRounds = 4
 
-            do {
-                let stream = client.streamChat(
-                    messages: payload,
-                    parameters: parameters,
-                    credential: credential,
-                    tools: []
-                )
-                for try await event in stream {
-                    if Task.isCancelled {
+            while round < maximumRounds {
+                round += 1
+                var pendingToolCalls: [LLMToolCall] = []
+                var roundText = ""
+
+                do {
+                    let stream = client.streamChat(
+                        messages: workingMessages,
+                        parameters: parameters,
+                        credential: credential,
+                        tools: availableTools
+                    )
+                    for try await event in stream {
+                        if Task.isCancelled {
+                            wasInterrupted = true
+                            break
+                        }
+                        switch event {
+                        case .textDelta(let chunk):
+                            roundText += chunk
+                            accumulated += chunk
+                            assistant.text = accumulated
+                        case .reasoningDelta(let chunk):
+                            reasoning += chunk
+                            assistant.thinkingText = reasoning
+                        case .usage(let usage):
+                            assistant.usage = assistant.usage + usage
+                        case .toolCallDelta, .finished:
+                            break
+                        case .toolCallsReady(let calls):
+                            pendingToolCalls = calls
+                        }
+                        self?.persistThrottled()
+                    }
+                } catch let error as LLMError {
+                    if case .cancelled = error {
                         wasInterrupted = true
-                        break
+                    } else {
+                        failure = error.errorDescription
                     }
-                    switch event {
-                    case .textDelta(let chunk):
-                        accumulated += chunk
-                        assistant.text = accumulated
-                    case .reasoningDelta(let chunk):
-                        reasoning += chunk
-                        assistant.thinkingText = reasoning
-                    case .usage(let usage):
-                        assistant.usage = assistant.usage + usage
-                    case .toolCallDelta, .toolCallsReady:
-                        break
-                    case .finished:
-                        break
-                    }
-                    self?.persistThrottled()
+                } catch {
+                    failure = error.localizedDescription
                 }
-            } catch let error as LLMError {
-                if case .cancelled = error {
-                    wasInterrupted = true
-                } else {
-                    failure = error.errorDescription
+
+                if wasInterrupted || failure != nil { break }
+                guard !pendingToolCalls.isEmpty else { break }
+
+                // 把这一轮的文本与工具调用写回上下文，再依次执行工具。
+                workingMessages.append(
+                    LLMChatMessage(role: .assistant, text: roundText, toolCalls: pendingToolCalls)
+                )
+
+                for call in pendingToolCalls {
+                    let descriptor = MCPClientManager.shared
+                        .allTools(configs: mcpConfigsSnapshot)
+                        .first { $0.name == call.name && $0.serverID == activeToolServerID(call, configs: mcpConfigsSnapshot) }
+                        ?? MCPClientManager.shared.allTools(configs: mcpConfigsSnapshot).first { $0.name == call.name }
+
+                    let result = await MCPClientManager.shared.callTool(
+                        serverID: descriptor?.serverID ?? UUID(),
+                        toolName: call.name,
+                        argumentsJSON: call.argumentsJSON,
+                        serverName: descriptor?.serverName ?? "MCP"
+                    )
+                    workingMessages.append(
+                        LLMChatMessage(
+                            role: .tool,
+                            text: result.isError ? "工具返回错误：\(result.text)" : result.text,
+                            toolCallID: call.id,
+                            toolName: call.name
+                        )
+                    )
                 }
-            } catch {
-                failure = error.localizedDescription
             }
 
             guard let self else { return }
@@ -383,6 +430,13 @@ final class ChatViewModel {
             self.persist(force: true)
             self.runPostProcessing(for: conversation, credential: credential, parameters: parameters)
         }
+    }
+
+    /// 工具名可能在不同服务器间重名，这里优先匹配已连接且允许上传的服务器。
+    private func activeToolServerID(_ call: LLMToolCall, configs: [MCPServerConfig]) -> UUID? {
+        configs.first(where: { config in
+            config.isEnabled && config.allowsDataUpload && (MCPClientManager.shared.toolsByServer[config.id] ?? []).contains { $0.name == call.name }
+        })?.id
     }
 
     /// 生成结束后的后台收尾：记忆整理、长对话摘要、端侧建议回复。
