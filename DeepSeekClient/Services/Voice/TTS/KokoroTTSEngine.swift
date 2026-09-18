@@ -70,18 +70,30 @@ final class KokoroTTSEngine: SpeechSynthesisEngine {
         setupAudioGraph()
 
         let forceCPU = Self.isSimulator
-        Task.detached(priority: .utility) { [weak self] in
-            do {
-                let engine = try KokoroEngine(modelDirectory: directory, forceCPU: forceCPU)
-                await MainActor.run {
-                    self?.kokoro = engine
-                }
-            } catch {
-                await MainActor.run {
-                    self?.loadFailureText = error.localizedDescription
-                }
+        Task { [weak self] in
+            let result = await Self.loadModel(directory: directory, forceCPU: forceCPU)
+            guard let self else { return }
+            switch result {
+            case .success(let engine):
+                self.kokoro = engine
+            case .failure(let error):
+                self.loadFailureText = error.localizedDescription
             }
         }
+    }
+
+    /// 在后台线程完成模型加载，避免阻塞主线程首帧。
+    private nonisolated static func loadModel(
+        directory: URL,
+        forceCPU: Bool
+    ) async -> Result<KokoroEngine, Error> {
+        await Task.detached(priority: .utility) {
+            do {
+                return .success(try KokoroEngine(modelDirectory: directory, forceCPU: forceCPU))
+            } catch {
+                return .failure(error)
+            }
+        }.value
     }
 
     private static var isSimulator: Bool {
