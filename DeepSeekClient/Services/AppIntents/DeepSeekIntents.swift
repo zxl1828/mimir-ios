@@ -126,7 +126,7 @@ struct DeepSeekShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: SummarizeTextIntent(),
             phrases: [
-                "用 \(.applicationName) 总结 \(\.$text)",
+                "用 \(.applicationName) 总结文本",
                 "让 \(.applicationName) 帮我总结"
             ],
             shortTitle: "总结文本",
@@ -136,7 +136,7 @@ struct DeepSeekShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: TranslateTextIntent(),
             phrases: [
-                "用 \(.applicationName) 翻译 \(\.$text)",
+                "用 \(.applicationName) 翻译文本",
                 "让 \(.applicationName) 翻译成 \(\.$language)"
             ],
             shortTitle: "翻译文本",
@@ -146,7 +146,7 @@ struct DeepSeekShortcuts: AppShortcutsProvider {
         AppShortcut(
             intent: PolishTextIntent(),
             phrases: [
-                "用 \(.applicationName) 润色 \(\.$text)"
+                "用 \(.applicationName) 润色文本"
             ],
             shortTitle: "润色文本",
             systemImageName: "wand.and.sparkles"
