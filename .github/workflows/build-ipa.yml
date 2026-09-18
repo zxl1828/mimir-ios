@@ -9,6 +9,8 @@ jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 45
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -86,3 +88,17 @@ jobs:
           path: DeepSeek-unsigned.ipa
           if-no-files-found: error
           retention-days: 30
+
+      # 同时发布到 Release，方便用镜像加速下载大体积安装包。
+      - name: Publish to release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="build-$(date -u +%Y%m%d-%H%M%S)"
+          gh release create "$TAG" DeepSeek-unsigned.ipa \
+            --title "DeepSeek iOS $TAG" \
+            --notes "Automated unsigned IPA build from $GITHUB_SHA"
+          echo "released: $TAG"
