@@ -214,6 +214,40 @@ struct MainChatView: View {
                 scrollToBottom(proxy, animated: false)
             }
         }
+        .overlay(alignment: .bottom) { floatingPanels }
+    }
+
+    /// 输入框上方的浮层：技能选择器优先，其次是推荐。
+    @ViewBuilder
+    private var floatingPanels: some View {
+        if let chat {
+            if chat.isSkillPickerVisible {
+                SkillPicker(
+                    skills: chat.filteredSkills,
+                    query: chat.slashQuery ?? "",
+                    highlightedIndex: chat.highlightedSkillIndex,
+                    onHighlight: { chat.highlightedSkillIndex = $0 },
+                    onSelect: { chat.applySkill($0) },
+                    onDismiss: { chat.dismissSkillPicker(removingCommand: false) }
+                )
+                .padding(.horizontal, 8)
+                .padding(.bottom, 10)
+            } else if !chat.skillSuggestions.isEmpty || !chat.replySuggestions.isEmpty {
+                SuggestionChips(
+                    skillSuggestions: chat.skillSuggestions,
+                    replySuggestions: chat.replySuggestions,
+                    confidence: chat.recommendationConfidence,
+                    onPickSkill: { chat.applySkill($0) },
+                    onPickReply: { reply in
+                        chat.inputText = reply
+                        inputFocused = true
+                    },
+                    onDismiss: { chat.dismissRecommendations() }
+                )
+                .padding(.horizontal, 8)
+                .padding(.bottom, 10)
+            }
+        }
     }
 
     private static let bottomAnchor = "chat.bottom.anchor"
@@ -288,7 +322,9 @@ struct MainChatView: View {
                 onSend: { chat?.send() },
                 onStop: { chat?.stopGenerating() },
                 onAttach: { showPhotoPicker = true },
-                onVoice: { showVoiceMode = true }
+                onVoice: { showVoiceMode = true },
+                onTextChanged: { chat?.handleInputChange($0) },
+                onKeyCommand: { chat?.handleKeyCommand($0) ?? false }
             )
         }
         .padding(.horizontal, 12)
@@ -421,6 +457,8 @@ struct MainChatView: View {
 
         chat = chatViewModel
         list = listViewModel
+        chatViewModel.skills = skills
+        MemoryStore.shared.warmUp(context: modelContext)
 
         if let last = listViewModel.conversations.first {
             chatViewModel.attach(to: last)

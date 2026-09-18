@@ -1,6 +1,14 @@
 import SwiftUI
 import UIKit
 
+/// 输入框上需要响应硬件键盘的按键。
+enum InputKeyCommand {
+    case moveUp
+    case moveDown
+    case confirm
+    case escape
+}
+
 /// 底部输入区：附件、多行输入、语音、发送 / 停止。
 struct MessageInputBar: View {
 
@@ -14,6 +22,8 @@ struct MessageInputBar: View {
     var onAttach: () -> Void
     var onVoice: () -> Void
     var onTextChanged: (String) -> Void = { _ in }
+    /// 返回 true 表示该按键已被上层消费（例如技能选择器的高亮移动）。
+    var onKeyCommand: (InputKeyCommand) -> Bool = { _ in false }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -35,6 +45,10 @@ struct MessageInputBar: View {
                     .onChange(of: text) { _, newValue in
                         onTextChanged(newValue)
                     }
+                    .onKeyPress(.upArrow) { onKeyCommand(.moveUp) ? .handled : .ignored }
+                    .onKeyPress(.downArrow) { onKeyCommand(.moveDown) ? .handled : .ignored }
+                    .onKeyPress(.return) { onKeyCommand(.confirm) ? .handled : .ignored }
+                    .onKeyPress(.escape) { onKeyCommand(.escape) ? .handled : .ignored }
 
                 voiceButton
                 sendButton

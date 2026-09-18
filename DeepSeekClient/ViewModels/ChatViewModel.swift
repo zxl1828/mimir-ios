@@ -28,6 +28,15 @@ final class ChatViewModel {
     var activeAgent: AgentDockItem?
     var activeSkill: Skill?
     var suggestedReplies: [String] = []
+    var skills: [Skill] = []
+    /// 斜杠命令上下文：非 nil 表示技能选择器应当展开。
+    var slashQuery: String?
+    var slashRange: Range<String.Index>?
+    var highlightedSkillIndex: Int = 0
+    var skillSuggestions: [Skill] = []
+    var recommendationConfidence: Double?
+    var recommendationReason: String?
+
     var thinkingMode: ThinkingMode = .thinking {
         didSet {
             conversation?.thinkingMode = thinkingMode
@@ -36,6 +45,125 @@ final class ChatViewModel {
 
     var resolvedParameters: ModelParameters {
         settings.parameters.applying(thinkingMode)
+    }
+
+    @ObservationIgnored private let recommender = IntentRecommender()
+    @ObservationIgnored private var recommendTask: Task<Void, Never>?
+
+    // MARK: - 斜杠命令与推荐
+
+    var isSkillPickerVisible: Bool { slashQuery != nil }
+
+    var filteredSkills: [Skill] {
+        let query = (slashQuery ?? "").trimmingCharacters(in: .whitespaces)
+        let enabled = skills.filter(\.isEnabled)
+        guard !query.isEmpty else { return enabled }
+        return enabled.filter {
+            $0.name.localizedCaseInsensitiveContains(query)
+                || $0.slashCommand.localizedCaseInsensitiveContains(query)
+                || $0.summary.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    /// 输入变化时调用：维护斜杠上下文 + 触发技能推荐。
+    func handleInputChange(_ text: String) {
+        if let context = SlashCommand.pickerContext(in: text) {
+            if slashQuery == nil { highlightedSkillIndex = 0 }
+            slashQuery = context.query
+            slashRange = context.slashRange
+            skillSuggestions = []
+            recommendationConfidence = nil
+        } else {
+            slashQuery = nil
+            slashRange = nil
+        }
+        scheduleRecommendation(for: text)
+    }
+
+    func handleKeyCommand(_ command: InputKeyCommand) -> Bool {
+        guard isSkillPickerVisible else { return false }
+        let list = filteredSkills
+        switch command {
+        case .moveUp:
+            guard !list.isEmpty else { return true }
+            highlightedSkillIndex = (highlightedSkillIndex - 1 + list.count) % list.count
+            Haptics.selectionChanged()
+            return true
+        case .moveDown:
+            guard !list.isEmpty else { return true }
+            highlightedSkillIndex = (highlightedSkillIndex + 1) % list.count
+            Haptics.selectionChanged()
+            return true
+        case .confirm:
+            guard !list.isEmpty else { return true }
+            applySkill(list[min(highlightedSkillIndex, list.count - 1)])
+            return true
+        case .escape:
+            dismissSkillPicker(removingCommand: true)
+            return true
+        }
+    }
+
+    func applySkill(_ skill: Skill) {
+        if let range = slashRange {
+            inputText = SlashCommand.apply(skill: skill, to: inputText, replacing: range)
+        } else {
+            inputText += "/\(skill.slashCommand) "
+        }
+        activeSkill = skill
+        slashQuery = nil
+        slashRange = nil
+        highlightedSkillIndex = 0
+        Haptics.impact(.light)
+    }
+
+    func dismissSkillPicker(removingCommand: Bool) {
+        if removingCommand, let range = slashRange {
+            inputText = SlashCommand.removingCommand(from: inputText, range: range)
+        }
+        slashQuery = nil
+        slashRange = nil
+        highlightedSkillIndex = 0
+    }
+
+    func dismissRecommendations() {
+        recommendTask?.cancel()
+        withAnimation(AppAnimation.recommend) {
+            skillSuggestions = []
+            replySuggestions = []
+            recommendationConfidence = nil
+            recommendationReason = nil
+        }
+    }
+
+    private func scheduleRecommendation(for text: String) {
+        recommendTask?.cancel()
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard settings.suggestionsEnabled, trimmed.count >= 4, !skills.isEmpty else {
+            if !skillSuggestions.isEmpty {
+                withAnimation(AppAnimation.recommend) { skillSuggestions = [] }
+            }
+            return
+        }
+
+        recommendTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard let self, !Task.isCancelled else { return }
+            guard let result = await self.recommender.recommend(for: trimmed, skills: self.skills) else {
+                withAnimation(AppAnimation.recommend) {
+                    self.skillSuggestions = []
+                    self.recommendationConfidence = nil
+                }
+                return
+            }
+            guard !Task.isCancelled else { return }
+            guard let skill = self.skills.first(where: { $0.name == result.skillName }) else { return }
+            withAnimation(AppAnimation.recommend) {
+                self.skillSuggestions = [skill]
+                self.recommendationConfidence = result.confidence
+                self.recommendationReason = result.reason
+            }
+        }
     }
 
     init(modelContext: ModelContext, settings: AppSettings) {
@@ -74,7 +202,16 @@ final class ChatViewModel {
             return
         }
 
-        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawText = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 文本里带 /命令 时，命令部分不发给模型，只保留正文。
+        let resolution = SlashCommand.resolve(text: rawText, skills: skills)
+        let text = resolution.skill == nil ? rawText : resolution.body
+        if let resolvedSkill = resolution.skill {
+            activeSkill = resolvedSkill
+        }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachedImages.isEmpty else {
+            return
+        }
         let userMessage = ChatMessage(
             role: .user,
             text: text,
@@ -104,6 +241,7 @@ final class ChatViewModel {
         quotedMessage = nil
         errorMessage = nil
         suggestedReplies = []
+        dismissRecommendations()
 
         persist(force: true)
         beginStreaming(in: conversation)
@@ -173,6 +311,13 @@ final class ChatViewModel {
         parameters.streamsResponse = true
         let client = LLMClientFactory.make(for: credential)
 
+        // 记录本条回答引用到的记忆，供气泡上的标签跳转。
+        let query = conversation.orderedMessages.last(where: { $0.role == .user })?.text ?? ""
+        let hits = settings.memoryEnabled && !query.isEmpty
+            ? MemoryStore.shared.search(query, limit: 4)
+            : []
+        assistant.memoryHitIDs = hits.map(\.id)
+
         streamTask = Task { [weak self] in
             var accumulated = ""
             var reasoning = ""
@@ -234,7 +379,55 @@ final class ChatViewModel {
             self.streamingMessageID = nil
             self.streamTask = nil
             self.persist(force: true)
+            self.runPostProcessing(for: conversation, credential: credential, parameters: parameters)
         }
+    }
+
+    /// 生成结束后的后台收尾：记忆整理、长对话摘要、端侧建议回复。
+    private func runPostProcessing(
+        for conversation: Conversation,
+        credential: APICredential,
+        parameters: ModelParameters
+    ) {
+        Task { [weak self] in
+            guard let self else { return }
+
+            if self.settings.memoryEnabled && self.settings.backgroundMemoryReview {
+                _ = await MemoryExtractor.review(
+                    conversation: conversation,
+                    context: self.modelContext,
+                    store: MemoryStore.shared
+                )
+            }
+
+            if self.settings.autoSummarizeEnabled,
+               ConversationSummarizer.shouldSummarize(conversation) {
+                let summarized = await ConversationSummarizer.summarize(
+                    conversation: conversation,
+                    credential: credential,
+                    parameters: parameters
+                )
+                if summarized {
+                    self.modelContextSave()
+                }
+            }
+
+            if self.settings.suggestionsEnabled {
+                let excerpt = conversation.orderedMessages.suffix(6)
+                    .map { ($0.role == .user ? "用户：" : "助手：") + String($0.text.prefix(200)) }
+                    .joined(separator: "\n")
+                let replies = await OnDeviceLanguageModel.suggestedReplies(for: excerpt)
+                if !replies.isEmpty {
+                    withAnimation(AppAnimation.recommend) {
+                        self.replySuggestions = replies
+                    }
+                }
+            }
+        }
+    }
+
+    private func modelContextSave() {
+        try? modelContext.save()
     }
 
     func stopGenerating(markInterrupted: Bool = true) {
@@ -316,7 +509,12 @@ final class ChatViewModel {
 
     /// 记忆上下文。批 B 接入常驻内存的向量索引后由 MemoryStore 提供。
     private func relevantMemories(for conversation: Conversation) -> [String] {
-        []
+        guard settings.memoryEnabled else { return [] }
+        let query = conversation.orderedMessages
+            .last(where: { $0.role == .user })?
+            .text ?? ""
+        guard !query.isEmpty else { return [] }
+        return MemoryStore.shared.contextSnippets(for: query)
     }
 
     private static func timeContext() -> String {

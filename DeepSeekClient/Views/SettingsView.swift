@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var showDataFlow = false
     @State private var showAgentManager = false
     @State private var showMemoryBrowser = false
+    @State private var showSkillManager = false
     @State private var confirmClearMemories = false
     @State private var confirmClearConversations = false
     @State private var exportURL: URL?
@@ -47,6 +48,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showDataFlow) { DataFlowPanelView() }
         .sheet(isPresented: $showMemoryBrowser) { MemoryBrowserView() }
         .sheet(isPresented: $showAgentManager) { AgentManagerView() }
+        .sheet(isPresented: $showSkillManager) { SkillManagerView() }
         .alert("清空全部记忆？", isPresented: $confirmClearMemories) {
             Button("取消", role: .cancel) {}
             Button("清空", role: .destructive) { clearMemories() }
@@ -248,6 +250,30 @@ struct SettingsView: View {
             } label: {
                 HStack {
                     Text("记忆浏览器")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColor.tertiaryText)
+                }
+            }
+
+            Button {
+                showSkillManager = true
+            } label: {
+                HStack {
+                    Text("技能管理")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColor.tertiaryText)
+                }
+            }
+
+            Button {
+                showAgentManager = true
+            } label: {
+                HStack {
+                    Text("智能体管理")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
