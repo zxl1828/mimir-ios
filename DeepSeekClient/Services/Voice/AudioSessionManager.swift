@@ -77,8 +77,10 @@ final class AudioSessionManager {
                 object: nil,
                 queue: .main
             ) { [weak self] note in
+                let typeRaw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+                let optionsRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
                 Task { @MainActor in
-                    self?.handleInterruption(note)
+                    self?.handleInterruption(typeRaw: typeRaw, optionsRaw: optionsRaw)
                 }
             }
         )
@@ -101,14 +103,13 @@ final class AudioSessionManager {
         observers.removeAll()
     }
 
-    private func handleInterruption(_ note: Notification) {
-        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+    private func handleInterruption(typeRaw: UInt?, optionsRaw: UInt) {
+        guard let typeRaw,
+              let type = AVAudioSession.InterruptionType(rawValue: typeRaw) else { return }
         switch type {
         case .began:
             onInterruption?(true)
         case .ended:
-            let optionsRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
             let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
             if options.contains(.shouldResume) {
                 try? AVAudioSession.sharedInstance().setActive(true)
