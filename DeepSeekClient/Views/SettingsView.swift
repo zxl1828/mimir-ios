@@ -190,7 +190,7 @@ struct SettingsView: View {
                 "合成引擎",
                 selection: Binding(
                     get: { settings.wrappedValue.voice.resolvedSynthesisPreference },
-                    set: { settings.voice.synthesisPreference = $0 }
+                    set: { settings.voice.synthesisPreference.wrappedValue = $0 }
                 )
             ) {
                 ForEach(VoiceSynthesisPreference.allCases) { option in
