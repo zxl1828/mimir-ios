@@ -78,54 +78,24 @@ enum BackgroundTaskScheduler {
         // BGTask 本身不是 Sendable，但它只在主线程被操作；
         // 这里显式标注以避免把整个调度器标记成非隔离。
         nonisolated(unsafe) let backgroundTask = task
-        let handle = BackgroundWorkHandle()
-        handle.task = Task {
+        let work = Task {
             await DailyBriefService.refreshInBackground()
         }
-        backgroundTask.expirationHandler = {
-            handle.cancel()
-        }
         Task {
-            await handle.task?.value
-            backgroundTask.setTaskCompleted(success: handle.wasCancelled == false)
+            let succeeded = await work.value
+            backgroundTask.setTaskCompleted(success: succeeded)
         }
     }
 
     private static func handleDailyBrief(_ task: BGProcessingTask) {
         scheduleDailyBrief()
         nonisolated(unsafe) let backgroundTask = task
-        let handle = BackgroundWorkHandle()
-        handle.task = Task {
+        let work = Task {
             await DailyBriefService.generateBrief()
         }
-        backgroundTask.expirationHandler = {
-            handle.cancel()
-        }
         Task {
-            let succeeded = await handle.task?.value ?? false
+            let succeeded = await work.value
             backgroundTask.setTaskCompleted(success: succeeded)
         }
-    }
-}
-
-/// 保存后台任务的句柄，供过期回调取消。
-final class BackgroundWorkHandle: @unchecked Sendable {
-    var task: Task<Bool, Never>?
-
-    private let lock = NSLock()
-    private var cancelled = false
-
-    var wasCancelled: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return cancelled
-    }
-
-    func cancel() {
-        lock.lock()
-        cancelled = true
-        let task = self.task
-        lock.unlock()
-        task?.cancel()
     }
 }
