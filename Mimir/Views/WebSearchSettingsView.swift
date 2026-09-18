@@ -20,8 +20,8 @@ struct WebSearchSettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Toggle("启用联网搜索", isOn: settings.webSearch.isEnabled)
-                    Picker("搜索后端", selection: settings.webSearch.backend) {
+                    Toggle("启用联网搜索", isOn: $settings.webSearch.isEnabled)
+                    Picker("搜索后端", selection: $settings.webSearch.backend) {
                         ForEach(WebSearchBackend.allCases) { backend in
                             Text(backend.title).tag(backend)
                         }
@@ -29,12 +29,12 @@ struct WebSearchSettingsView: View {
                 } header: {
                     Text("开关")
                 } footer: {
-                    Text(settings.wrappedValue.webSearch.backend.detail)
+                    Text(settings.webSearch.backend.detail)
                 }
 
-                if settings.wrappedValue.webSearch.backend.requiresEndpoint {
+                if settings.webSearch.backend.requiresEndpoint {
                     Section {
-                        TextField("http://192.168.0.105:8848", text: settings.webSearch.customEndpoint)
+                        TextField("http://192.168.0.105:8848", text: $settings.webSearch.customEndpoint)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                             .keyboardType(.URL)
@@ -46,7 +46,7 @@ struct WebSearchSettingsView: View {
                     }
                 }
 
-                if settings.wrappedValue.webSearch.backend.requiresAPIKey {
+                if settings.webSearch.backend.requiresAPIKey {
                     Section {
                         HStack(spacing: 10) {
                             Group {
@@ -72,7 +72,7 @@ struct WebSearchSettingsView: View {
 
                         Button("保存 Key 到钥匙串") {
                             do {
-                                try settings.wrappedValue.storeWebSearchKey(apiKeyDraft)
+                                try settings.storeWebSearchKey(apiKeyDraft)
                                 testMessage = "已保存。"
                                 testSucceeded = true
                                 Haptics.notify(.success)
@@ -92,11 +92,11 @@ struct WebSearchSettingsView: View {
 
                 Section("行为") {
                     Stepper(
-                        "每次返回 \(settings.wrappedValue.webSearch.resultCount) 条结果",
-                        value: settings.webSearch.resultCount,
+                        "每次返回 \(settings.webSearch.resultCount) 条结果",
+                        value: $settings.webSearch.resultCount,
                         in: 3...15
                     )
-                    Toggle("要求模型标注来源编号", isOn: settings.webSearch.citeSources)
+                    Toggle("要求模型标注来源编号", isOn: $settings.webSearch.citeSources)
                 }
 
                 Section {

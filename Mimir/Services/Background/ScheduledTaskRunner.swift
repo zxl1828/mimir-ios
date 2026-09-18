@@ -192,7 +192,7 @@ enum ScheduledTaskRunner {
     }
 
     /// 最近一次将要触发的任务时间，用来安排后台唤醒。
-    static func nextFireDate(tasks: [ScheduledTask], after date: Date = Date()) -> Date? {
+    nonisolated static func nextFireDate(tasks: [ScheduledTask], after date: Date = Date()) -> Date? {
         tasks.compactMap { $0.nextFireDate(after: date) }.min()
     }
 }
