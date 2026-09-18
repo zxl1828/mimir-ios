@@ -1,70 +1,82 @@
 import SwiftUI
+import SwiftData
 import UIKit
 
 /// 沉浸式语音模式。
 ///
-/// 本批构建提供完整的界面与状态呈现；语音识别 / 合成的引擎接入
-/// 在语音批次中完成（`VoiceSessionViewModel` 负责驱动下面这些状态）。
+/// 交互流程：进入即开始聆听 → 静音一段时间后自动提交 → 边生成边逐句朗读 →
+/// 用户随时开口即可打断 → 回到聆听，形成连续对话。
 struct VoiceModeView: View {
 
     let chat: ChatViewModel
 
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppSettings.self) private var settings
-    @State private var state: VoiceSessionState = .idle
-    @State private var lines: [VoiceTranscriptLine] = []
-    @State private var inputLevel: Double = 0
-    @State private var outputLevel: Double = 0
-    @State private var unavailable: VoiceUnavailableReason?
-    @State private var pulseTimer: Task<Void, Never>?
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var session: VoiceSessionViewModel?
 
     var body: some View {
         ZStack {
             AuroraBackground(intensity: 1.15)
 
-            VStack(spacing: 0) {
-                topBar
-
-                Spacer(minLength: 0)
-
-                VoiceOrb(
-                    state: state,
-                    inputLevel: inputLevel,
-                    outputLevel: outputLevel
-                )
-
-                Text(state.title)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(AppColor.secondaryText)
-                    .padding(.top, 8)
-
-                transcriptArea
-                    .padding(.top, 18)
-
-                Spacer(minLength: 0)
-
-                if let unavailable {
-                    unavailableCard(unavailable)
-                } else {
-                    controls
-                }
+            if let session {
+                content(session)
+            } else {
+                ProgressView().tint(AppColor.brandIndigo)
             }
-            .padding(.horizontal, 22)
-            .padding(.bottom, 24)
         }
-        .onAppear { prepare() }
+        .task {
+            if session == nil {
+                session = VoiceSessionViewModel(settings: settings, modelContext: modelContext)
+            }
+            await session?.start(conversation: chat.conversation)
+        }
         .onDisappear {
-            pulseTimer?.cancel()
-            state = .idle
+            session?.end()
         }
+    }
+
+    private func content(_ session: VoiceSessionViewModel) -> some View {
+        VStack(spacing: 0) {
+            topBar(session)
+
+            Spacer(minLength: 0)
+
+            VoiceOrb(
+                state: session.state,
+                inputLevel: session.inputLevel,
+                outputLevel: session.outputLevel
+            )
+
+            Text(session.state.title)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(AppColor.secondaryText)
+                .padding(.top, 6)
+                .contentTransition(.opacity)
+                .animation(.easeInOut(duration: 0.2), value: session.state)
+
+            transcriptArea(session)
+                .padding(.top, 16)
+
+            Spacer(minLength: 0)
+
+            if let reason = session.unavailable {
+                unavailableCard(reason, session: session)
+            } else {
+                controls(session)
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.bottom, 24)
     }
 
     // MARK: - 顶栏
 
-    private var topBar: some View {
+    private func topBar(_ session: VoiceSessionViewModel) -> some View {
         HStack {
             Button {
                 Haptics.impact(.light)
+                session.end()
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
@@ -78,62 +90,94 @@ struct VoiceModeView: View {
 
             Spacer()
 
-            Text("语音对话")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(AppColor.primaryText)
+            VStack(spacing: 1) {
+                Text("语音对话")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppColor.primaryText)
+                Text(session.usesBuiltInVoice ? "内置语音模型" : "系统语音合成")
+                    .font(AppFont.chipCompact)
+                    .foregroundStyle(AppColor.tertiaryText)
+            }
 
             Spacer()
 
             Color.clear.frame(width: 36, height: 36)
         }
         .padding(.top, 8)
+        .overlay(alignment: .bottom) {
+            if let info = session.infoText {
+                Text(info)
+                    .font(AppFont.chipCompact)
+                    .foregroundStyle(AppColor.warning)
+                    .padding(.top, 6)
+                    .offset(y: 20)
+            }
+        }
     }
 
     // MARK: - 转写
 
-    private var transcriptArea: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                if lines.isEmpty {
-                    Text("说点什么，我会在你说完后自动回应。")
-                        .font(AppFont.hint)
-                        .foregroundStyle(AppColor.tertiaryText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                ForEach(lines) { line in
-                    HStack {
-                        if line.isUser { Spacer(minLength: 30) }
-                        Text(line.text)
-                            .font(AppFont.bubbleBody)
-                            .foregroundStyle(line.isUser ? .white : AppColor.primaryText)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 9)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .fill(line.isUser
-                                          ? AnyShapeStyle(AppColor.accentGradient)
-                                          : AnyShapeStyle(AppColor.secondaryText.opacity(0.10)))
-                            )
-                            .opacity(line.isFinal ? 1 : 0.72)
-                        if !line.isUser { Spacer(minLength: 30) }
+    private func transcriptArea(_ session: VoiceSessionViewModel) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    if session.lines.isEmpty && session.partialText.isEmpty {
+                        Text("说点什么，我会在你说完后自动回应。")
+                            .font(AppFont.hint)
+                            .foregroundStyle(AppColor.tertiaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    ForEach(session.lines) { line in
+                        bubble(line.isUser, text: line.text, isFinal: line.isFinal)
+                            .id(line.id)
+                    }
+
+                    if !session.partialText.isEmpty {
+                        bubble(true, text: session.partialText, isFinal: false)
+                            .id("partial")
                     }
                 }
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
+            .frame(maxHeight: 220)
+            .scrollIndicators(.hidden)
+            .onChange(of: session.lines.count) { _, _ in
+                withAnimation(AppAnimation.bubble) {
+                    proxy.scrollTo(session.lines.last?.id, anchor: .bottom)
+                }
+            }
         }
-        .frame(maxHeight: 220)
-        .scrollIndicators(.hidden)
+    }
+
+    private func bubble(_ isUser: Bool, text: String, isFinal: Bool) -> some View {
+        HStack {
+            if isUser { Spacer(minLength: 30) }
+            Text(text)
+                .font(AppFont.bubbleBody)
+                .foregroundStyle(isUser ? .white : AppColor.primaryText)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(isUser
+                              ? AnyShapeStyle(AppColor.accentGradient)
+                              : AnyShapeStyle(AppColor.secondaryText.opacity(0.10)))
+                )
+                .opacity(isFinal ? 1 : 0.72)
+            if !isUser { Spacer(minLength: 30) }
+        }
     }
 
     // MARK: - 控制
 
-    private var controls: some View {
-        HStack(spacing: 26) {
+    private func controls(_ session: VoiceSessionViewModel) -> some View {
+        HStack(spacing: 24) {
             Button {
                 Haptics.impact(.light)
-                toggleListening()
+                session.toggleListening()
             } label: {
-                Image(systemName: state == .listening ? "pause.fill" : "mic.fill")
+                Image(systemName: session.state == .listening ? "pause.fill" : "mic.fill")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 66, height: 66)
@@ -141,11 +185,11 @@ struct VoiceModeView: View {
                     .shadow(color: AppColor.brandIndigo.opacity(0.35), radius: 16, y: 8)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(state == .listening ? "暂停聆听" : "开始说话")
+            .accessibilityLabel(session.state == .listening ? "暂停聆听" : "开始说话")
 
             Button {
                 Haptics.impact(.medium)
-                interrupt()
+                session.interrupt()
             } label: {
                 Image(systemName: "hand.raised.fill")
                     .font(.system(size: 17, weight: .semibold))
@@ -154,13 +198,16 @@ struct VoiceModeView: View {
                     .background(Circle().fill(AppColor.secondaryText.opacity(0.12)))
             }
             .buttonStyle(.plain)
-            .disabled(state != .speaking)
-            .opacity(state == .speaking ? 1 : 0.45)
+            .disabled(session.state != .speaking && session.state != .thinking)
+            .opacity(session.state == .speaking || session.state == .thinking ? 1 : 0.45)
             .accessibilityLabel("打断")
         }
     }
 
-    private func unavailableCard(_ reason: VoiceUnavailableReason) -> some View {
+    private func unavailableCard(
+        _ reason: VoiceUnavailableReason,
+        session: VoiceSessionViewModel
+    ) -> some View {
         VStack(spacing: 10) {
             Text(reason.title)
                 .font(.system(size: 15, weight: .semibold))
@@ -169,69 +216,40 @@ struct VoiceModeView: View {
                 .font(AppFont.hint)
                 .foregroundStyle(AppColor.secondaryText)
                 .multilineTextAlignment(.center)
-            if reason.canOpenSettings {
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                if reason.canOpenSettings {
+                    Button {
+                        openSystemSettings()
+                    } label: {
+                        Text("前往系统设置")
+                            .font(AppFont.chip)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .background(Capsule().fill(AppColor.accentGradient))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 Button {
-                    openSystemSettings()
+                    Task { await session.start(conversation: chat.conversation) }
                 } label: {
-                    Text("前往系统设置")
+                    Text("重试")
                         .font(AppFont.chip)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppColor.primaryText)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 9)
-                        .background(Capsule().fill(AppColor.accentGradient))
+                        .background(Capsule().fill(AppColor.secondaryText.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.top, 2)
         }
         .padding(16)
         .liquidGlassCard(cornerRadius: 18)
         .glassHairline(cornerRadius: 18)
-    }
-
-    // MARK: - 行为
-
-    private func prepare() {
-        // 语音引擎在语音批次接入；先展示界面与状态机，
-        // 让用户明确知道当前处在哪一步，而不是点了没反应。
-        state = .idle
-        if !settings.hasUsableCredential {
-            unavailable = .offline
-        }
-    }
-
-    private func toggleListening() {
-        if state == .listening {
-            state = .idle
-            pulseTimer?.cancel()
-            inputLevel = 0
-        } else {
-            state = .listening
-            startLevelPulse()
-        }
-    }
-
-    private func interrupt() {
-        state = .interrupted
-        outputLevel = 0
-        Haptics.notify(.warning)
-        Task {
-            try? await Task.sleep(for: .milliseconds(450))
-            state = .listening
-        }
-    }
-
-    private func startLevelPulse() {
-        pulseTimer?.cancel()
-        pulseTimer = Task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(180))
-                await MainActor.run {
-                    if state == .listening {
-                        inputLevel = Double.random(in: 0.1...0.9)
-                    }
-                }
-            }
-        }
     }
 
     private func openSystemSettings() {
