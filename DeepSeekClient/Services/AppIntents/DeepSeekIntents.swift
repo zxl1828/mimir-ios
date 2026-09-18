@@ -4,9 +4,9 @@ import AppIntents
 // MARK: - 选择文本后的快捷操作
 
 struct SummarizeTextIntent: AppIntent {
-    static var title: LocalizedStringResource = "总结文本"
-    static var description = IntentDescription("用 DeepSeek 把一段文字压缩成要点。")
-    static var openAppWhenRun: Bool = false
+    static var title: LocalizedStringResource { "总结文本" }
+    static var description: IntentDescription? { IntentDescription("用 DeepSeek 把一段文字压缩成要点。") }
+    static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "文本", description: "要总结的内容")
     var text: String
@@ -27,9 +27,9 @@ struct SummarizeTextIntent: AppIntent {
 }
 
 struct TranslateTextIntent: AppIntent {
-    static var title: LocalizedStringResource = "翻译文本"
-    static var description = IntentDescription("中英互译，保留术语与原文语气。")
-    static var openAppWhenRun: Bool = false
+    static var title: LocalizedStringResource { "翻译文本" }
+    static var description: IntentDescription? { IntentDescription("中英互译，保留术语与原文语气。") }
+    static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "文本")
     var text: String
@@ -41,11 +41,13 @@ struct TranslateTextIntent: AppIntent {
         case chinese
         case english
 
-        static var typeDisplayRepresentation: TypeDisplayRepresentation = "目标语言"
-        static var caseDisplayRepresentations: [LanguageOption: DisplayRepresentation] = [
-            .chinese: "中文",
-            .english: "英文"
-        ]
+        static var typeDisplayRepresentation: TypeDisplayRepresentation { "目标语言" }
+        static var caseDisplayRepresentations: [LanguageOption: DisplayRepresentation] {
+            [
+                .chinese: "中文",
+                .english: "英文"
+            ]
+        }
     }
 
     init() {}
@@ -61,9 +63,9 @@ struct TranslateTextIntent: AppIntent {
 }
 
 struct PolishTextIntent: AppIntent {
-    static var title: LocalizedStringResource = "润色文本"
-    static var description = IntentDescription("改善措辞与语气，保持原意不变。")
-    static var openAppWhenRun: Bool = false
+    static var title: LocalizedStringResource { "润色文本" }
+    static var description: IntentDescription? { IntentDescription("改善措辞与语气，保持原意不变。") }
+    static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "文本")
     var text: String
@@ -80,9 +82,9 @@ struct PolishTextIntent: AppIntent {
 }
 
 struct ExplainCodeIntent: AppIntent {
-    static var title: LocalizedStringResource = "解释代码"
-    static var description = IntentDescription("讲清这段代码在做什么，以及可能的问题。")
-    static var openAppWhenRun: Bool = false
+    static var title: LocalizedStringResource { "解释代码" }
+    static var description: IntentDescription? { IntentDescription("讲清这段代码在做什么，以及可能的问题。") }
+    static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "代码")
     var code: String
@@ -99,9 +101,9 @@ struct ExplainCodeIntent: AppIntent {
 }
 
 struct ComposeMailIntent: AppIntent {
-    static var title: LocalizedStringResource = "写邮件"
-    static var description = IntentDescription("根据要点写一封得体的邮件。")
-    static var openAppWhenRun: Bool = false
+    static var title: LocalizedStringResource { "写邮件" }
+    static var description: IntentDescription? { IntentDescription("根据要点写一封得体的邮件。") }
+    static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "要点", description: "这封邮件要说的事情")
     var outline: String

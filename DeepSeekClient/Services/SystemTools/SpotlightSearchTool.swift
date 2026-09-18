@@ -49,7 +49,7 @@ enum SpotlightSearchTool {
             let escaped = trimmed.replacingOccurrences(of: "\"", with: "")
             let searchQuery = CSSearchQuery(
                 queryString: "title == \"*\(escaped)*\"c || contentDescription == \"*\(escaped)*\"c",
-                context: context
+                queryContext: context
             )
 
             searchQuery.foundItemsHandler = { items in
