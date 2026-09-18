@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import UniformTypeIdentifiers
 
 /// 技能管理：浏览、创建、编辑、导入导出、恢复内置技能。
 struct SkillManagerView: View {

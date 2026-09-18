@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 import SwiftData
+import SwiftUI
+import UIKit
 
 /// 对话状态与流式响应处理。
 ///
@@ -27,7 +29,7 @@ final class ChatViewModel {
     var quotedMessage: ChatMessage?
     var activeAgent: AgentDockItem?
     var activeSkill: Skill?
-    var suggestedReplies: [String] = []
+    var replySuggestions: [String] = []
     var skills: [Skill] = []
     /// 斜杠命令上下文：非 nil 表示技能选择器应当展开。
     var slashQuery: String?
@@ -240,7 +242,7 @@ final class ChatViewModel {
         attachedImages = []
         quotedMessage = nil
         errorMessage = nil
-        suggestedReplies = []
+        replySuggestions = []
         dismissRecommendations()
 
         persist(force: true)
