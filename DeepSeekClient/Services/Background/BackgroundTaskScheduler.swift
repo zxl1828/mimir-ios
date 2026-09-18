@@ -75,27 +75,41 @@ enum BackgroundTaskScheduler {
 
     private static func handleRefresh(_ task: BGAppRefreshTask) {
         scheduleAppRefresh()
-        // BGTask 本身不是 Sendable，但它只在主线程被操作；
-        // 这里显式标注以避免把整个调度器标记成非隔离。
-        nonisolated(unsafe) let backgroundTask = task
+        let box = BackgroundTaskBox(task)
         let work = Task {
             await DailyBriefService.refreshInBackground()
         }
         Task {
             let succeeded = await work.value
-            backgroundTask.setTaskCompleted(success: succeeded)
+            box.complete(success: succeeded)
         }
     }
 
     private static func handleDailyBrief(_ task: BGProcessingTask) {
         scheduleDailyBrief()
-        nonisolated(unsafe) let backgroundTask = task
+        let box = BackgroundTaskBox(task)
         let work = Task {
             await DailyBriefService.generateBrief()
         }
         Task {
             let succeeded = await work.value
-            backgroundTask.setTaskCompleted(success: succeeded)
+            box.complete(success: succeeded)
         }
+    }
+}
+
+/// 把 `BGTask` 包成可跨并发域传递的句柄。
+///
+/// `BGTask` 自身没有标 Sendable，但系统保证同一个任务对象只会被顺序访问，
+/// 因此这里用 `@unchecked Sendable` 显式承接这个约定。
+final class BackgroundTaskBox: @unchecked Sendable {
+    private let task: BGTask
+
+    init(_ task: BGTask) {
+        self.task = task
+    }
+
+    func complete(success: Bool) {
+        task.setTaskCompleted(success: success)
     }
 }
