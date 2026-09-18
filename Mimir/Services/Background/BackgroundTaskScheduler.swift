@@ -73,6 +73,19 @@ enum BackgroundTaskScheduler {
 
     // MARK: - 处理
 
+    /// 按用户任务重新安排下一次唤醒：取最近一次触发时间提交后台请求。
+    static func reschedule(tasks: [ScheduledTask]) {
+        guard let next = ScheduledTaskRunner.nextFireDate(tasks: tasks) else {
+            BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: briefIdentifier)
+            return
+        }
+        let request = BGProcessingTaskRequest(identifier: briefIdentifier)
+        request.requiresNetworkConnectivity = true
+        request.requiresExternalPower = false
+        request.earliestBeginDate = next
+        try? BGTaskScheduler.shared.submit(request)
+    }
+
     private static func handleRefresh(_ task: BGAppRefreshTask) {
         scheduleAppRefresh()
         let box = BackgroundTaskBox(task)
@@ -86,10 +99,9 @@ enum BackgroundTaskScheduler {
     }
 
     private static func handleDailyBrief(_ task: BGProcessingTask) {
-        scheduleDailyBrief()
         let box = BackgroundTaskBox(task)
         let work = Task {
-            await DailyBriefService.generateBrief()
+            await ScheduledTaskRunner.runDueTasks()
         }
         Task {
             let succeeded = await work.value

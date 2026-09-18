@@ -24,6 +24,7 @@ struct RootView: View {
         .preferredColorScheme(nil)
         .task {
             StartupCoordinator.seedIfNeeded(context: modelContext)
+            StartupCoordinator.refreshScheduledTasks(context: modelContext)
             isReady = true
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -58,10 +59,31 @@ enum StartupCoordinator {
                 }
             }
 
+            let taskCount = try context.fetchCount(FetchDescriptor<ScheduledTask>())
+            if taskCount == 0 {
+                context.insert(
+                    ScheduledTask(
+                        title: "每日简报",
+                        prompt: "请生成今天的简报：先用一句话概括今天，再给出三条值得关注的提醒（工作安排、待办梳理、效率建议）。",
+                        thinkingMode: .quick,
+                        hour: 8,
+                        minute: 0,
+                        isEnabled: false
+                    )
+                )
+            }
+
             if context.hasChanges { try context.save() }
         } catch {
             // 种子数据失败不应阻断启动，下一次启动会重试。
         }
+    }
+
+    /// 冷启动时把下一次后台唤醒重新排上。
+    @MainActor
+    static func refreshScheduledTasks(context: ModelContext) {
+        let tasks = (try? context.fetch(FetchDescriptor<ScheduledTask>())) ?? []
+        BackgroundTaskScheduler.reschedule(tasks: tasks)
     }
 
     @MainActor

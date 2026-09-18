@@ -53,7 +53,9 @@ final class AppSettings {
         static let suggestionsEnabled = "settings.suggestions.enabled.v1"
         static let selectedAgent = "settings.agent.selected.v1"
         static let customModels = "settings.custom.models.v1"
+        static let webSearch = "settings.websearch.v1"
         static let secretAccount = "app.api.key"
+        static let webSearchSecretAccount = "websearch.api.key"
     }
 
     private let defaults: UserDefaults
@@ -109,6 +111,10 @@ final class AppSettings {
         didSet { persist(customModels, forKey: Key.customModels) }
     }
 
+    var webSearch: WebSearchConfiguration {
+        didSet { persist(webSearch, forKey: Key.webSearch) }
+    }
+
     var hasUsableCredential: Bool {
         !credential.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -133,6 +139,8 @@ final class AppSettings {
         self.suggestionsEnabled = defaults.object(forKey: Key.suggestionsEnabled) as? Bool ?? true
         self.selectedAgentName = defaults.string(forKey: Key.selectedAgent) ?? ""
         self.customModels = Self.load([CustomModelEntry].self, from: defaults, key: Key.customModels) ?? []
+        self.webSearch = Self.load(WebSearchConfiguration.self, from: defaults, key: Key.webSearch)
+            ?? WebSearchConfiguration()
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)
             ?? APICredential.placeholder
@@ -169,6 +177,24 @@ final class AppSettings {
         if value.baseURL.isEmpty { value.baseURL = value.format.defaultBaseURL }
         if value.modelID.isEmpty { value.modelID = value.format.defaultModelID }
         return value
+    }
+
+    // MARK: - 联网搜索密钥
+
+    /// 搜索服务的密钥，同样只放钥匙串。
+    var resolvedWebSearchKey: String? {
+        let value = keychain.string(for: Key.webSearchSecretAccount)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return (value?.isEmpty ?? true) ? nil : value
+    }
+
+    func storeWebSearchKey(_ value: String) throws {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            try keychain.remove(account: Key.webSearchSecretAccount)
+        } else {
+            try keychain.setString(trimmed, for: Key.webSearchSecretAccount)
+        }
     }
 
     // MARK: - 私有

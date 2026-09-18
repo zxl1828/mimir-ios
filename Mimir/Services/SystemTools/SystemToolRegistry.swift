@@ -9,6 +9,7 @@ enum SystemToolRegistry {
     static let ocrToolName = "ocr_extract_text"
     static let barcodeToolName = "barcode_scan"
     static let spotlightToolName = "spotlight_search"
+    static let webSearchToolName = "web_search"
 
     static var definitions: [LLMToolDefinition] {
         [
@@ -31,6 +32,16 @@ enum SystemToolRegistry {
                 description: "在本机 Spotlight 索引中检索内容，返回标题与摘要。",
                 parametersJSON: """
                 {"type":"object","properties":{"query":{"type":"string","description":"检索关键词"}},"required":["query"]}
+                """
+            ),
+            LLMToolDefinition(
+                name: webSearchToolName,
+                description: """
+                联网搜索最新信息。当问题涉及时效性内容（新闻、价格、版本号、近期事件、\
+                你不确定或可能过时的事实时）主动调用。返回结果带有来源编号，回答时请标注引用。
+                """,
+                parametersJSON: """
+                {"type":"object","properties":{"query":{"type":"string","description":"搜索关键词，尽量具体"}},"required":["query"]}
                 """
             )
         ]
@@ -76,13 +87,40 @@ enum SystemToolRegistry {
                 .map { "- \($0.title)：\($0.snippet)" }
                 .joined(separator: "\n")
 
+        case webSearchToolName:
+            let query = (Self.stringArgument("query", in: argumentsJSON) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !query.isEmpty else { return "没有提供搜索关键词。" }
+
+            let settings = AppSettings()
+            guard settings.webSearch.isEnabled else {
+                return "用户关闭了联网搜索，无法查询实时信息。请基于已有知识回答，并说明这一点。"
+            }
+            do {
+                let results = try await WebSearchService.search(
+                    query: query,
+                    configuration: settings.webSearch,
+                    apiKey: settings.resolvedWebSearchKey
+                )
+                return WebSearchService.formatForModel(
+                    results,
+                    query: query,
+                    cite: settings.webSearch.citeSources
+                )
+            } catch {
+                return "联网搜索失败：\(error.localizedDescription)"
+            }
+
         default:
             return "未知的本地工具：\(name)"
         }
     }
 
     static func isLocalTool(_ name: String) -> Bool {
-        name == ocrToolName || name == barcodeToolName || name == spotlightToolName
+        name == ocrToolName
+            || name == barcodeToolName
+            || name == spotlightToolName
+            || name == webSearchToolName
     }
 
     private static func stringArgument(_ key: String, in json: String) -> String? {

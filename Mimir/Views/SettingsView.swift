@@ -21,6 +21,8 @@ struct SettingsView: View {
     @State private var showMemoryBrowser = false
     @State private var showSkillManager = false
     @State private var showMCPServers = false
+    @State private var showScheduledTasks = false
+    @State private var showWebSearchSettings = false
     @State private var confirmClearMemories = false
     @State private var confirmClearConversations = false
     @State private var exportURL: URL?
@@ -52,6 +54,8 @@ struct SettingsView: View {
         .sheet(isPresented: $showAgentManager) { AgentManagerView() }
         .sheet(isPresented: $showSkillManager) { SkillManagerView() }
         .sheet(isPresented: $showMCPServers) { MCPServersView() }
+        .sheet(isPresented: $showScheduledTasks) { ScheduledTasksView() }
+        .sheet(isPresented: $showWebSearchSettings) { WebSearchSettingsView() }
         .alert("清空全部记忆？", isPresented: $confirmClearMemories) {
             Button("取消", role: .cancel) {}
             Button("清空", role: .destructive) { clearMemories() }
@@ -312,6 +316,22 @@ struct SettingsView: View {
                 showMCPServers = true
             } label: {
                 extensionRow(title: "MCP 服务器", icon: "point.3.connected.trianglepath.dotted", tint: AppColor.brandTeal)
+            }
+
+            Button {
+                showWebSearchSettings = true
+            } label: {
+                extensionRow(
+                    title: "联网搜索",
+                    icon: "globe",
+                    tint: settings.webSearch.isEnabled ? AppColor.success : AppColor.secondaryText
+                )
+            }
+
+            Button {
+                showScheduledTasks = true
+            } label: {
+                extensionRow(title: "定时任务", icon: "clock.badge.checkmark", tint: AppColor.warning)
             }
         } header: {
             Text("扩展")

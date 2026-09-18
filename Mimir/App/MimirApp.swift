@@ -12,7 +12,8 @@ struct MimirApp: App {
             MemoryEntry.self,
             Skill.self,
             AgentDockItem.self,
-            MCPServerConfig.self
+            MCPServerConfig.self,
+            ScheduledTask.self
         ])
         let configuration = ModelConfiguration(
             schema: schema,
@@ -37,9 +38,9 @@ struct MimirApp: App {
     }
 
     init() {
+        AppContainer.shared = container
         // 后台任务必须在启动早期注册，否则系统会拒绝调度。
         BackgroundTaskScheduler.register()
         BackgroundTaskScheduler.scheduleAppRefresh()
-        BackgroundTaskScheduler.scheduleDailyBrief(hour: 8, minute: 0)
     }
 }
