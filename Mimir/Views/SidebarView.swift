@@ -76,6 +76,8 @@ struct SidebarView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
+            MimirMascot(size: 34, mood: .calm)
+
             VStack(alignment: .leading, spacing: 1) {
                 Text("Mimir")
                     .font(.system(size: 19, weight: .bold, design: .rounded))

@@ -87,7 +87,7 @@ struct MessageBubble: View {
                 errorSection
             } else if message.text.isEmpty && message.isStreaming {
                 HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
+                    MimirMascot(size: 26, mood: .thinking)
                     Text("正在生成…")
                         .font(AppFont.hint)
                         .foregroundStyle(AppColor.secondaryText)

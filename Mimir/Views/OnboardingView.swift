@@ -33,6 +33,9 @@ struct OnboardingView: View {
                 Spacer(minLength: 0)
 
                 VStack(spacing: 0) {
+                    MimirMascot(size: 132, mood: phase == .success ? .happy : .calm)
+                        .padding(.bottom, 34)
+
                     keyField
 
                     continueButton

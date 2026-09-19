@@ -351,9 +351,8 @@ struct MainChatView: View {
 
     private var emptyState: some View {
         VStack(spacing: 14) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(AppColor.brandIndigo.opacity(0.7))
+            MimirMascot(size: 118, mood: .calm)
+                .padding(.bottom, 2)
             Text("开始一段新对话")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(AppColor.primaryText)
