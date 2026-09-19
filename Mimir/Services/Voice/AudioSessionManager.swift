@@ -78,6 +78,19 @@ final class AudioSessionManager {
         }
 
         let box = PermissionBox()
+        // 语音界面是全屏 cover；转场还没结束就弹系统授权框，在这台设备上会直接把 App 带走。
+        try? await Task.sleep(for: .milliseconds(600))
+
+        // 先探一次识别器本身是否可用（语言不支持 / 服务不可用时直接放弃，不弹窗）。
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN")),
+              recognizer.isAvailable else {
+            AppDiagnostics.shared.log("voice: recognizer unavailable")
+            return false
+        }
+        AppDiagnostics.shared.log(
+            "voice: recognizer ok, onDevice = \(recognizer.supportsOnDeviceRecognition)"
+        )
+
         do {
             try ObjCExceptionCatcher.perform {
                 SFSpeechRecognizer.requestAuthorization { status in

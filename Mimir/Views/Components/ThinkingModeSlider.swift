@@ -1,34 +1,30 @@
 import SwiftUI
 import UIKit
 
-/// 思考模式滑块。
+/// 思考程度滑块：完全手写的玻璃拟物滑块（不用原生 `Slider`，因为原生改不了
+/// 手柄溢出与多层光晕）。
 ///
-/// 收起时是输入框上方的小状态胶囊，点开后是横向滑块；
-/// 轨道填充色随位置冷 → 暖插值，Ultra 档带一整套持续动效。
+/// 交互：拖动 1:1 跟手 → 松手 spring 吸附到最近档位；
+/// 文案：非 Max 显示档位名（浅灰白），Max 切换成「更快消耗使用额度」（淡紫），淡入淡出。
 struct ThinkingModeSlider: View {
 
     @Binding var selection: ThinkingMode
 
-    @State private var isPresented = false
     @State private var progress: Double = 0
     @State private var isDragging = false
-    @State private var stretch: CGFloat = 0
-    @State private var lastHapticIndex = -1
-    @State private var haloScale: CGFloat = 0.8
-    @State private var haloOpacity: Double = 0
-    @State private var breath = false
+    @State private var isPresented = false
 
-    private let indicatorSize: CGFloat = 34
-    private let trackHeight: CGFloat = 44
+    private let trackHeight: CGFloat = 60
+    private let thumbSize: CGFloat = 64
 
-    private var isUltra: Bool { selection == .ultra }
+    private var isMax: Bool { selection == .ultra }
 
     var body: some View {
         Button {
             Haptics.impact(.light)
             isPresented.toggle()
         } label: {
-            capsuleLabel
+            collapsedLabel
         }
         .buttonStyle(.plain)
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
@@ -36,25 +32,20 @@ struct ThinkingModeSlider: View {
                 .presentationCompactAdaptation(.popover)
                 .presentationBackground(.clear)
         }
-        .onAppear {
-            progress = selection.normalized
-            lastHapticIndex = ThinkingMode.allCases.firstIndex(of: selection) ?? 0
-        }
+        .onAppear { progress = selection.normalized }
         .onChange(of: selection) { _, newValue in
             guard !isDragging else { return }
-            withAnimation(AppAnimation.thinkingSnap) {
-                progress = newValue.normalized
-            }
+            withAnimation(AppAnimation.thinkingSnap) { progress = newValue.normalized }
         }
     }
 
-    // MARK: - 收起状态
+    // MARK: - 收起状态（输入框上方的小胶囊）
 
-    private var capsuleLabel: some View {
+    private var collapsedLabel: some View {
         HStack(spacing: 5) {
             Image(systemName: selection.systemImage)
                 .font(.system(size: 11, weight: .semibold))
-            Text(selection.shortTitle)
+            Text(selection.title)
                 .font(AppFont.chipCompact)
         }
         .foregroundStyle(selection.tint)
@@ -65,284 +56,250 @@ struct ThinkingModeSlider: View {
             Capsule(style: .continuous)
                 .strokeBorder(selection.tint.opacity(0.38), lineWidth: 0.8)
         )
-        .background { if isUltra { bloomLayer } }
-        .overlay { if isUltra { particleLayer } }
-        // 收起状态不再做呼吸缩放 / 扫光：之前 Max 标签会一直抽搐闪烁。
-        .shadow(color: isUltra ? selection.tint.opacity(0.28) : .clear, radius: 10)
-        .onAppear { startBreathingIfNeeded() }
-        .onChange(of: selection) { _, _ in startBreathingIfNeeded() }
-    }
-
-    private var shimmerMask: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isUltra)) { timeline in
-            let phase = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2.4) / 2.4
-            LinearGradient(
-                colors: [.clear, Color.white.opacity(0.85), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: 70)
-            .offset(x: -35 + CGFloat(phase) * 70)
-            .blendMode(.plusLighter)
-            .allowsHitTesting(false)
-        }
-    }
-
-    /// Max 档：中心铺开的暖色泛光（进入档位时放大到位，离开即消失）。
-    private var bloomLayer: some View {
-        RadialGradient(
-            colors: [selection.tint.opacity(0.55), selection.tint.opacity(0.0)],
-            center: .center,
-            startRadius: 2,
-            endRadius: 52
-        )
-        .scaleEffect(breath ? 1.16 : 0.92)
-        .opacity(breath ? 0.9 : 0.4)
-        .animation(AppAnimation.ultraBreath, value: breath)
-        .allowsHitTesting(false)
-    }
-
-    /// Max 档：10 颗光粒按固定随机角度向外飘散（Canvas 绘制，离开档位时间线暂停）。
-    private var particleLayer: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isUltra)) { timeline in
-            Canvas { context, size in
-                let time = timeline.date.timeIntervalSinceReferenceDate
-                let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                for index in 0..<10 {
-                    let seed = Double(index)
-                    let angle = seed * 2.3999632
-                    let speed = 0.32 + (seed.truncatingRemainder(dividingBy: 3)) * 0.13
-                    let progress = (time * speed + seed * 0.37).truncatingRemainder(dividingBy: 1)
-                    let distance = 9 + progress * 30
-                    let dot = 1.1 + (1 - progress) * 2.2
-                    let point = CGPoint(
-                        x: center.x + CGFloat(cos(angle) * distance),
-                        y: center.y + CGFloat(sin(angle) * distance * 0.62)
-                    )
-                    context.fill(
-                        Path(
-                            ellipseIn: CGRect(
-                                x: point.x - dot,
-                                y: point.y - dot,
-                                width: dot * 2,
-                                height: dot * 2
-                            )
-                        ),
-                        with: .color(selection.tint.opacity(0.6 * (1 - progress)))
-                    )
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private func startBreathingIfNeeded() {
-        if isUltra {
-            withAnimation(AppAnimation.ultraBreath) { breath = true }
-        } else {
-            withAnimation(.easeOut(duration: 0.3)) { breath = false }
-        }
+        .shadow(color: selection.tint.opacity(0.25), radius: 10)
     }
 
     // MARK: - 展开面板
 
     private var panel: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("思考程度")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppColor.primaryText)
-                    .overlay { if isUltra { shimmerMask } }
-                Spacer(minLength: 8)
-                Text(selection.subtitle)
-                    .font(AppFont.hint)
-                    .foregroundStyle(AppColor.secondaryText)
+        VStack(spacing: 14) {
+            captionText
+
+            CustomThinkingSlider(
+                progress: $progress,
+                isDragging: $isDragging,
+                tint: selection.tint,
+                isMax: isMax,
+                trackHeight: trackHeight,
+                thumbSize: thumbSize
+            ) { snapped in
+                selection = snapped
             }
 
-            track
-
-            HStack(spacing: 0) {
-                ForEach(ThinkingMode.allCases) { mode in
-                    Button {
-                        Haptics.selectionChanged()
-                        UISelectionFeedbackGenerator().selectionChanged()
-                        withAnimation(AppAnimation.thinkingSnap) {
-                            selection = mode
-                            progress = mode.normalized
-                        }
-                        if mode == .ultra { triggerUltraFeedback() }
-                    } label: {
-                        Text(mode.shortTitle)
-                            .font(.system(size: 12, weight: selection == mode ? .semibold : .regular))
-                            .foregroundStyle(selection == mode ? mode.tint : AppColor.secondaryText)
-                            .frame(maxWidth: .infinity)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            levelLabels
         }
-        .padding(16)
-        .frame(width: 300)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 20))
-        .glassHairline(cornerRadius: 20)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 20)
+        .frame(width: 330)
+        .liquidGlass(.regular, in: .rect(cornerRadius: 26))
+        .glassHairline(cornerRadius: 26)
         .padding(1)
     }
 
-    private var track: some View {
-        GeometryReader { proxy in
-            // 指示器圆心与下方四个标签的中心对齐（标签是四等分居中排列），
-            // 这样两端不会一边空一边挤。
-            let width = proxy.size.width
-            let centerX = width * (0.125 + 0.75 * CGFloat(progress))
-
-            ZStack(alignment: .leading) {
-                Capsule(style: .continuous)
-                    .fill(AppColor.secondaryText.opacity(0.16))
-
-                Capsule(style: .continuous)
-                    .fill(fillGradient)
-                    .frame(width: max(centerX, indicatorSize))
-
-                if isUltra {
-                    flowingOverlay(width: proxy.size.width)
-                }
-
-                indicator(centerX: centerX)
-
-                if isUltra {
-                    particleField(indicatorX: centerX - indicatorSize / 2, size: proxy.size)
-                }
-            }
-            .contentShape(Rectangle())
-            .gesture(dragGesture(width: width))
-        }
-        .frame(height: trackHeight)
+    /// 动态文案：Max 时换成「更快消耗使用额度」，淡紫 + 发光。
+    private var captionText: some View {
+        Text(isMax ? "更快消耗使用额度" : selection.title)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isMax ? Color.purple.opacity(0.8) : Color.white.opacity(0.78))
+            .shadow(color: .white.opacity(0.5), radius: 10)
+            .shadow(color: selection.tint.opacity(0.35), radius: 18)
+            .animation(.easeInOut(duration: 0.25), value: selection)
+            .contentTransition(.opacity)
     }
 
-    private var fillGradient: LinearGradient {
+    private var levelLabels: some View {
+        HStack(spacing: 0) {
+            ForEach(ThinkingMode.allCases) { mode in
+                Button {
+                    Haptics.selectionChanged()
+                    withAnimation(AppAnimation.thinkingSnap) {
+                        selection = mode
+                        progress = mode.normalized
+                    }
+                } label: {
+                    Text(mode.title)
+                        .font(.system(size: 12, weight: selection == mode ? .semibold : .regular))
+                        .foregroundStyle(
+                            selection == mode
+                                ? (mode == .ultra ? Color.purple.opacity(0.9) : .white)
+                                : Color.white.opacity(0.45)
+                        )
+                        .shadow(color: .white.opacity(selection == mode ? 0.4 : 0), radius: 8)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+// MARK: - 滑块本体
+
+/// 自定义滑块：ZStack + GeometryReader + DragGesture 手写。
+struct CustomThinkingSlider: View {
+
+    @Binding var progress: Double
+    @Binding var isDragging: Bool
+    var tint: Color
+    var isMax: Bool = false
+    var trackHeight: CGFloat = 60
+    var thumbSize: CGFloat = 64
+    /// 松手吸附后回调（交给上层同步 enum 档位）。
+    var onSnap: (ThinkingMode) -> Void
+
+    @State private var stretch: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = max(proxy.size.width, 1)
+            let travel = max(width - thumbSize, 1)
+
+            ZStack(alignment: .leading) {
+                TrackView(
+                    progress: progress,
+                    trackHeight: trackHeight,
+                    thumbSize: thumbSize,
+                    isMax: isMax
+                )
+
+                ThumbView(size: thumbSize, tint: tint, stretch: isDragging ? stretch : 0)
+                    .offset(x: progress * travel)
+                    .animation(AppAnimation.thinkingSnap, value: isDragging)
+            }
+            .frame(height: thumbSize)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if !isDragging {
+                            isDragging = true
+                            Haptics.impact(.light)
+                        }
+                        let traveled = value.location.x - thumbSize / 2
+                        progress = min(max(Double(traveled / travel), 0), 1)
+                        stretch = min(abs(value.translation.width) / 220, 0.12)
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                        stretch = 0
+                        let snapped = ThinkingMode.nearest(progress: progress)
+                        withAnimation(AppAnimation.thinkingSnap) {
+                            progress = snapped.normalized
+                        }
+                        if snapped == .ultra {
+                            Haptics.impact(.heavy)
+                            UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        } else {
+                            Haptics.selectionChanged()
+                        }
+                        onSnap(snapped)
+                    }
+            )
+        }
+        // 手柄比轨道大，外层绝不能 clipped，否则光晕会被切掉。
+        .frame(height: thumbSize)
+        .padding(.vertical, (thumbSize - trackHeight) / 2)
+    }
+}
+
+// MARK: - 轨道
+
+/// 轨道：蓝 → 紫水平渐变，左侧已选段更亮，右侧未选段半透明。
+struct TrackView: View {
+
+    var progress: Double
+    var trackHeight: CGFloat
+    var thumbSize: CGFloat
+    var isMax: Bool
+
+    private var gradient: LinearGradient {
         LinearGradient(
-            colors: [
-                AppColor.thinkingTrackColor(progress: 0),
-                AppColor.thinkingTrackColor(progress: progress)
-            ],
+            colors: isMax
+                ? [.blue, .purple, .orange.opacity(0.9)]
+                : [.blue, .purple],
             startPoint: .leading,
             endPoint: .trailing
         )
     }
 
-    private func flowingOverlay(width: CGFloat) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isUltra)) { timeline in
-            let phase = timeline.date.timeIntervalSinceReferenceDate
-                .truncatingRemainder(dividingBy: AppAnimation.ultraFlowDuration) / AppAnimation.ultraFlowDuration
-            LinearGradient(
-                colors: [.clear, Color.white.opacity(0.5), .clear],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: width * 0.45)
-            .offset(x: -width * 0.45 + CGFloat(phase) * width * 1.45)
-            .mask(Capsule(style: .continuous))
-            .allowsHitTesting(false)
-        }
-        .frame(width: width)
-    }
+    var body: some View {
+        GeometryReader { proxy in
+            let width = max(proxy.size.width, 1)
 
-    private func indicator(centerX: CGFloat) -> some View {
-        // 形变收敛一些：之前拉长时圆会被压得很扁。
-        let stretchX = 1 + (isDragging ? stretch : 0)
-        let stretchY = 1 - (isDragging ? stretch * 0.22 : 0)
+            ZStack(alignment: .leading) {
+                // 未选段：同一渐变，压低透明度
+                Capsule(style: .continuous)
+                    .fill(gradient)
+                    .opacity(0.28)
 
-        return Circle()
-            .fill(.clear)
-            .liquidGlass(.regular.tint(selection.tint).interactive(), in: .circle)
-            .frame(width: indicatorSize, height: indicatorSize)
-            .scaleEffect(x: stretchX, y: stretchY)
-            .shadow(color: selection.tint.opacity(isUltra ? 0.55 : 0.28), radius: isUltra ? 16 : 8)
-            .offset(x: centerX - indicatorSize / 2)
-            .animation(AppAnimation.thinkingSnap, value: isDragging)
-            .overlay(alignment: .center) {
-                Circle()
-                    .stroke(selection.tint.opacity(0.35), lineWidth: 1)
-                    .frame(width: indicatorSize - 6, height: indicatorSize - 6)
-                    .scaleEffect(haloScale)
-                    .opacity(haloOpacity)
-                    .offset(x: centerX - indicatorSize / 2)
-                    .allowsHitTesting(false)
-            }
-    }
-
-    private func particleField(indicatorX: CGFloat, size: CGSize) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isUltra)) { timeline in
-            Canvas { context, canvasSize in
-                let time = timeline.date.timeIntervalSinceReferenceDate
-                for index in 0..<10 {
-                    let seed = Double(index) * 0.83
-                    let angle = seed * 2.1 + time * 0.7
-                    let radius = 16 + sin(time * 1.2 + seed) * 8
-                    let x = indicatorX + CGFloat(cos(angle) * radius)
-                    let y = canvasSize.height / 2 + CGFloat(sin(angle) * radius * 0.6)
-                    let dot = 1.2 + CGFloat(index % 3) * 0.6
-                    let alpha = 0.35 + 0.3 * sin(time * 1.6 + seed)
-
-                    context.fill(
-                        Path(ellipseIn: CGRect(x: x - dot, y: y - dot, width: dot * 2, height: dot * 2)),
-                        with: .color(AppColor.thinkingWarm.opacity(max(alpha, 0)))
+                // 已选段：满亮度 + 顶部高光，形成玻璃质感
+                Capsule(style: .continuous)
+                    .fill(gradient)
+                    .frame(width: max(width * progress, trackHeight))
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.55), .white.opacity(0.05)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 1
+                            )
                     )
-                }
+                    .shadow(color: .purple.opacity(progress > 0.6 ? 0.45 : 0.2), radius: 14)
+
+                Capsule(style: .continuous)
+                    .strokeBorder(.white.opacity(0.12), lineWidth: 0.8)
             }
-            .allowsHitTesting(false)
-        }
-        .frame(width: size.width, height: size.height)
-    }
-
-    private func dragGesture(width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 0)
-            .onChanged { value in
-                if !isDragging {
-                    isDragging = true
-                    Haptics.impact(.light)
-                }
-                // 与指示器轨迹同一套映射：0.125 → 0.875。
-                let raw = (Double(value.location.x) / Double(max(width, 1)) - 0.125) / 0.75
-                progress = min(max(Double(raw), 0), 1)
-
-                let horizontalTravel = abs(value.translation.width)
-                stretch = min(horizontalTravel / 180, 0.16)
-
-                let candidate = ThinkingMode.nearest(progress: progress)
-                let index = ThinkingMode.allCases.firstIndex(of: candidate) ?? 0
-                if index != lastHapticIndex {
-                    lastHapticIndex = index
-                    Haptics.selectionChanged()
-                }
-            }
-            .onEnded { _ in
-                isDragging = false
-                let snapped = ThinkingMode.nearest(progress: progress)
-                withAnimation(AppAnimation.thinkingSnap) {
-                    stretch = 0
-                    progress = snapped.normalized
-                    selection = snapped
-                }
-                Haptics.selectionChanged()
-                if snapped == .ultra { triggerUltraFeedback() }
-            }
-    }
-
-    private func triggerUltraFeedback() {
-        Haptics.impact(.heavy)
-        Haptics.notify(.success)
-        haloScale = 0.8
-        haloOpacity = 0.9
-        withAnimation(AppAnimation.glow) {
-            haloScale = 2.2
-            haloOpacity = 0
+            .frame(height: trackHeight)
+            .frame(maxHeight: .infinity, alignment: .center)
         }
     }
 }
 
-extension AppAnimation {
-    /// Ultra 流光循环周期（秒），供 TimelineView 计算相位。
-    static let ultraFlowDuration: Double = 2.4
+// MARK: - 手柄
+
+/// 纯白圆球 + 多层光晕（白 → 紫 → 档位色），直径略大于轨道形成溢出感。
+struct ThumbView: View {
+
+    var size: CGFloat
+    var tint: Color
+    var stretch: CGFloat = 0
+
+    var body: some View {
+        Circle()
+            .fill(.white)
+            .frame(width: size, height: size)
+            .overlay(
+                Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1)
+            )
+            .scaleEffect(x: 1 + stretch, y: 1 - stretch * 0.5)
+            .shadow(color: .white.opacity(0.8), radius: 15)
+            .shadow(color: Color.purple.opacity(0.5), radius: 30)
+            .shadow(color: tint.opacity(0.35), radius: 8)
+            .animation(AppAnimation.thinkingSnap, value: stretch)
+    }
+}
+
+/// 预览宿主：深色背景 + 滑块，方便直接看光晕与吸附效果。
+struct ThinkingModeSliderPreviewHost: View {
+
+    @State private var mode: ThinkingMode = .thinking
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.06, green: 0.07, blue: 0.13),
+                    Color(red: 0.12, green: 0.10, blue: 0.24)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 26) {
+                ThinkingModeSlider(selection: $mode)
+                Text("当前：\(mode.title)")
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .padding()
+        }
+    }
+}
+
+#Preview {
+    ThinkingModeSliderPreviewHost()
 }

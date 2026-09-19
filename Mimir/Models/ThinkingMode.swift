@@ -15,19 +15,14 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
         switch self {
         case .quick: return "Light"
         case .thinking: return "High"
-        case .expert: return "Extra High"
+        case .expert: return "X-High"
         case .ultra: return "Max"
         }
     }
 
     /// 胶囊里的短标签，避免「Extra High」把按钮撑太宽。
     var shortTitle: String {
-        switch self {
-        case .quick: return "Light"
-        case .thinking: return "High"
-        case .expert: return "X-High"
-        case .ultra: return "Max"
-        }
+        title
     }
 
     var subtitle: String {
