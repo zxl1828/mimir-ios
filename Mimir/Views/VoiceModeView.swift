@@ -15,6 +15,7 @@ struct VoiceModeView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var session: VoiceSessionViewModel?
     @State private var isSummarizing = false
+    @State private var showsTonePicker = false
 
     var body: some View {
         ZStack {
@@ -34,6 +35,9 @@ struct VoiceModeView: View {
         }
         .onDisappear {
             session?.end()
+        }
+        .sheet(isPresented: $showsTonePicker) {
+            VoiceTonePickerView()
         }
     }
 
@@ -101,6 +105,19 @@ struct VoiceModeView: View {
             }
 
             Spacer()
+
+            Button {
+                Haptics.impact(.light)
+                showsTonePicker = true
+            } label: {
+                Image(systemName: "waveform.circle")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppColor.primaryText)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(AppColor.secondaryText.opacity(0.12)))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("选择音色")
 
             Button {
                 guard !isSummarizing else { return }

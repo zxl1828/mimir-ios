@@ -23,6 +23,8 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesisEngine, AVSpeechSynthes
 
     var onLevelUpdate: ((Double) -> Void)?
     var onFinish: (() -> Void)?
+    /// 「音色」里选定的系统语音；nil 表示跟随系统默认中文语音。
+    var preferredVoiceIdentifier: String?
 
     var isSpeaking: Bool { synthesizer.isSpeaking }
 
@@ -40,7 +42,7 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesisEngine, AVSpeechSynthes
         guard !trimmed.isEmpty else { return }
 
         let utterance = AVSpeechUtterance(string: trimmed)
-        utterance.voice = Self.preferredVoice()
+        utterance.voice = Self.preferredVoice(identifier: preferredVoiceIdentifier)
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * Float(min(max(rate, 0.5), 1.8))
         utterance.pitchMultiplier = 1.0
         utterance.postUtteranceDelay = 0.02
@@ -53,8 +55,11 @@ final class SystemSpeechEngine: NSObject, SpeechSynthesisEngine, AVSpeechSynthes
         onLevelUpdate?(0)
     }
 
-    /// 优先选择中文语音。
-    private static func preferredVoice() -> AVSpeechSynthesisVoice? {
+    /// 用户选过就用用户选的，否则优先中文语音。
+    private static func preferredVoice(identifier: String?) -> AVSpeechSynthesisVoice? {
+        if let identifier, let voice = AVSpeechSynthesisVoice(identifier: identifier) {
+            return voice
+        }
         if let chinese = AVSpeechSynthesisVoice(language: "zh-CN") { return chinese }
         return AVSpeechSynthesisVoice(language: Locale.current.identifier)
     }

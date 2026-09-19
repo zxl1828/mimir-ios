@@ -73,6 +73,8 @@ struct VoicePreferences: Codable, Sendable, Equatable {
     /// 合成引擎偏好（新增字段，旧数据缺失时为 nil 并按自动处理）。
     var synthesisPreference: VoiceSynthesisPreference?
     var voiceIdentifier: String = "af_heart"
+    /// 用户显式选定的系统语音（AVSpeechSynthesisVoice.identifier）；nil = 跟随系统默认中文语音。
+    var systemVoiceIdentifier: String?
     var speechRate: Double = 1.0
     /// VAD 参数（能量阈值）。
     var speechThreshold: Double = 0.02

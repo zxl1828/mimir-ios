@@ -315,6 +315,8 @@ final class VoiceSessionViewModel {
     private func prepareSynthesisEngine() {
         AppDiagnostics.shared.log("voice: tts prepare begin")
         let router = VoiceSynthesisRouter(preference: settings.voice.resolvedSynthesisPreference)
+        router.builtInVoiceName = settings.voice.voiceIdentifier
+        router.systemVoiceIdentifier = settings.voice.systemVoiceIdentifier
         router.onLevelUpdate = { [weak self] level in
             self?.outputLevel = level
         }

@@ -17,6 +17,9 @@ final class VoiceSynthesisRouter: SpeechSynthesisEngine {
     var onFinish: (() -> Void)?
     /// 每次切换引擎时回调，用于在界面上显示当前使用的引擎。
     var onEngineChanged: ((Bool) -> Void)?
+    /// 音色设置：内置音色名 + 显式选择的系统语音。
+    var builtInVoiceName: String = "af_heart"
+    var systemVoiceIdentifier: String?
 
     init(preference: VoiceSynthesisPreference) {
         self.preference = preference
@@ -37,6 +40,8 @@ final class VoiceSynthesisRouter: SpeechSynthesisEngine {
     }
 
     func prepare() throws {
+        builtIn.preferredVoiceName = builtInVoiceName
+        system.preferredVoiceIdentifier = systemVoiceIdentifier
         if KokoroTTSEngine.isBundled {
             try? builtIn.prepare()
         }
@@ -78,6 +83,8 @@ final class VoiceSynthesisRouter: SpeechSynthesisEngine {
 
     private func shouldUseBuiltIn(for text: String) -> Bool {
         guard KokoroTTSEngine.isBundled, builtIn.isReady else { return false }
+        // 用户显式选了系统音色，就一律交给系统合成。
+        if systemVoiceIdentifier != nil || builtInVoiceName == "system" { return false }
         switch preference {
         case .system:
             return false

@@ -22,6 +22,8 @@ final class KokoroTTSEngine: SpeechSynthesisEngine {
 
     var onLevelUpdate: ((Double) -> Void)?
     var onFinish: (() -> Void)?
+    /// 「音色」里选定的内置音色名；nil 或不可用时回落到默认优先级。
+    var preferredVoiceName: String?
     private(set) var loadFailureText: String?
 
     var isSpeaking: Bool {
@@ -222,6 +224,9 @@ final class KokoroTTSEngine: SpeechSynthesisEngine {
     }
 
     private func preferredVoice(for engine: KokoroEngine) -> String {
+        if let preferredVoiceName, engine.availableVoices.contains(preferredVoiceName) {
+            return preferredVoiceName
+        }
         let preferences = ["af_heart", "af_bella", "af_nicole", "am_michael", "bf_emma"]
         for candidate in preferences where engine.availableVoices.contains(candidate) {
             return candidate

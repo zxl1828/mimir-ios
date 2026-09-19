@@ -27,6 +27,7 @@ struct SettingsView: View {
     @State private var confirmClearConversations = false
     @State private var exportURL: URL?
     @State private var showDiagnostics = false
+    @State private var showTonePicker = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -65,6 +66,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showScheduledTasks) { ScheduledTasksView() }
         .sheet(isPresented: $showWebSearchSettings) { WebSearchSettingsView() }
         .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
+        .sheet(isPresented: $showTonePicker) { VoiceTonePickerView() }
         .alert("清空全部记忆？", isPresented: $confirmClearMemories) {
             Button("取消", role: .cancel) {}
             Button("清空", role: .destructive) { clearMemories() }
@@ -215,6 +217,25 @@ struct SettingsView: View {
             }
 
             Toggle("使用内置语音合成模型", isOn: settings.voice.prefersBuiltInTTS)
+            Button {
+                showTonePicker = true
+            } label: {
+                HStack {
+                    Text("音色")
+                        .foregroundStyle(AppColor.primaryText)
+                    Spacer()
+                    Text(
+                        VoiceToneCatalog.summary(
+                            voiceIdentifier: settings.wrappedValue.voice.voiceIdentifier,
+                            systemVoiceIdentifier: settings.wrappedValue.voice.systemVoiceIdentifier
+                        )
+                    )
+                    .foregroundStyle(AppColor.secondaryText)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColor.tertiaryText)
+                }
+            }
             Toggle("允许打断（Barge-in）", isOn: settings.voice.allowsBargeIn)
 
             VStack(alignment: .leading) {
