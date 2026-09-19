@@ -262,6 +262,13 @@ struct MainChatView: View {
         chat?.activeModelID ?? settings.credential.modelID
     }
 
+    /// 面板贴到屏幕顶边后，内容要自己避开灵动岛 / 状态栏。
+    private var sidebarTopInset: CGFloat {
+        let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene
+        let window = scene?.windows.first(where: { $0.isKeyWindow }) ?? scene?.windows.first
+        return window?.safeAreaInsets.top ?? 20
+    }
+
     private func selectModel(_ modelID: String) {
         Haptics.selectionChanged()
         chat?.setModel(modelID)
@@ -512,6 +519,7 @@ struct MainChatView: View {
             agents: agents,
             skills: skills,
             currentConversationID: chat?.conversation?.id,
+            topInset: sidebarTopInset,
             onSelectConversation: { conversation in
                 chat?.attach(to: conversation)
                 list?.markUsed(conversation)

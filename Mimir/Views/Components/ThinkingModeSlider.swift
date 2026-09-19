@@ -56,9 +56,6 @@ struct ThinkingModeSlider: View {
                 .font(.system(size: 11, weight: .semibold))
             Text(selection.shortTitle)
                 .font(AppFont.chipCompact)
-                .overlay {
-                    if isUltra { shimmerMask }
-                }
         }
         .foregroundStyle(selection.tint)
         .padding(.horizontal, 11)
@@ -70,8 +67,8 @@ struct ThinkingModeSlider: View {
         )
         .background { if isUltra { bloomLayer } }
         .overlay { if isUltra { particleLayer } }
-        .scaleEffect(isUltra && breath ? 1.06 : 1.0)
-        .shadow(color: isUltra ? selection.tint.opacity(breath ? 0.5 : 0.22) : .clear, radius: 12)
+        // 收起状态不再做呼吸缩放 / 扫光：之前 Max 标签会一直抽搐闪烁。
+        .shadow(color: isUltra ? selection.tint.opacity(0.28) : .clear, radius: 10)
         .onAppear { startBreathingIfNeeded() }
         .onChange(of: selection) { _, _ in startBreathingIfNeeded() }
     }
@@ -155,6 +152,7 @@ struct ThinkingModeSlider: View {
                 Text("思考程度")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColor.primaryText)
+                    .overlay { if isUltra { shimmerMask } }
                 Spacer(minLength: 8)
                 Text(selection.subtitle)
                     .font(AppFont.hint)
@@ -193,8 +191,10 @@ struct ThinkingModeSlider: View {
 
     private var track: some View {
         GeometryReader { proxy in
-            let travel = max(proxy.size.width - indicatorSize - 8, 1)
-            let indicatorX = 4 + CGFloat(progress) * travel
+            // 指示器圆心与下方四个标签的中心对齐（标签是四等分居中排列），
+            // 这样两端不会一边空一边挤。
+            let width = proxy.size.width
+            let centerX = width * (0.125 + 0.75 * CGFloat(progress))
 
             ZStack(alignment: .leading) {
                 Capsule(style: .continuous)
@@ -202,20 +202,20 @@ struct ThinkingModeSlider: View {
 
                 Capsule(style: .continuous)
                     .fill(fillGradient)
-                    .frame(width: max(indicatorX + indicatorSize / 2, indicatorSize))
+                    .frame(width: max(centerX, indicatorSize))
 
                 if isUltra {
                     flowingOverlay(width: proxy.size.width)
                 }
 
-                indicator(atX: indicatorX)
+                indicator(centerX: centerX)
 
                 if isUltra {
-                    particleField(indicatorX: indicatorX, size: proxy.size)
+                    particleField(indicatorX: centerX - indicatorSize / 2, size: proxy.size)
                 }
             }
             .contentShape(Rectangle())
-            .gesture(dragGesture(travel: travel))
+            .gesture(dragGesture(width: width))
         }
         .frame(height: trackHeight)
     }
@@ -248,9 +248,10 @@ struct ThinkingModeSlider: View {
         .frame(width: width)
     }
 
-    private func indicator(atX x: CGFloat) -> some View {
+    private func indicator(centerX: CGFloat) -> some View {
+        // 形变收敛一些：之前拉长时圆会被压得很扁。
         let stretchX = 1 + (isDragging ? stretch : 0)
-        let stretchY = 1 - (isDragging ? stretch * 0.45 : 0)
+        let stretchY = 1 - (isDragging ? stretch * 0.22 : 0)
 
         return Circle()
             .fill(.clear)
@@ -258,7 +259,7 @@ struct ThinkingModeSlider: View {
             .frame(width: indicatorSize, height: indicatorSize)
             .scaleEffect(x: stretchX, y: stretchY)
             .shadow(color: selection.tint.opacity(isUltra ? 0.55 : 0.28), radius: isUltra ? 16 : 8)
-            .offset(x: x - indicatorSize / 2)
+            .offset(x: centerX - indicatorSize / 2)
             .animation(AppAnimation.thinkingSnap, value: isDragging)
             .overlay(alignment: .center) {
                 Circle()
@@ -266,7 +267,7 @@ struct ThinkingModeSlider: View {
                     .frame(width: indicatorSize - 6, height: indicatorSize - 6)
                     .scaleEffect(haloScale)
                     .opacity(haloOpacity)
-                    .offset(x: x - indicatorSize / 2)
+                    .offset(x: centerX - indicatorSize / 2)
                     .allowsHitTesting(false)
             }
     }
@@ -295,18 +296,19 @@ struct ThinkingModeSlider: View {
         .frame(width: size.width, height: size.height)
     }
 
-    private func dragGesture(travel: CGFloat) -> some Gesture {
+    private func dragGesture(width: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if !isDragging {
                     isDragging = true
                     Haptics.impact(.light)
                 }
-                let raw = (value.location.x - 4 - indicatorSize / 2) / travel
+                // 与指示器轨迹同一套映射：0.125 → 0.875。
+                let raw = (Double(value.location.x) / Double(max(width, 1)) - 0.125) / 0.75
                 progress = min(max(Double(raw), 0), 1)
 
                 let horizontalTravel = abs(value.translation.width)
-                stretch = min(horizontalTravel / 140, 0.32)
+                stretch = min(horizontalTravel / 180, 0.16)
 
                 let candidate = ThinkingMode.nearest(progress: progress)
                 let index = ThinkingMode.allCases.firstIndex(of: candidate) ?? 0

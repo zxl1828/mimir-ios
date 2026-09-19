@@ -9,6 +9,8 @@ struct SidebarView: View {
     let agents: [AgentDockItem]
     let skills: [Skill]
     let currentConversationID: UUID?
+    /// 面板贴到屏幕顶边后，内容需要自己让开灵动岛 / 状态栏。
+    var topInset: CGFloat = 0
 
     var onSelectConversation: (Conversation) -> Void
     var onNewConversation: () -> Void
@@ -34,6 +36,7 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Color.clear.frame(height: topInset)
             header
             searchField
             searchAllButton

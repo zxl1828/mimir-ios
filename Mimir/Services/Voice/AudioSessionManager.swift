@@ -57,11 +57,50 @@ final class AudioSessionManager {
     }
 
     /// 语音识别授权。
+    ///
+    /// 实测（iPhone 17 Pro / iOS 27，侧载安装）：无条件调用 `requestAuthorization`
+    /// 会在「麦克风授权通过之后」把 App 直接干掉。因此这里三道保险：
+    /// ① 已授权直接放行，已拒绝 / 受限直接返回 false，只有「未决定」才真正弹窗；
+    /// ② 调用本身用 ObjC 的 @try/@catch 包住（`ObjCExceptionCatcher`）；
+    /// ③ 弹窗 20 秒没有回调就当作未授权，不阻塞语音界面。
     func speechPermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status == .authorized)
+        let status = SFSpeechRecognizer.authorizationStatus()
+        AppDiagnostics.shared.log("voice: speech status = \(Self.describe(status))")
+        switch status {
+        case .authorized:
+            return true
+        case .denied, .restricted:
+            return false
+        case .notDetermined:
+            break
+        @unknown default:
+            return false
+        }
+
+        let box = PermissionBox()
+        do {
+            try ObjCExceptionCatcher.perform {
+                SFSpeechRecognizer.requestAuthorization { status in
+                    box.finish(status == .authorized)
+                }
             }
+        } catch {
+            AppDiagnostics.shared.log("voice: speech request threw \(error.localizedDescription)")
+            return false
+        }
+
+        let granted = await box.value(timeout: .seconds(20))
+        AppDiagnostics.shared.log("voice: speech prompt = \(granted)")
+        return granted
+    }
+
+    private static func describe(_ status: SFSpeechRecognizerAuthorizationStatus) -> String {
+        switch status {
+        case .authorized: return "authorized"
+        case .denied: return "denied"
+        case .restricted: return "restricted"
+        case .notDetermined: return "notDetermined"
+        @unknown default: return "unknown"
         }
     }
 
@@ -118,5 +157,44 @@ final class AudioSessionManager {
         @unknown default:
             break
         }
+    }
+}
+
+/// 授权回调可能来自任意线程：一次性投递 + 超时兜底，避免永久等待。
+private final class PermissionBox: @unchecked Sendable {
+
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Bool, Never>?
+    private var stored: Bool?
+
+    func finish(_ granted: Bool) {
+        lock.lock()
+        if let continuation {
+            self.continuation = nil
+            lock.unlock()
+            continuation.resume(returning: granted)
+        } else {
+            stored = granted
+            lock.unlock()
+        }
+    }
+
+    func value(timeout: Duration) async -> Bool {
+        let timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            self?.finish(false)
+        }
+        let granted = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            lock.lock()
+            if let stored {
+                lock.unlock()
+                continuation.resume(returning: stored)
+            } else {
+                self.continuation = continuation
+                lock.unlock()
+            }
+        }
+        timeoutTask.cancel()
+        return granted
     }
 }
