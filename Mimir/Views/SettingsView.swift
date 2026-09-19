@@ -26,6 +26,7 @@ struct SettingsView: View {
     @State private var confirmClearMemories = false
     @State private var confirmClearConversations = false
     @State private var exportURL: URL?
+    @State private var showDiagnostics = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -38,6 +39,13 @@ struct SettingsView: View {
                 privacySection(settings: $settings)
                 extensionsSection
                 usageSection
+                Section("诊断") {
+                    Button {
+                        showDiagnostics = true
+                    } label: {
+                        Label("查看崩溃与语音日志", systemImage: "stethoscope")
+                    }
+                }
                 aboutSection
             }
             .navigationTitle("设置")
@@ -56,6 +64,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showMCPServers) { MCPServersView() }
         .sheet(isPresented: $showScheduledTasks) { ScheduledTasksView() }
         .sheet(isPresented: $showWebSearchSettings) { WebSearchSettingsView() }
+        .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
         .alert("清空全部记忆？", isPresented: $confirmClearMemories) {
             Button("取消", role: .cancel) {}
             Button("清空", role: .destructive) { clearMemories() }

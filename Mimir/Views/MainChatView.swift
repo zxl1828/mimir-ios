@@ -61,6 +61,7 @@ struct MainChatView: View {
                 if sidebarOpen || dragOffset > 0 {
                     sidebar(width: sidebarWidth)
                         .frame(width: sidebarWidth)
+                        .ignoresSafeArea(edges: [.top, .bottom, .leading])
                         // 展开时停在屏幕内（offset 0），关闭时才推到左边外面。
                         // 之前写成 -(sidebarWidth - dragOffset)，抽屉一打开就被推出屏幕，看起来全空白。
                         .offset(x: sidebarOpen ? max(dragOffset, 0) : -(sidebarWidth - max(dragOffset, 0)))
@@ -422,6 +423,8 @@ struct MainChatView: View {
             }
 
             HStack(spacing: 8) {
+                // 智能体胶囊占满剩余宽度并自己横向滚动，思考档位固定在右侧，
+                // 这样两者永远不会重叠（之前滑块 layoutPriority 抢宽度压到了智能体按钮上）。
                 AgentDock(
                     agents: agents,
                     selected: Binding(
@@ -430,6 +433,7 @@ struct MainChatView: View {
                     ),
                     onManage: { showAgentManager = true }
                 )
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 ThinkingModeSlider(
                     selection: Binding(
@@ -437,7 +441,7 @@ struct MainChatView: View {
                         set: { chat?.thinkingMode = $0 }
                     )
                 )
-                .layoutPriority(1)
+                .fixedSize()
             }
 
             MessageInputBar(

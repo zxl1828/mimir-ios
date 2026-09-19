@@ -54,7 +54,7 @@ struct ThinkingModeSlider: View {
         HStack(spacing: 5) {
             Image(systemName: selection.systemImage)
                 .font(.system(size: 11, weight: .semibold))
-            Text(selection.title)
+            Text(selection.shortTitle)
                 .font(AppFont.chipCompact)
                 .overlay {
                     if isUltra { shimmerMask }
@@ -68,6 +68,8 @@ struct ThinkingModeSlider: View {
             Capsule(style: .continuous)
                 .strokeBorder(selection.tint.opacity(0.38), lineWidth: 0.8)
         )
+        .background { if isUltra { bloomLayer } }
+        .overlay { if isUltra { particleLayer } }
         .scaleEffect(isUltra && breath ? 1.06 : 1.0)
         .shadow(color: isUltra ? selection.tint.opacity(breath ? 0.5 : 0.22) : .clear, radius: 12)
         .onAppear { startBreathingIfNeeded() }
@@ -89,6 +91,54 @@ struct ThinkingModeSlider: View {
         }
     }
 
+    /// Max 档：中心铺开的暖色泛光（进入档位时放大到位，离开即消失）。
+    private var bloomLayer: some View {
+        RadialGradient(
+            colors: [selection.tint.opacity(0.55), selection.tint.opacity(0.0)],
+            center: .center,
+            startRadius: 2,
+            endRadius: 52
+        )
+        .scaleEffect(breath ? 1.16 : 0.92)
+        .opacity(breath ? 0.9 : 0.4)
+        .animation(AppAnimation.ultraBreath, value: breath)
+        .allowsHitTesting(false)
+    }
+
+    /// Max 档：10 颗光粒按固定随机角度向外飘散（Canvas 绘制，离开档位时间线暂停）。
+    private var particleLayer: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !isUltra)) { timeline in
+            Canvas { context, size in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                for index in 0..<10 {
+                    let seed = Double(index)
+                    let angle = seed * 2.3999632
+                    let speed = 0.32 + (seed.truncatingRemainder(dividingBy: 3)) * 0.13
+                    let progress = (time * speed + seed * 0.37).truncatingRemainder(dividingBy: 1)
+                    let distance = 9 + progress * 30
+                    let dot = 1.1 + (1 - progress) * 2.2
+                    let point = CGPoint(
+                        x: center.x + CGFloat(cos(angle) * distance),
+                        y: center.y + CGFloat(sin(angle) * distance * 0.62)
+                    )
+                    context.fill(
+                        Path(
+                            ellipseIn: CGRect(
+                                x: point.x - dot,
+                                y: point.y - dot,
+                                width: dot * 2,
+                                height: dot * 2
+                            )
+                        ),
+                        with: .color(selection.tint.opacity(0.6 * (1 - progress)))
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
     private func startBreathingIfNeeded() {
         if isUltra {
             withAnimation(AppAnimation.ultraBreath) { breath = true }
@@ -102,7 +152,7 @@ struct ThinkingModeSlider: View {
     private var panel: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Text("思考模式")
+                Text("思考程度")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColor.primaryText)
                 Spacer(minLength: 8)
@@ -124,7 +174,7 @@ struct ThinkingModeSlider: View {
                         }
                         if mode == .ultra { triggerUltraFeedback() }
                     } label: {
-                        Text(mode.title)
+                        Text(mode.shortTitle)
                             .font(.system(size: 12, weight: selection == mode ? .semibold : .regular))
                             .foregroundStyle(selection == mode ? mode.tint : AppColor.secondaryText)
                             .frame(maxWidth: .infinity)

@@ -54,6 +54,7 @@ final class VoiceSessionViewModel {
         infoText = nil
         isPreparing = true
         defer { isPreparing = false }
+        AppDiagnostics.shared.log("voice: start")
 
         guard settings.hasUsableCredential else {
             unavailable = .offline
@@ -62,6 +63,7 @@ final class VoiceSessionViewModel {
         }
 
         let micGranted = await AudioSessionManager.shared.microphonePermission()
+        AppDiagnostics.shared.log("voice: mic permission = \(micGranted)")
         guard micGranted else {
             unavailable = .missingMicrophonePermission
             state = .unavailable
@@ -69,6 +71,7 @@ final class VoiceSessionViewModel {
         }
 
         let speechGranted = await AudioSessionManager.shared.speechPermission()
+        AppDiagnostics.shared.log("voice: speech permission = \(speechGranted)")
         guard speechGranted else {
             unavailable = .missingSpeechPermission
             state = .unavailable
@@ -77,7 +80,9 @@ final class VoiceSessionViewModel {
 
         do {
             try AudioSessionManager.shared.activate()
+            AppDiagnostics.shared.log("voice: audio session active")
         } catch {
+            AppDiagnostics.shared.log("voice: audio session failed \(error.localizedDescription)")
             unavailable = .audioSessionFailure(error.localizedDescription)
             state = .unavailable
             return
@@ -122,6 +127,7 @@ final class VoiceSessionViewModel {
     // MARK: - 采集与识别
 
     private func startCapture() {
+        AppDiagnostics.shared.log("voice: capture begin")
         let engine = VoiceAudioEngine(preferences: settings.voice)
 
         let transcriber = SpeechTranscriber(locale: Locale(identifier: "zh-CN"))
@@ -139,7 +145,9 @@ final class VoiceSessionViewModel {
 
         do {
             try transcriber.start(allowCloudFallback: settings.voice.allowsCloudSTTFallback)
+            AppDiagnostics.shared.log("voice: transcriber started")
         } catch {
+            AppDiagnostics.shared.log("voice: transcriber failed \(error.localizedDescription)")
             unavailable = .modelLoadFailure(error.localizedDescription)
             state = .unavailable
             stopAll()
@@ -172,7 +180,9 @@ final class VoiceSessionViewModel {
 
         do {
             try engine.start()
+            AppDiagnostics.shared.log("voice: audio engine started")
         } catch {
+            AppDiagnostics.shared.log("voice: audio engine failed \(error.localizedDescription)")
             unavailable = .audioSessionFailure(error.localizedDescription)
             state = .unavailable
             transcriber.cancel()
@@ -303,6 +313,7 @@ final class VoiceSessionViewModel {
     // MARK: - 合成与播放
 
     private func prepareSynthesisEngine() {
+        AppDiagnostics.shared.log("voice: tts prepare begin")
         let router = VoiceSynthesisRouter(preference: settings.voice.resolvedSynthesisPreference)
         router.onLevelUpdate = { [weak self] level in
             self?.outputLevel = level
@@ -314,6 +325,7 @@ final class VoiceSessionViewModel {
             self?.usesBuiltInVoice = isBuiltIn
         }
         try? router.prepare()
+        AppDiagnostics.shared.log("voice: tts prepare end")
         ttsEngine = router
         usesBuiltInVoice = false
     }

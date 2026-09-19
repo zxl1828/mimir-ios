@@ -36,21 +36,32 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             header
             searchField
+            searchAllButton
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 10) {
                     historySection
                     agentsSection
                     skillsSection
                 }
                 .padding(.horizontal, 10)
+                .padding(.top, 12)
                 .padding(.bottom, 12)
             }
             .scrollIndicators(.hidden)
 
             footer
         }
-        .liquidGlass(.regular, in: .rect(cornerRadius: 0))
+        // 贴住屏幕三边（上 / 下 / 左），只在靠内容的一侧做圆角。
+        .liquidGlass(
+            .regular,
+            in: .rect(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 28,
+                topTrailingRadius: 28
+            )
+        )
         .overlay(alignment: .trailing) {
             Rectangle()
                 .fill(AppColor.separator.opacity(0.28))
@@ -135,26 +146,35 @@ struct SidebarView: View {
         .padding(.vertical, 8)
         .liquidGlassClear(cornerRadius: 12)
         .padding(.horizontal, 14)
-        .padding(.bottom, 12)
-        .overlay(alignment: .bottom) {
-            Button {
-                Haptics.impact(.light)
-                onSearchAll()
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "text.magnifyingglass")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("搜索全部对话与记忆")
-                        .font(AppFont.chipCompact)
-                }
-                .foregroundStyle(AppColor.brandIndigo)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule(style: .continuous).fill(AppColor.brandIndigo.opacity(0.10)))
+        .padding(.top, 10)
+    }
+
+    /// 「搜索全部对话与记忆」独立成一行：之前用 overlay 挂在搜索框底部，
+    /// 既不占布局空间，又会和搜索框、对话记录标题叠在一起。
+    private var searchAllButton: some View {
+        Button {
+            Haptics.impact(.light)
+            onSearchAll()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "text.magnifyingglass")
+                    .font(.system(size: 11.5, weight: .semibold))
+                Text("搜索全部对话与记忆")
+                    .font(AppFont.chipCompact)
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
-            .offset(y: 13)
+            .foregroundStyle(AppColor.brandIndigo)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColor.brandIndigo.opacity(0.10))
+            )
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+        .padding(.top, 2)
     }
 
     // MARK: - 对话记录

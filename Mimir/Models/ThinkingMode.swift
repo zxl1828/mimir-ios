@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 思考档位。左 → 右：快速 / 思考 / 专家 / Ultra。
+/// 思考程度。左 → 右：Light / High / Extra High / Max（与电脑端一致的四档力度）。
 ///
 /// 档位同时驱动两件事：滑块的视觉表现，以及发送请求时的模型参数。
 enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -13,19 +13,29 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .quick: return "快速"
-        case .thinking: return "思考"
-        case .expert: return "专家"
-        case .ultra: return "Ultra"
+        case .quick: return "Light"
+        case .thinking: return "High"
+        case .expert: return "Extra High"
+        case .ultra: return "Max"
+        }
+    }
+
+    /// 胶囊里的短标签，避免「Extra High」把按钮撑太宽。
+    var shortTitle: String {
+        switch self {
+        case .quick: return "Light"
+        case .thinking: return "High"
+        case .expert: return "X-High"
+        case .ultra: return "Max"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .quick: return "直接回答，速度优先"
-        case .thinking: return "先推理再作答"
-        case .expert: return "深度推理，回答更细"
-        case .ultra: return "最强推理，复杂任务"
+        case .quick: return "几乎不思考，速度优先"
+        case .thinking: return "常规推理，日常够用"
+        case .expert: return "更深推理，复杂问题"
+        case .ultra: return "全力推理，长链条任务"
         }
     }
 

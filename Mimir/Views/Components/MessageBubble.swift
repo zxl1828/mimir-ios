@@ -45,6 +45,8 @@ struct MessageBubble: View {
 
     private var userBubble: some View {
         VStack(alignment: .trailing, spacing: 6) {
+            nameLabel("我", isUser: true)
+
             if !message.quotedPreview.isEmpty {
                 quotedChip
             }
@@ -77,8 +79,27 @@ struct MessageBubble: View {
 
     // MARK: - 助手消息
 
+    /// 微信式名称标识：一眼分清「我」和「模型」。
+    private func nameLabel(_ text: String, isUser: Bool) -> some View {
+        HStack(spacing: 0) {
+            if isUser { Spacer(minLength: 0) }
+            Text(text)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(isUser ? AppColor.secondaryText : AppColor.brandIndigo)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill((isUser ? AppColor.secondaryText : AppColor.brandIndigo).opacity(0.12))
+                )
+            if !isUser { Spacer(minLength: 0) }
+        }
+    }
+
     private var assistantBubble: some View {
         VStack(alignment: .leading, spacing: 8) {
+            nameLabel("模型", isUser: false)
+
             if message.hasVisibleThinking {
                 thinkingSection
             }

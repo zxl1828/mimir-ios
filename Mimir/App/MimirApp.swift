@@ -39,6 +39,8 @@ struct MimirApp: App {
 
     init() {
         AppContainer.shared = container
+        // 崩溃与步骤日志：语音模式闪退这类问题靠它定位。
+        AppDiagnostics.install()
         // 后台任务必须在启动早期注册，否则系统会拒绝调度。
         BackgroundTaskScheduler.register()
         BackgroundTaskScheduler.scheduleAppRefresh()
