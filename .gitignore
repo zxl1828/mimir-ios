@@ -29,5 +29,9 @@ work/
 release/
 *.log
 
+# Python 工具缓存
+__pycache__/
+*.pyc
+
 # 本地交接文档（含环境细节，不随公开仓库发布）
 *.local.md
