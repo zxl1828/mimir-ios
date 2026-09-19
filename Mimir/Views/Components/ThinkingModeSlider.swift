@@ -86,15 +86,24 @@ struct ThinkingModeSlider: View {
         .padding(1)
     }
 
-    /// 动态文案：Max 时换成「更快消耗使用额度」，淡紫 + 发光。
+    /// 动态文案：档位名 + 该档位的速度 / 额度引导语；
+    /// Max 时两行都换成淡紫（「更快消耗使用额度」），并做淡入淡出。
     private var captionText: some View {
-        Text(isMax ? "更快消耗使用额度" : selection.title)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(isMax ? Color.purple.opacity(0.8) : Color.white.opacity(0.78))
-            .shadow(color: .white.opacity(0.5), radius: 10)
-            .shadow(color: selection.tint.opacity(0.35), radius: 18)
-            .animation(.easeInOut(duration: 0.25), value: selection)
-            .contentTransition(.opacity)
+        VStack(spacing: 4) {
+            Text(selection.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(isMax ? Color.purple.opacity(0.8) : Color.white.opacity(0.88))
+                .shadow(color: .white.opacity(0.5), radius: 10)
+
+            Text(selection.guidance)
+                .font(.system(size: 12))
+                .foregroundStyle(isMax ? Color.purple.opacity(0.8) : Color.white.opacity(0.58))
+                .shadow(color: .white.opacity(0.35), radius: 8)
+        }
+        .multilineTextAlignment(.center)
+        .shadow(color: selection.tint.opacity(0.3), radius: 18)
+        .animation(.easeInOut(duration: 0.25), value: selection)
+        .contentTransition(.opacity)
     }
 
     private var levelLabels: some View {

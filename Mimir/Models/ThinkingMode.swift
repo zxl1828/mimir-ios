@@ -34,6 +34,16 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// 滑块上方的速度 / 额度引导语，四档都要有明确说法。
+    var guidance: String {
+        switch self {
+        case .quick: return "最快出结果，几乎不动用推理额度"
+        case .thinking: return "速度与深度平衡，日常首选"
+        case .expert: return "推理更充分，复杂任务更稳"
+        case .ultra: return "更快消耗使用额度"
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .quick: return "bolt.fill"
