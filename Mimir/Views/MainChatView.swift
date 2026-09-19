@@ -61,7 +61,9 @@ struct MainChatView: View {
                 if sidebarOpen || dragOffset > 0 {
                     sidebar(width: sidebarWidth)
                         .frame(width: sidebarWidth)
-                        .offset(x: -(sidebarWidth - max(dragOffset, 0)))
+                        // 展开时停在屏幕内（offset 0），关闭时才推到左边外面。
+                        // 之前写成 -(sidebarWidth - dragOffset)，抽屉一打开就被推出屏幕，看起来全空白。
+                        .offset(x: sidebarOpen ? max(dragOffset, 0) : -(sidebarWidth - max(dragOffset, 0)))
                         .animation(AppAnimation.sidebar, value: sidebarOpen)
                         .zIndex(2)
                 }
@@ -101,12 +103,6 @@ struct MainChatView: View {
         }
         .sheet(item: $exportTarget) { conversation in
             ExportConversationSheet(conversation: conversation)
-        }
-        .confirmationDialog("添加图片", isPresented: $showAttachmentOptions, titleVisibility: .visible) {
-            Button("从相册选择") { showPhotoPicker = true }
-            Button("拍照") { showCamera = true }
-            Button("扫描文档") { showScanner = true }
-            Button("取消", role: .cancel) {}
         }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(
@@ -174,13 +170,14 @@ struct MainChatView: View {
         .background(AppColor.canvas)
     }
 
+    /// 顶栏：整条是一枚悬浮的液态玻璃胶囊，两侧按钮是圆形玻璃块。
     private var topBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             iconButton("line.3.horizontal", label: "打开侧边栏") {
                 openSidebar()
             }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
 
             Button {
                 Haptics.impact(.light)
@@ -197,25 +194,77 @@ struct MainChatView: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(AppColor.tertiaryText)
                 }
+                .padding(.horizontal, 6)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("重命名当前对话")
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
+
+            modelMenu
 
             iconButton("square.and.pencil", label: "新建对话") {
                 newConversation()
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
-        .background(.bar)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(AppColor.separator.opacity(0.25))
-                .frame(height: 0.5)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .liquidGlass(.regular, in: .rect(cornerRadius: 26))
+        .glassHairline(cornerRadius: 26)
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+    }
+
+    /// 模型切换：胶囊显示当前模型，点开是玻璃菜单。
+    private var modelMenu: some View {
+        Menu {
+            ForEach(ModelCatalog.options(for: settings.credential, customModels: settings.customModels)) { option in
+                Button {
+                    selectModel(option.id)
+                } label: {
+                    if option.id == currentModelID {
+                        Label(option.title, systemImage: "checkmark")
+                    } else {
+                        Text(option.title)
+                    }
+                }
+            }
+            Divider()
+            Button {
+                showSettings = true
+            } label: {
+                Label("自定义模型 / 参数…", systemImage: "slider.horizontal.3")
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppColor.brandIndigo)
+                Text(ModelCatalog.shortLabel(for: currentModelID))
+                    .font(AppFont.chipCompact)
+                    .foregroundStyle(AppColor.primaryText)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .contentShape(Capsule())
         }
+        .buttonStyle(.plain)
+        .liquidGlass(.clear, in: .capsule)
+        .capsuleHairline()
+        .accessibilityLabel("切换模型")
+    }
+
+    private var currentModelID: String {
+        chat?.activeModelID ?? settings.credential.modelID
+    }
+
+    private func selectModel(_ modelID: String) {
+        Haptics.selectionChanged()
+        chat?.setModel(modelID)
+        toast = "已切换到 \(ModelCatalog.shortLabel(for: modelID))"
     }
 
     private func iconButton(_ systemName: String, label: String, action: @escaping () -> Void) -> some View {
@@ -226,10 +275,11 @@ struct MainChatView: View {
             Image(systemName: systemName)
                 .font(AppFont.navIcon)
                 .foregroundStyle(AppColor.primaryText)
-                .frame(width: 34, height: 34)
-                .contentShape(Rectangle())
+                .frame(width: 36, height: 36)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .liquidGlass(.regular.interactive(), in: .circle)
         .accessibilityLabel(label)
     }
 
@@ -403,7 +453,10 @@ struct MainChatView: View {
                 isGenerating: chat?.isGenerating ?? false,
                 onSend: { chat?.send() },
                 onStop: { chat?.stopGenerating() },
-                onAttach: { showAttachmentOptions = true },
+                showAttachMenu: $showAttachmentOptions,
+                onPickPhoto: { showPhotoPicker = true },
+                onCamera: { showCamera = true },
+                onScan: { showScanner = true },
                 onVoice: { showVoiceMode = true },
                 onTextChanged: { chat?.handleInputChange($0) },
                 onKeyCommand: { chat?.handleKeyCommand($0) ?? false }

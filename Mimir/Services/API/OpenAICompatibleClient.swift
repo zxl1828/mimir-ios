@@ -176,6 +176,7 @@ struct OpenAICompatibleClient: LLMClient {
 
         var parser = SSEParser()
         var sawContent = false
+        var sawReasoning = false
         var toolAccumulator: [Int: (id: String, name: String, arguments: String)] = [:]
 
         for try await line in bytes.lines {
@@ -184,6 +185,7 @@ struct OpenAICompatibleClient: LLMClient {
             try Self.handle(
                 payload: event.data,
                 sawContent: &sawContent,
+                sawReasoning: &sawReasoning,
                 toolAccumulator: &toolAccumulator,
                 continuation: continuation
             )
@@ -193,6 +195,7 @@ struct OpenAICompatibleClient: LLMClient {
             try Self.handle(
                 payload: tail.data,
                 sawContent: &sawContent,
+                sawReasoning: &sawReasoning,
                 toolAccumulator: &toolAccumulator,
                 continuation: continuation
             )
@@ -204,11 +207,55 @@ struct OpenAICompatibleClient: LLMClient {
                 .map { LLMToolCall(id: $0.value.id, name: $0.value.name, argumentsJSON: $0.value.arguments) }
             continuation.yield(.toolCallsReady(calls))
         }
+
+        // 兜底：流里一个字段都没解析出来（网关不支持 SSE，或直接回了整段 JSON），
+        // 就用同一条请求改成非流式再要一次，避免用户看到「模型没有返回内容」。
+        if !sawContent, !sawReasoning, toolAccumulator.isEmpty,
+           let fallback = try await nonStreamingReply(request: request) {
+            if !fallback.reasoning.isEmpty {
+                continuation.yield(.reasoningDelta(fallback.reasoning))
+            }
+            if !fallback.text.isEmpty {
+                continuation.yield(.textDelta(fallback.text))
+            }
+        }
+    }
+
+    /// 把流式请求改成非流式再发一次，返回（正文, 思考内容）。失败返回 nil。
+    private func nonStreamingReply(request: URLRequest) async throws -> (text: String, reasoning: String)? {
+        guard let body = request.httpBody,
+              var json = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
+              json["stream"] as? Bool == true else {
+            return nil
+        }
+
+        json["stream"] = false
+        json.removeValue(forKey: "stream_options")
+
+        var fallback = request
+        fallback.httpBody = try? JSONSerialization.data(withJSONObject: json)
+        fallback.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: fallback)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            return nil
+        }
+        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let choices = object["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any] else {
+            return nil
+        }
+
+        let text = message["content"] as? String ?? ""
+        let reasoning = message["reasoning_content"] as? String ?? ""
+        guard !text.isEmpty || !reasoning.isEmpty else { return nil }
+        return (text, reasoning)
     }
 
     private static func handle(
         payload: String,
         sawContent: inout Bool,
+        sawReasoning: inout Bool,
         toolAccumulator: inout [Int: (id: String, name: String, arguments: String)],
         continuation: AsyncThrowingStream<LLMStreamEvent, Error>.Continuation
     ) throws {
@@ -249,6 +296,7 @@ struct OpenAICompatibleClient: LLMClient {
 
         if let reasoning = choice.delta?.reasoning_content, !reasoning.isEmpty {
             sawContent = true
+            sawReasoning = true
             continuation.yield(.reasoningDelta(reasoning))
         }
 

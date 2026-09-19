@@ -54,7 +54,7 @@ final class VoiceAudioEngine: @unchecked Sendable {
 
         let input = engine.inputNode
         let busFormat = input.outputFormat(forBus: 0)
-        guard busFormat.sampleRate > 0 else {
+        guard busFormat.sampleRate > 0, busFormat.channelCount > 0 else {
             throw VoiceAudioError.noInputDevice
         }
 
@@ -62,13 +62,20 @@ final class VoiceAudioEngine: @unchecked Sendable {
         isInSpeech = false
         lastSpeechAt = Date()
 
+        // 上一次启动失败可能残留 tap，重复安装会直接崩，先清掉。
+        input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 1_024, format: busFormat) { [weak self] buffer, time in
             guard let self else { return }
             self.process(buffer: buffer, time: time)
         }
 
         engine.prepare()
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            input.removeTap(onBus: 0)
+            throw VoiceAudioError.engineFailure(error.localizedDescription)
+        }
         isRunning = true
     }
 

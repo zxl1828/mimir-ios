@@ -67,7 +67,8 @@ final class KokoroTTSEngine: SpeechSynthesisEngine {
             throw KokoroEngineError.modelsMissing
         }
 
-        setupAudioGraph()
+        // 刻意不在这里启动音频图：语音模式打开时输入引擎刚起来，
+        // 同时启动两个 AVAudioEngine 很容易崩。首次朗读时再建图。
 
         let forceCPU = Self.isSimulator
         Task { [weak self] in

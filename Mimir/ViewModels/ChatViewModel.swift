@@ -185,6 +185,21 @@ final class ChatViewModel {
 
     // MARK: - 会话绑定
 
+    /// 当前对话正在使用的模型 ID。
+    var activeModelID: String {
+        let stored = conversation?.modelID ?? ""
+        return stored.isEmpty ? settings.credential.modelID : stored
+    }
+
+    /// 切换模型：写回对话与全局凭据，下一条消息立即生效。
+    func setModel(_ modelID: String) {
+        let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        conversation?.modelID = trimmed
+        settings.credential.modelID = trimmed
+        persist(force: true)
+    }
+
     func attach(to conversation: Conversation) {
         guard self.conversation?.id != conversation.id else { return }
         stopGenerating(markInterrupted: false)
@@ -548,7 +563,10 @@ final class ChatViewModel {
                 self.errorMessage = failure
             } else if accumulated.isEmpty && !wasInterrupted {
                 assistant.isError = true
-                assistant.errorText = LLMError.emptyResponse.errorDescription ?? "模型没有返回内容。"
+                let onlyReasoning = !reasoning.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                assistant.errorText = onlyReasoning
+                    ? "模型只返回了思考内容，没有正文。可以把思考档位调低，或点重试。"
+                    : "模型没有返回内容。可能是网关不支持流式输出，或模型 ID 不对（当前：\(parameters.modelID)）。"
                 self.errorMessage = assistant.errorText
             }
             conversation.updatedAt = Date()

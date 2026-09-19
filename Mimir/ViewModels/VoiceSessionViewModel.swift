@@ -90,8 +90,12 @@ final class VoiceSessionViewModel {
             self.infoText = "音频被其他应用占用，已暂停。"
         }
 
-        prepareSynthesisEngine()
         startCapture()
+
+        // 采集（麦克风 + 识别）就绪后再准备合成，避免两个音频引擎同时启动。
+        if state != .unavailable {
+            prepareSynthesisEngine()
+        }
     }
 
     func stopAll() {
