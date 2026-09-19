@@ -45,10 +45,11 @@ private enum MascotRenderer {
     private static let design = CGSize(width: 100, height: 86)
 
     // 配色：浅色 / 深色背景下都能看清，不随外观切换。
-    private static let bodyTop = Color(red: 0.97, green: 0.98, blue: 1.00)
-    private static let bodyBottom = Color(red: 0.80, green: 0.87, blue: 1.00)
-    private static let fin = Color(red: 0.76, green: 0.84, blue: 1.00)
-    private static let belly = Color(red: 0.89, green: 0.93, blue: 1.00)
+    // 身体带一层淡靛蓝，避免在白色页面上「隐形」。
+    private static let bodyTop = Color(red: 0.94, green: 0.96, blue: 1.00)
+    private static let bodyBottom = Color(red: 0.72, green: 0.80, blue: 1.00)
+    private static let fin = Color(red: 0.71, green: 0.79, blue: 1.00)
+    private static let belly = Color(red: 0.86, green: 0.91, blue: 1.00)
     private static let gloss = Color.white.opacity(0.55)
     private static let ink = Color(red: 0.11, green: 0.13, blue: 0.31)
     private static let blush = Color(red: 1.00, green: 0.60, blue: 0.78)
