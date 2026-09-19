@@ -1,5 +1,12 @@
 # Mimir
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/icon-dark.png">
+    <img src="docs/brand/icon.png" width="112" alt="Mimir 图标：智慧之井里的小鲸">
+  </picture>
+</p>
+
 [![Build iOS IPA](https://github.com/zxl1828/mimir-ios/actions/workflows/build-ipa.yml/badge.svg)](https://github.com/zxl1828/mimir-ios/actions/workflows/build-ipa.yml)
 [![License: MIT + Commons Clause](https://img.shields.io/badge/License-MIT%20%2B%20Commons%20Clause-blue.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/Platform-iOS%2026%2B-lightgrey)
@@ -129,6 +136,21 @@ xcodebuild -project Mimir.xcodeproj -scheme Mimir \
 - 自定义模型目录的数据结构已就绪，但还没有对应的管理界面
 - Mermaid 与 KaTeX 渲染依赖 WebView 加载 CDN，离线时回退显示源码
 - stdio 传输的 MCP 服务器在 iOS 上不可用（系统不允许派生子进程），仅支持 HTTP/SSE
+
+## 品牌
+
+吉祥物叫**米米**，是住在智慧之井里的小鲸：用 `Canvas` 矢量绘制
+（`Mimir/Views/Components/MimirMascot.swift`，设计稿 100 × 86，与 App 图标同源几何），
+会呼吸上浮、随机眨眼、摆动尾巴，并按场景切换三档情绪 ——
+`.calm` 空对话页 / `.thinking` 生成中（头顶冒泡）/ `.happy` 引导页连接成功（月牙眼 + 闪光）。
+
+App 图标在 `Mimir/Resources/Assets.xcassets/AppIcon.appiconset`，
+含浅色 / 深色 / 着色（tinted）三套 1024×1024 资源；
+改色改形后重跑 `python tools/icon/generate_icon.py` 即可重新生成，无需设计稿。
+
+<p align="center">
+  <img src="docs/brand/mascot.png" width="620" alt="米米在浅色与深色背景下的效果">
+</p>
 
 ## 许可
 
