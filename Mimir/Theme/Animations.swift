@@ -8,8 +8,6 @@ enum AppAnimation {
     static var sidebar: Animation { .spring(response: 0.35, dampingFraction: 0.8) }
     /// 技能选择浮层。
     static var skillPicker: Animation { .spring(response: 0.3, dampingFraction: 0.75) }
-    /// 思考档位吸附。
-    static var thinkingSnap: Animation { .spring(response: 0.3, dampingFraction: 0.75) }
     /// 引导页浮入。
     static var onboarding: Animation { .spring(response: 0.5, dampingFraction: 0.8) }
     /// 胶囊 / 标签切换。

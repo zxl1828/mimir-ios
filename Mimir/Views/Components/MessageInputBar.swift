@@ -35,17 +35,17 @@ struct MessageInputBar: View {
                 attachmentStrip
             }
 
-            HStack(alignment: .bottom, spacing: 9) {
+            HStack(alignment: .bottom, spacing: 8) {
                 attachButton
 
                 TextField(placeholder, text: $text, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(AppFont.bubbleBody)
-                    .foregroundStyle(AppColor.primaryText)
+                    .font(AppUI.body)
+                    .foregroundStyle(AppUI.label)
                     .lineLimit(1...6)
                     .focused(focus)
                     .submitLabel(.return)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 7)
                     .onChange(of: text) { _, newValue in
                         onTextChanged(newValue)
                     }
@@ -54,13 +54,11 @@ struct MessageInputBar: View {
                     .onKeyPress(.return) { onKeyCommand(.confirm) ? .handled : .ignored }
                     .onKeyPress(.escape) { onKeyCommand(.escape) ? .handled : .ignored }
 
-                voiceButton
-                sendButton
+                trailingButton
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .liquidGlassCard(cornerRadius: 26)
-            .glassHairline(cornerRadius: 26)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(Capsule(style: .continuous).fill(AppUI.secondary))
         }
         .animation(AppAnimation.chip, value: attachments.count)
     }
@@ -74,7 +72,7 @@ struct MessageInputBar: View {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(AppColor.secondaryText)
+                .foregroundStyle(AppUI.label2)
                 .frame(width: 32, height: 32)
                 .background(
                     Circle().fill(Color.primary.opacity(showAttachMenu ? 0.10 : 0.0001))
@@ -97,58 +95,52 @@ struct MessageInputBar: View {
         }
     }
 
-    private var voiceButton: some View {
-        Button {
-            Haptics.impact(.light)
-            onVoice()
-        } label: {
-            Image(systemName: "waveform")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(AppColor.secondaryText)
-                .frame(width: 32, height: 32)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("语音模式")
-    }
-
-    private var sendButton: some View {
+    /// 右侧单按钮：空输入 → 语音；有文字 → 蓝色圆形发送；生成中 → 停止。
+    private var trailingButton: some View {
         Button {
             if isGenerating {
                 Haptics.impact(.medium)
                 onStop()
-            } else {
+            } else if canSend {
                 Haptics.impact(.light)
                 onSend()
+            } else {
+                Haptics.impact(.light)
+                onVoice()
             }
         } label: {
             ZStack {
-                Circle()
-                    .fill(sendButtonFill)
-                    .frame(width: 34, height: 34)
-                Image(systemName: isGenerating ? "stop.fill" : "arrow.up")
-                    .font(.system(size: isGenerating ? 12 : 15, weight: .bold))
-                    .foregroundStyle(.white)
+                if isGenerating {
+                    Circle()
+                        .fill(AppUI.label.opacity(0.12))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(AppUI.label)
+                } else if canSend {
+                    Circle()
+                        .fill(AppUI.accent)
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white)
+                } else {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppUI.label2)
+                        .frame(width: 32, height: 32)
+                }
             }
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .disabled(!isGenerating && !canSend)
+        .animation(.easeInOut(duration: 0.18), value: canSend)
         .animation(.easeInOut(duration: 0.18), value: isGenerating)
-        .accessibilityLabel(isGenerating ? "停止生成" : "发送")
+        .accessibilityLabel(isGenerating ? "停止生成" : (canSend ? "发送" : "语音模式"))
     }
 
     private var canSend: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
-    }
-
-    private var sendButtonFill: AnyShapeStyle {
-        if isGenerating {
-            return AnyShapeStyle(AppColor.danger.opacity(0.9))
-        }
-        return canSend
-            ? AnyShapeStyle(AppColor.accentGradient)
-            : AnyShapeStyle(AppColor.secondaryText.opacity(0.28))
     }
 
     private var attachmentStrip: some View {

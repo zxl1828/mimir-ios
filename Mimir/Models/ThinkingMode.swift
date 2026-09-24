@@ -20,54 +20,6 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// 胶囊里的短标签，避免「Extra High」把按钮撑太宽。
-    var shortTitle: String {
-        title
-    }
-
-    var subtitle: String {
-        switch self {
-        case .quick: return "几乎不思考，速度优先"
-        case .thinking: return "常规推理，日常够用"
-        case .expert: return "更深推理，复杂问题"
-        case .ultra: return "全力推理，长链条任务"
-        }
-    }
-
-    /// 滑块上方的速度 / 额度引导语，四档都要有明确说法。
-    var guidance: String {
-        switch self {
-        case .quick: return "最快出结果，几乎不动用推理额度"
-        case .thinking: return "速度与深度平衡，日常首选"
-        case .expert: return "推理更充分，复杂任务更稳"
-        case .ultra: return "更快消耗使用额度"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .quick: return "bolt.fill"
-        case .thinking: return "brain"
-        case .expert: return "graduationcap.fill"
-        case .ultra: return "sparkles"
-        }
-    }
-
-    var tint: Color { AppColor.thinkingTint(for: self) }
-
-    /// 0...1 归一化位置，用于滑块几何计算。
-    var normalized: Double {
-        Double(Self.allCases.firstIndex(of: self) ?? 0) / Double(max(Self.allCases.count - 1, 1))
-    }
-
-    /// 由滑块位置解析出最近档位（拖动过程中实时使用）。
-    static func nearest(progress: Double) -> ThinkingMode {
-        let clamped = min(max(progress, 0), 1)
-        let scaled = clamped * Double(allCases.count - 1)
-        let index = Int(scaled.rounded())
-        return allCases[min(max(index, 0), allCases.count - 1)]
-    }
-
     // MARK: - 模型参数映射
 
     var temperature: Double {
@@ -88,14 +40,4 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// 是否要求模型输出思考过程（用于渲染折叠的思考区）。
-    var exposesReasoning: Bool {
-        switch self {
-        case .quick: return false
-        case .thinking, .expert, .ultra: return true
-        }
-    }
-
-    /// 是否启用预热动画（Ultra 的持续动效）。
-    var isEmbellished: Bool { self == .ultra }
 }

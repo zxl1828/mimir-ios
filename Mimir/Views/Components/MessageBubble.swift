@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// 单条消息气泡。用户消息右对齐实色渐变，助手消息左对齐玻璃卡片。
+/// 单条消息气泡。用户消息右对齐蓝底白字，助手消息左对齐浅灰卡片。
 struct MessageBubble: View {
 
     let message: ChatMessage
@@ -61,14 +61,14 @@ struct MessageBubble: View {
 
             if !message.text.isEmpty {
                 Text(message.text)
-                    .font(AppFont.bubbleBody)
+                    .font(AppUI.body)
                     .foregroundStyle(.white)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: AppSpacing.bubbleCorner, style: .continuous)
-                            .fill(AppColor.accentGradient)
+                        RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
+                            .fill(AppUI.accent)
                     )
             }
 
@@ -84,14 +84,9 @@ struct MessageBubble: View {
         HStack(spacing: 0) {
             if isUser { Spacer(minLength: 0) }
             Text(text)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(isUser ? AppColor.secondaryText : AppColor.brandIndigo)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill((isUser ? AppColor.secondaryText : AppColor.brandIndigo).opacity(0.12))
-                )
+                .font(AppUI.caption)
+                .foregroundStyle(AppUI.label3)
+                .padding(.horizontal, 2)
             if !isUser { Spacer(minLength: 0) }
         }
     }
@@ -110,8 +105,8 @@ struct MessageBubble: View {
                 HStack(spacing: 8) {
                     MimirMascot(size: 26, mood: .thinking)
                     Text("正在生成…")
-                        .font(AppFont.hint)
-                        .foregroundStyle(AppColor.secondaryText)
+                        .font(AppUI.footnote)
+                        .foregroundStyle(AppUI.label2)
                 }
                 .padding(.vertical, 4)
             } else {
@@ -129,14 +124,16 @@ struct MessageBubble: View {
             metaRow(isUser: false)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: 22)
-        .glassHairline(cornerRadius: 22)
+        .background(
+            RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
+                .fill(AppUI.secondary)
+        )
         .overlay {
             if isHighlighted {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(AppColor.brandIndigo.opacity(0.85), lineWidth: 1.6)
+                RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
+                    .strokeBorder(AppUI.accent.opacity(0.8), lineWidth: 1.6)
                     .allowsHitTesting(false)
             }
         }
@@ -153,32 +150,39 @@ struct MessageBubble: View {
                     Image(systemName: "brain")
                         .font(.system(size: 12, weight: .semibold))
                     Text(message.isStreaming && thinkingExpanded == false ? "正在思考…" : "思考过程")
-                        .font(AppFont.chipCompact)
+                        .font(AppUI.chip)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .bold))
                         .rotationEffect(.degrees(thinkingExpanded ? 180 : 0))
                     Spacer(minLength: 0)
                 }
-                .foregroundStyle(AppColor.secondaryText)
+                .foregroundStyle(AppUI.label2)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             if thinkingExpanded {
                 Text(message.thinkingText)
-                    .font(AppFont.codeSmall)
-                    .foregroundStyle(AppColor.secondaryText)
+                    .font(AppUI.footnote)
+                    .foregroundStyle(AppUI.label2)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 10)
                     .overlay(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(AppColor.brandPurple.opacity(0.4))
+                            .fill(AppUI.accent.opacity(0.35))
                             .frame(width: 2)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppUI.fill)
+        )
     }
 
     private var errorSection: some View {
@@ -187,8 +191,8 @@ struct MessageBubble: View {
                 .font(.system(size: 13))
                 .foregroundStyle(AppColor.warning)
             Text(message.errorText)
-                .font(AppFont.hint)
-                .foregroundStyle(AppColor.secondaryText)
+                .font(AppUI.footnote)
+                .foregroundStyle(AppUI.label2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
@@ -201,17 +205,17 @@ struct MessageBubble: View {
     private var quotedChip: some View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(Color.white.opacity(0.7))
+                .fill(AppUI.accent)
                 .frame(width: 2.5, height: 14)
             Text(message.quotedPreview)
-                .font(AppFont.chipCompact)
-                .foregroundStyle(.white.opacity(0.85))
+                .font(AppUI.caption)
+                .foregroundStyle(AppUI.label2)
                 .lineLimit(1)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(
-            Capsule(style: .continuous).fill(Color.white.opacity(0.16))
+            Capsule(style: .continuous).fill(AppUI.fill)
         )
     }
 
@@ -226,12 +230,12 @@ struct MessageBubble: View {
                             Image(systemName: "brain.head.profile")
                                 .font(.system(size: 10.5, weight: .semibold))
                             Text("记忆")
-                                .font(AppFont.chipCompact)
+                                .font(AppUI.caption)
                         }
-                        .foregroundStyle(AppColor.brandPurple)
+                        .foregroundStyle(AppUI.label2)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 5)
-                        .background(Capsule(style: .continuous).fill(AppColor.brandPurple.opacity(0.12)))
+                        .background(Capsule(style: .continuous).fill(AppUI.fill))
                     }
                     .buttonStyle(.plain)
                 }
@@ -256,8 +260,8 @@ struct MessageBubble: View {
             .opacity(message.activeVersionIndex <= 0 ? 0.35 : 1)
 
             Text(message.versionLabel)
-                .font(AppFont.chipCompact)
-                .foregroundStyle(AppColor.secondaryText)
+                .font(AppUI.caption)
+                .foregroundStyle(AppUI.label2)
                 .monospacedDigit()
 
             Button {
@@ -275,12 +279,12 @@ struct MessageBubble: View {
 
             Spacer(minLength: 0)
         }
-        .foregroundStyle(AppColor.secondaryText)
+        .foregroundStyle(AppUI.label2)
         .padding(.horizontal, 9)
         .padding(.vertical, 3)
         .background(
             Capsule(style: .continuous)
-                .fill(AppColor.secondaryText.opacity(0.09))
+                .fill(AppUI.fill)
         )
         .frame(maxWidth: 120, alignment: .leading)
     }
@@ -289,18 +293,18 @@ struct MessageBubble: View {
         HStack(spacing: 8) {
             if !message.agentName.isEmpty {
                 Text(message.agentName)
-                    .font(AppFont.chipCompact)
-                    .foregroundStyle(isUser ? Color.white.opacity(0.75) : AppColor.brandIndigo)
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label3)
             }
             if !message.skillName.isEmpty {
                 Text("/" + message.skillName)
-                    .font(AppFont.chipCompact)
-                    .foregroundStyle(isUser ? Color.white.opacity(0.75) : AppColor.brandPurple)
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label3)
             }
             if message.isInterrupted {
                 Text("已打断")
-                    .font(AppFont.chipCompact)
-                    .foregroundStyle(isUser ? Color.white.opacity(0.7) : AppColor.warning)
+                    .font(AppUI.caption)
+                    .foregroundStyle(Color.orange)
             }
 
             if message.usage.total > 0 {
@@ -310,15 +314,15 @@ struct MessageBubble: View {
                     Text(showsUsage
                          ? "输入 \(message.usage.promptTokens) · 输出 \(message.usage.completionTokens + message.usage.reasoningTokens)"
                          : "\(message.usage.total) tokens")
-                        .font(AppFont.chipCompact)
-                        .foregroundStyle(isUser ? Color.white.opacity(0.6) : AppColor.tertiaryText)
+                        .font(AppUI.caption)
+                        .foregroundStyle(AppUI.label3)
                 }
                 .buttonStyle(.plain)
             }
 
             Text(message.createdAt, format: .dateTime.hour().minute())
-                .font(AppFont.chipCompact)
-                .foregroundStyle(isUser ? Color.white.opacity(0.55) : AppColor.tertiaryText)
+                .font(AppUI.caption)
+                .foregroundStyle(AppUI.label3)
         }
         .animation(.easeInOut(duration: 0.18), value: showsUsage)
     }

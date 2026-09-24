@@ -12,10 +12,7 @@ enum AppFont {
         .system(size: size, weight: weight, design: .monospaced)
     }
 
-    static var chatTitle: Font { .system(size: 17, weight: .semibold) }
-    static var navIcon: Font { .system(size: 17, weight: .medium) }
     static var bubbleBody: Font { .system(size: 16.5) }
-    static var bubbleBodyEmphasis: Font { .system(size: 16.5, weight: .semibold) }
     static var sidebarSection: Font { .system(size: 12, weight: .semibold) }
     static var sidebarRow: Font { .system(size: 15.5) }
     static var chip: Font { .system(size: 13.5, weight: .medium) }
@@ -37,7 +34,6 @@ enum AppSpacing {
     static let medium: CGFloat = 16
     static let large: CGFloat = 24
     static let section: CGFloat = 32
-    static let bubbleCorner: CGFloat = 20
     static let cardCorner: CGFloat = 20
     static let chipCorner: CGFloat = 18
 }

@@ -54,6 +54,8 @@ final class AppSettings {
         static let selectedAgent = "settings.agent.selected.v1"
         static let customModels = "settings.custom.models.v1"
         static let webSearch = "settings.websearch.v1"
+        static let appearance = "settings.appearance.v1"
+        static let accent = "settings.accent.v1"
         static let secretAccount = "app.api.key"
         static let webSearchSecretAccount = "websearch.api.key"
     }
@@ -115,6 +117,16 @@ final class AppSettings {
         didSet { persist(webSearch, forKey: Key.webSearch) }
     }
 
+    /// 外观模式（系统 / 浅色 / 深色）。
+    var appearance: AppAppearance {
+        didSet { defaults.set(appearance.rawValue, forKey: Key.appearance) }
+    }
+
+    /// 全应用强调色。
+    var accent: AppAccent {
+        didSet { defaults.set(accent.rawValue, forKey: Key.accent) }
+    }
+
     var hasUsableCredential: Bool {
         !credential.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -141,6 +153,10 @@ final class AppSettings {
         self.customModels = Self.load([CustomModelEntry].self, from: defaults, key: Key.customModels) ?? []
         self.webSearch = Self.load(WebSearchConfiguration.self, from: defaults, key: Key.webSearch)
             ?? WebSearchConfiguration()
+        self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")
+            ?? .system
+        self.accent = AppAccent(rawValue: defaults.string(forKey: Key.accent) ?? "")
+            ?? .blue
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)
             ?? APICredential.placeholder

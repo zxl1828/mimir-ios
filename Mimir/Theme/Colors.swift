@@ -48,59 +48,10 @@ enum AppColor {
     static let warning = Color(red: 0.98, green: 0.68, blue: 0.20)
     static let danger = Color(red: 0.96, green: 0.30, blue: 0.33)
 
-    // MARK: - 思考档位（冷 → 暖插值端点）
-
-    static let thinkingCold = Color(red: 0.25, green: 0.60, blue: 1.00)
-    static let thinkingMid = Color(red: 0.55, green: 0.42, blue: 0.98)
-    static let thinkingWarm = Color(red: 1.00, green: 0.52, blue: 0.28)
-
-    /// 档位色：由冷到暖连续插值，供滑块填充与指示器着色。
-    static func thinkingTint(for mode: ThinkingMode) -> Color {
-        switch mode {
-        case .quick: return thinkingCold
-        case .thinking: return Color(red: 0.38, green: 0.52, blue: 0.99)
-        case .expert: return thinkingMid
-        case .ultra: return thinkingWarm
-        }
-    }
-
-    /// 滑块轨道填充：按 0...1 位置在两段渐变之间插值。
-    static func thinkingTrackColor(progress: Double) -> Color {
-        let t = min(max(progress, 0), 1)
-        if t < 0.5 {
-            return blend(thinkingCold, thinkingMid, amount: t * 2)
-        } else {
-            return blend(thinkingMid, thinkingWarm, amount: (t - 0.5) * 2)
-        }
-    }
-
-    static func blend(_ from: Color, _ to: Color, amount: Double) -> Color {
-        let a = min(max(amount, 0), 1)
-        let f = UIColor(from).rgba
-        let t = UIColor(to).rgba
-        return Color(
-            red: f.r + (t.r - f.r) * a,
-            green: f.g + (t.g - f.g) * a,
-            blue: f.b + (t.b - f.b) * a,
-            opacity: f.a + (t.a - f.a) * a
-        )
-    }
-
     // MARK: - 语音模式
 
     static let listening = Color(red: 0.20, green: 0.72, blue: 0.98)
     static let thinking = Color(red: 0.62, green: 0.40, blue: 0.98)
     static let speaking = Color(red: 0.16, green: 0.80, blue: 0.66)
     static let interrupted = Color(red: 1.00, green: 0.62, blue: 0.24)
-}
-
-extension UIColor {
-    var rgba: (r: Double, g: Double, b: Double, a: Double) {
-        var r: CGFloat = 0
-        var g: CGFloat = 0
-        var b: CGFloat = 0
-        var a: CGFloat = 0
-        getRed(&r, green: &g, blue: &b, alpha: &a)
-        return (Double(r), Double(g), Double(b), Double(a))
-    }
 }

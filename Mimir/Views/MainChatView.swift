@@ -19,6 +19,8 @@ struct MainChatView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var showSettings = false
     @State private var showVoiceMode = false
+    @State private var showLevelSheet = false
+    @State private var showScheduledTasks = false
     @State private var showMemoryBrowser = false
     @State private var showDataFlow = false
     @State private var showAgentManager = false
@@ -72,13 +74,25 @@ struct MainChatView: View {
             .contentShape(Rectangle())
             .simultaneousGesture(edgeDragGesture(sidebarWidth: sidebarWidth))
         }
-        .background(AppColor.canvas)
+        .background(AppUI.canvas)
         .task { await bootstrap() }
         .onChange(of: photoItem) { _, newValue in loadPickedPhoto(newValue) }
         .sheet(isPresented: $showSettings) {
             if let chat, let list {
                 SettingsView(chat: chat, list: list)
             }
+        }
+        .sheet(isPresented: $showLevelSheet) {
+            ModelSelectionSheet(
+                currentLevel: Binding(
+                    get: { chat?.thinkingMode ?? .thinking },
+                    set: { chat?.thinkingMode = $0 }
+                ),
+                modelName: ModelCatalog.displayName(for: currentModelID)
+            )
+        }
+        .sheet(isPresented: $showScheduledTasks) {
+            ScheduledTasksView()
         }
         .fullScreenCover(isPresented: $showVoiceMode) {
             if let chat {
@@ -166,56 +180,79 @@ struct MainChatView: View {
         VStack(spacing: 0) {
             topBar
             messageList
+        }
+        .background(AppUI.canvas)
+        // 输入栏固定在屏幕底部：键盘弹出时整体上移，消息列表自己滚动。
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomBar
         }
-        .background(AppColor.canvas)
     }
 
-    /// 顶栏：整条是一枚悬浮的液态玻璃胶囊，两侧按钮是圆形玻璃块。
+    /// 顶栏：左汉堡、中间档位胶囊、右侧模型与新建。
     private var topBar: some View {
-        HStack(spacing: 8) {
-            iconButton("line.3.horizontal", label: "打开侧边栏") {
+        HStack(spacing: 6) {
+            UIBarButton(icon: "line.3.horizontal", label: "打开侧边栏") {
                 openSidebar()
             }
 
-            Spacer(minLength: 2)
+            Spacer(minLength: 0)
 
+            levelCapsule
+
+            Spacer(minLength: 0)
+
+            modelMenu
+
+            UIBarButton(icon: "square.and.pencil", label: "新建对话") {
+                newConversation()
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(AppUI.canvas)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(AppUI.separator.opacity(0.3))
+                .frame(height: 0.5)
+        }
+    }
+
+    /// 中间胶囊：显示当前档位（Light / High / X-High / Max），点开档位与额度面板。
+    private var levelCapsule: some View {
+        Button {
+            Haptics.impact(.light)
+            showLevelSheet = true
+        } label: {
+            HStack(spacing: 5) {
+                Text(currentLevel.title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(AppUI.label)
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppUI.label3)
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 34)
+            .background(Capsule(style: .continuous).fill(AppUI.secondary))
+            .contentShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
             Button {
                 Haptics.impact(.light)
                 titleDraft = chat?.conversation?.title ?? ""
                 editingTitle = true
             } label: {
-                HStack(spacing: 5) {
-                    Text(chat?.conversation?.title ?? "新对话")
-                        .font(AppFont.chatTitle)
-                        .foregroundStyle(AppColor.primaryText)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Image(systemName: "pencil")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(AppColor.tertiaryText)
-                }
-                .padding(.horizontal, 6)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("重命名当前对话")
-
-            Spacer(minLength: 2)
-
-            modelMenu
-
-            iconButton("square.and.pencil", label: "新建对话") {
-                newConversation()
+                Label("重命名当前对话", systemImage: "pencil")
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 26))
-        .glassHairline(cornerRadius: 26)
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
+        .accessibilityLabel("当前档位 \(currentLevel.title)")
+    }
+
+    private var currentLevel: ThinkingMode {
+        chat?.thinkingMode ?? .thinking
     }
 
     /// 模型切换：胶囊显示当前模型，点开是玻璃菜单。
@@ -242,19 +279,18 @@ struct MainChatView: View {
             HStack(spacing: 5) {
                 Image(systemName: "cpu")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppColor.brandIndigo)
+                    .foregroundStyle(AppUI.accent)
                 Text(ModelCatalog.shortLabel(for: currentModelID))
-                    .font(AppFont.chipCompact)
-                    .foregroundStyle(AppColor.primaryText)
+                    .font(AppUI.chip)
+                    .foregroundStyle(AppUI.label)
                     .lineLimit(1)
             }
             .padding(.horizontal, 10)
             .frame(height: 32)
-            .contentShape(Capsule())
+            .background(Capsule(style: .continuous).fill(AppUI.secondary))
+            .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
-        .liquidGlass(.clear, in: .capsule)
-        .capsuleHairline()
         .accessibilityLabel("切换模型")
     }
 
@@ -273,22 +309,6 @@ struct MainChatView: View {
         Haptics.selectionChanged()
         chat?.setModel(modelID)
         toast = "已切换到 \(ModelCatalog.shortLabel(for: modelID))"
-    }
-
-    private func iconButton(_ systemName: String, label: String, action: @escaping () -> Void) -> some View {
-        Button {
-            Haptics.impact(.light)
-            action()
-        } label: {
-            Image(systemName: systemName)
-                .font(AppFont.navIcon)
-                .foregroundStyle(AppColor.primaryText)
-                .frame(width: 36, height: 36)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .liquidGlass(.regular.interactive(), in: .circle)
-        .accessibilityLabel(label)
     }
 
     private var messageList: some View {
@@ -413,10 +433,10 @@ struct MainChatView: View {
                 .padding(.bottom, 2)
             Text("开始一段新对话")
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(AppColor.primaryText)
+                .foregroundStyle(AppUI.label)
             Text("输入问题，或用 / 唤起技能")
-                .font(AppFont.hint)
-                .foregroundStyle(AppColor.secondaryText)
+                .font(AppUI.footnote)
+                .foregroundStyle(AppUI.label2)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 90)
@@ -424,32 +444,12 @@ struct MainChatView: View {
     }
 
     private var bottomBar: some View {
-        VStack(spacing: 9) {
+        VStack(spacing: 8) {
             if let quoted = chat?.quotedMessage {
                 quotedBar(quoted)
             }
 
-            HStack(spacing: 8) {
-                // 智能体胶囊占满剩余宽度并自己横向滚动，思考档位固定在右侧，
-                // 这样两者永远不会重叠（之前滑块 layoutPriority 抢宽度压到了智能体按钮上）。
-                AgentDock(
-                    agents: agents,
-                    selected: Binding(
-                        get: { chat?.activeAgent },
-                        set: { chat?.activeAgent = $0 }
-                    ),
-                    onManage: { showAgentManager = true }
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                ThinkingModeSlider(
-                    selection: Binding(
-                        get: { chat?.thinkingMode ?? .thinking },
-                        set: { chat?.thinkingMode = $0 }
-                    )
-                )
-                .fixedSize()
-            }
+            quickActionBar
 
             MessageInputBar(
                 text: Binding(
@@ -462,6 +462,7 @@ struct MainChatView: View {
                 ),
                 focus: $inputFocused,
                 isGenerating: chat?.isGenerating ?? false,
+                placeholder: "询问 Mimir",
                 onSend: { chat?.send() },
                 onStop: { chat?.stopGenerating() },
                 showAttachMenu: $showAttachmentOptions,
@@ -473,26 +474,112 @@ struct MainChatView: View {
                 onKeyCommand: { chat?.handleKeyCommand($0) ?? false }
             )
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
+        .padding(.horizontal, AppUI.hPadding)
+        .padding(.top, 8)
         .padding(.bottom, 8)
-        .background(.bar)
+        .background(AppUI.canvas)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(AppColor.separator.opacity(0.22))
+                .fill(AppUI.separator.opacity(0.24))
                 .frame(height: 0.5)
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+    }
+
+    /// 输入框上方的快捷功能栏：三个功能胶囊 + 智能体胶囊（横向滚动）。
+    private var quickActionBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                UIQuickChip(icon: "photo", title: "生成图片") {
+                    insertPrompt("画一张图片，画面是：")
+                }
+
+                UIQuickChip(icon: "pencil", title: "撰写或编辑") {
+                    insertPrompt("帮我撰写或改写下面这段内容：")
+                }
+
+                UIQuickChip(icon: "globe", title: "搜索网页") {
+                    insertPrompt("联网搜索并总结：")
+                }
+
+                Rectangle()
+                    .fill(AppUI.separator.opacity(0.5))
+                    .frame(width: 1, height: 18)
+                    .padding(.horizontal, 2)
+
+                agentChip(title: "通用", icon: "sparkles", isSelected: chat?.activeAgent == nil) {
+                    chat?.activeAgent = nil
+                }
+
+                ForEach(agents) { agent in
+                    agentChip(
+                        title: agent.name,
+                        icon: agent.icon,
+                        isSelected: chat?.activeAgent?.id == agent.id
+                    ) {
+                        chat?.activeAgent = agent
+                        settings.selectedAgentName = agent.name
+                    }
+                }
+
+                agentChip(title: "管理", icon: "slider.horizontal.3", isSelected: false) {
+                    showAgentManager = true
+                }
+            }
+            .padding(.horizontal, 1)
+            .padding(.vertical, 1)
+        }
+        .scrollClipDisabled()
+    }
+
+    private func agentChip(
+        title: String,
+        icon: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            Haptics.selectionChanged()
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(title)
+                    .font(AppUI.chip)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isSelected ? Color.white : AppUI.label)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(isSelected ? AnyShapeStyle(AppUI.accent) : AnyShapeStyle(AppUI.secondary))
+            )
+            .contentShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// 快捷入口把提示词写进输入框并聚焦，用户补完内容即可发送。
+    private func insertPrompt(_ text: String) {
+        guard let chat else { return }
+        if chat.inputText.isEmpty {
+            chat.inputText = text
+        } else if !chat.inputText.hasSuffix(text) {
+            chat.inputText += text
+        }
+        inputFocused = true
     }
 
     private func quotedBar(_ message: ChatMessage) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "quote.opening")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppColor.brandIndigo)
+                .foregroundStyle(AppUI.accent)
             Text(String(message.text.prefix(60)))
-                .font(AppFont.chipCompact)
-                .foregroundStyle(AppColor.secondaryText)
+                .font(AppUI.chip)
+                .foregroundStyle(AppUI.label2)
                 .lineLimit(1)
             Spacer(minLength: 4)
             Button {
@@ -501,13 +588,16 @@ struct MainChatView: View {
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 15))
-                    .foregroundStyle(AppColor.tertiaryText)
+                    .foregroundStyle(AppUI.label3)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .liquidGlassClear(cornerRadius: 14)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppUI.secondary)
+        )
         .padding(.horizontal, 2)
     }
 
@@ -561,6 +651,14 @@ struct MainChatView: View {
             onSelectSkill: { skill in
                 chat?.activeSkill = skill
                 closeSidebar()
+            },
+            onPickPhoto: {
+                closeSidebar()
+                showPhotoPicker = true
+            },
+            onOpenScheduledTasks: {
+                closeSidebar()
+                showScheduledTasks = true
             }
         )
         .frame(width: width)

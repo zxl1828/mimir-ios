@@ -21,7 +21,8 @@ struct RootView: View {
             }
         }
         .environment(settings)
-        .preferredColorScheme(nil)
+        .preferredColorScheme(settings.appearance.colorScheme)
+        .tint(settings.accent.color)
         .task {
             StartupCoordinator.seedIfNeeded(context: modelContext)
             StartupCoordinator.refreshScheduledTasks(context: modelContext)
