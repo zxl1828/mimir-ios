@@ -13,7 +13,8 @@
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
 
 本地优先的私人 AI 客户端，SwiftUI + MVVM，最低支持 iOS 26，
-界面完全自定义并使用液态玻璃（Liquid Glass）原生材质。
+核心界面（对话 / 侧边栏 / 设置 / 档位面板）采用原生 iOS 系统风：
+系统语义色、SF Symbols、胶囊与 insetGrouped 卡片；语音、引导页等二级界面保留 Liquid Glass 材质。
 
 > 非官方项目，与 DeepSeek 官方无隶属或背书关系；「DeepSeek」为相应权利人的商标。
 
@@ -87,7 +88,7 @@
 | 项目 | 说明 |
 |---|---|
 | 语言 | Swift 6（严格并发检查） |
-| UI | SwiftUI，Liquid Glass（`glassEffect` / `GlassEffectContainer`） |
+| UI | SwiftUI，原生系统风（系统语义色 + SF Symbols）；二级界面保留 Liquid Glass（`glassEffect`） |
 | 持久化 | SwiftData |
 | 凭据 | Keychain（API Key 与 MCP Token 均不入 UserDefaults） |
 | 网络 | 自建统一网络层（SSE 流式解析，OpenAI 兼容 + Anthropic 双协议） |
@@ -171,8 +172,8 @@ OSI 开源定义不允许限制商业使用。除「不得倒卖」这一条外�
 
 ## English
 
-An unofficial, local-first AI client for iOS 26 - works with DeepSeek, any OpenAI-compatible gateway and Anthropic endpoints - built with SwiftUI and
-Liquid Glass: streaming chat, on-device voice (VAD + speech recognition +
+An unofficial, local-first AI client for iOS 26 - works with DeepSeek, any OpenAI-compatible gateway and Anthropic endpoints - built with SwiftUI in a
+native iOS design language (system colors, SF Symbols, capsule controls) with Liquid Glass kept for secondary screens: streaming chat, on-device voice (VAD + speech recognition +
 bundled Kokoro-82M CoreML TTS), local vector memory, skills, MCP tools,
 App Intents, and a fully custom UI.
 
