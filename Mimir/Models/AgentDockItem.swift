@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 import SwiftData
 
 /// Agent Dock 中的一个轻量级智能体。
@@ -103,5 +103,37 @@ extension AgentDockItem {
                 sortIndex: 2
             )
         ]
+    }
+}
+
+// MARK: - 配色
+
+extension AgentDockItem {
+
+    /// 胶囊配色：优先使用自定义色，否则按名称哈希挑一个品牌色。
+    var tintColor: Color {
+        if !accentHex.isEmpty, let parsed = Color(hex: accentHex) { return parsed }
+        let palette: [Color] = [
+            AppColor.brandIndigo,
+            AppColor.brandTeal,
+            AppColor.brandPurple,
+            AppColor.brandBlue
+        ]
+        let index = abs(name.hashValue) % palette.count
+        return palette[index]
+    }
+}
+
+extension Color {
+
+    /// 解析 `#RRGGBB` 形式的颜色。
+    init?(hex: String) {
+        var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("#") { value.removeFirst() }
+        guard value.count == 6, let number = Int(value, radix: 16) else { return nil }
+        let red = Double((number >> 16) & 0xFF) / 255
+        let green = Double((number >> 8) & 0xFF) / 255
+        let blue = Double(number & 0xFF) / 255
+        self.init(red: red, green: green, blue: blue)
     }
 }
