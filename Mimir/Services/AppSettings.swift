@@ -48,7 +48,6 @@ final class AppSettings {
         static let onboarding = "settings.onboarding.completed.v1"
         static let autoSummarize = "settings.auto.summarize.v1"
         static let memoryEnabled = "settings.memory.enabled.v1"
-        static let backgroundReview = "settings.memory.background.review.v1"
         static let liveActivity = "settings.live.activity.v1"
         static let suggestionsEnabled = "settings.suggestions.enabled.v1"
         static let selectedAgent = "settings.agent.selected.v1"
@@ -56,6 +55,7 @@ final class AppSettings {
         static let webSearch = "settings.websearch.v1"
         static let appearance = "settings.appearance.v1"
         static let accent = "settings.accent.v1"
+        static let background = "settings.background.v1"
         static let secretAccount = "app.api.key"
         static let webSearchSecretAccount = "websearch.api.key"
     }
@@ -93,10 +93,6 @@ final class AppSettings {
         didSet { defaults.set(memoryEnabled, forKey: Key.memoryEnabled) }
     }
 
-    var backgroundMemoryReview: Bool {
-        didSet { defaults.set(backgroundMemoryReview, forKey: Key.backgroundReview) }
-    }
-
     var liveActivitiesEnabled: Bool {
         didSet { defaults.set(liveActivitiesEnabled, forKey: Key.liveActivity) }
     }
@@ -127,6 +123,11 @@ final class AppSettings {
         didSet { defaults.set(accent.rawValue, forKey: Key.accent) }
     }
 
+    /// 聊天背景（纯色或内置壁纸）。
+    var background: AppBackground {
+        didSet { defaults.set(background.rawValue, forKey: Key.background) }
+    }
+
     var hasUsableCredential: Bool {
         !credential.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -146,7 +147,6 @@ final class AppSettings {
             ?? .forever
         self.autoSummarizeEnabled = defaults.object(forKey: Key.autoSummarize) as? Bool ?? true
         self.memoryEnabled = defaults.object(forKey: Key.memoryEnabled) as? Bool ?? true
-        self.backgroundMemoryReview = defaults.object(forKey: Key.backgroundReview) as? Bool ?? true
         self.liveActivitiesEnabled = defaults.object(forKey: Key.liveActivity) as? Bool ?? true
         self.suggestionsEnabled = defaults.object(forKey: Key.suggestionsEnabled) as? Bool ?? true
         self.selectedAgentName = defaults.string(forKey: Key.selectedAgent) ?? ""
@@ -156,7 +156,9 @@ final class AppSettings {
         self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")
             ?? .system
         self.accent = AppAccent(rawValue: defaults.string(forKey: Key.accent) ?? "")
-            ?? .blue
+            ?? .purple
+        self.background = AppBackground(rawValue: defaults.string(forKey: Key.background) ?? "")
+            ?? .violetMist
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)
             ?? APICredential.placeholder

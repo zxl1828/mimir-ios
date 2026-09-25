@@ -32,12 +32,29 @@ enum AppUI {
     static var label2: Color { Color(uiColor: .secondaryLabel) }
     static var label3: Color { Color(uiColor: .tertiaryLabel) }
     static var separator: Color { Color(uiColor: .separator) }
-    static let accent = Color.blue
+    /// 品牌紫：浅色模式下足够深（白字压得住），深色模式下自动提亮（黑底上不糊）。
+    static let brandPurple = Color.adaptive(
+        light: UIColor(red: 0.52, green: 0.36, blue: 0.95, alpha: 1),
+        dark: UIColor(red: 0.66, green: 0.52, blue: 1.00, alpha: 1)
+    )
 
-    /// 滑块轨道渐变：蓝 → 紫。
+    /// 品牌强调色（默认紫）。视图里请优先用 `@Environment(\.appAccent)`，
+    /// 这样设置里换强调色才能全局生效；这里只作为环境默认值。
+    static let accent = brandPurple
+
+    /// 滑块轨道渐变：浅紫 → 深紫，深浅色模式下都保持可辨识。
     static var levelGradient: LinearGradient {
         LinearGradient(
-            colors: [Color.blue, Color(red: 0.55, green: 0.32, blue: 0.98)],
+            colors: [
+                Color.adaptive(
+                    light: UIColor(red: 0.72, green: 0.45, blue: 1.00, alpha: 1),
+                    dark: UIColor(red: 0.80, green: 0.58, blue: 1.00, alpha: 1)
+                ),
+                Color.adaptive(
+                    light: UIColor(red: 0.42, green: 0.26, blue: 0.92, alpha: 1),
+                    dark: UIColor(red: 0.55, green: 0.36, blue: 0.98, alpha: 1)
+                )
+            ],
             startPoint: .leading,
             endPoint: .trailing
         )
@@ -60,6 +77,59 @@ enum AppUI {
     static var snap: Animation { .spring(response: 0.28, dampingFraction: 0.82) }
 }
 
+extension Color {
+    /// 浅色 / 深色两套取值的动态色。
+    static func adaptive(light: UIColor, dark: UIColor) -> Color {
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? dark : light
+        })
+    }
+}
+
+// MARK: - 强调色环境值
+
+private struct AppAccentKey: EnvironmentKey {
+    static let defaultValue: Color = AppUI.accent
+}
+
+extension EnvironmentValues {
+    /// 全应用强调色，由 `RootView` 从设置注入。
+    var appAccent: Color {
+        get { self[AppAccentKey.self] }
+        set { self[AppAccentKey.self] = newValue }
+    }
+}
+
+// MARK: - 背景
+
+/// 全屏聊天背景：纯色，或内置壁纸 + 一层可读性遮罩。
+struct AppBackgroundView: View {
+
+    var background: AppBackground
+
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        ZStack {
+            AppUI.canvas
+
+            if let name = background.assetName {
+                Image(name)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+                    .overlay(
+                        Color(uiColor: .systemBackground)
+                            .opacity(scheme == .dark ? 0.58 : 0.76)
+                    )
+            }
+        }
+        .ignoresSafeArea()
+        .animation(.easeInOut(duration: 0.25), value: background)
+    }
+}
+
 // MARK: - 复用组件
 
 /// 设置页行：左图标 + 标题 +（可选）右侧灰色详情 + chevron。
@@ -68,14 +138,19 @@ struct SettingsRow: View {
     let icon: String
     let title: String
     var detail: String?
-    var tint: Color = AppUI.accent
+    /// 传 nil 时使用全局强调色。
+    var tint: Color? = nil
     var showsChevron: Bool = true
+
+    @Environment(\.appAccent) private var accent
+
+    private var iconTint: Color { tint ?? accent }
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(tint)
+                .foregroundStyle(iconTint)
                 .frame(width: 26, height: 26)
 
             Text(title)
@@ -128,11 +203,19 @@ struct UIQuickChip: View {
 
     let icon: String
     let title: String
+    /// 选中态：用于智能体这类需要高亮当前项的胶囊。
+    var isSelected: Bool = false
     var action: () -> Void
+
+    @Environment(\.appAccent) private var accent
 
     var body: some View {
         Button {
-            Haptics.impact(.light)
+            if isSelected {
+                Haptics.selectionChanged()
+            } else {
+                Haptics.impact(.light)
+            }
             action()
         } label: {
             HStack(spacing: 6) {
@@ -140,11 +223,15 @@ struct UIQuickChip: View {
                     .font(.system(size: 12, weight: .semibold))
                 Text(title)
                     .font(AppUI.chip)
+                    .lineLimit(1)
             }
-            .foregroundStyle(AppUI.label)
+            .foregroundStyle(isSelected ? Color.white : AppUI.label)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Capsule(style: .continuous).fill(AppUI.secondary))
+            .background(
+                Capsule(style: .continuous)
+                    .fill(isSelected ? AnyShapeStyle(accent) : AnyShapeStyle(.thinMaterial))
+            )
             .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)

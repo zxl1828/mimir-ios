@@ -553,10 +553,10 @@ final class VoiceSessionViewModel {
         conversation.updatedAt = Date()
         try? modelContext.save()
 
-        if settings.memoryEnabled && settings.backgroundMemoryReview {
+        if settings.memoryEnabled {
             Task { [weak self] in
                 guard let self else { return }
-                _ = await MemoryExtractor.review(
+                _ = MemoryExtractor.review(
                     conversation: conversation,
                     context: self.modelContext,
                     store: MemoryStore.shared

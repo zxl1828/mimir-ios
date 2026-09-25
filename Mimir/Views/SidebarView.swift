@@ -29,6 +29,7 @@ struct SidebarView: View {
     @State private var renameText = ""
     @State private var searchText = ""
     @State private var expandedSection: SectionKey? = .history
+    @Environment(\.appAccent) private var accent
 
     private enum SectionKey: String {
         case history
@@ -103,7 +104,7 @@ struct SidebarView: View {
             } label: {
                 Image(systemName: "square.and.pencil")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppUI.accent)
+                    .foregroundStyle(accent)
                     .frame(width: 36, height: 36)
                     .background(Circle().fill(AppUI.secondary))
                     .contentShape(Circle())
@@ -198,7 +199,7 @@ struct SidebarView: View {
                     .font(AppUI.caption)
                 Spacer(minLength: 0)
             }
-            .foregroundStyle(AppUI.accent)
+            .foregroundStyle(accent)
             .padding(.horizontal, 11)
             .padding(.vertical, 8)
             .background(
@@ -248,7 +249,7 @@ struct SidebarView: View {
             HStack(spacing: 9) {
                 Image(systemName: pinned ? "pin.fill" : "bubble.left.and.bubble.right")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isCurrent ? AppUI.accent : AppUI.label3)
+                    .foregroundStyle(isCurrent ? accent : AppUI.label3)
                     .frame(width: 18)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -345,7 +346,7 @@ struct SidebarView: View {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(AppUI.accent)
+                    .foregroundStyle(accent)
                     .frame(width: 22, height: 22)
                     .background(Circle().fill(AppUI.fill))
 
@@ -388,7 +389,7 @@ struct SidebarView: View {
                     HStack(spacing: 10) {
                         Image(systemName: skill.icon)
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(AppUI.accent)
+                            .foregroundStyle(accent)
                             .frame(width: 22, height: 22)
                             .background(Circle().fill(AppUI.fill))
 
@@ -423,25 +424,27 @@ struct SidebarView: View {
                 .fill(AppUI.separator.opacity(0.5))
                 .frame(height: 0.5)
 
-            Button {
-                Haptics.impact(.light)
-                onNewConversation()
-            } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("聊天")
-                        .font(.system(size: 15, weight: .semibold))
+            HStack(spacing: 8) {
+                Button {
+                    Haptics.impact(.light)
+                    onNewConversation()
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("聊天")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .frame(height: 40)
+                    .background(Capsule(style: .continuous).fill(accent))
+                    .contentShape(Capsule(style: .continuous))
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 22)
-                .frame(height: 40)
-                .background(Capsule(style: .continuous).fill(AppUI.accent))
-                .contentShape(Capsule(style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity)
-            .overlay(alignment: .trailing) {
+                .buttonStyle(.plain)
+
+                Spacer(minLength: 0)
+
                 Button {
                     Haptics.impact(.light)
                     onOpenSettings()
@@ -453,10 +456,9 @@ struct SidebarView: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .padding(.trailing, 10)
-                .offset(y: 6)
                 .accessibilityLabel("设置")
             }
+            .padding(.horizontal, 12)
             .padding(.vertical, 10)
         }
         .background(AppUI.canvas)

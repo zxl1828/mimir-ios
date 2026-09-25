@@ -1,20 +1,28 @@
 import Foundation
 import SwiftData
 
-/// 后台记忆整理。
+/// 记忆整理：**只在用户明确要求时才写入**。
 ///
-/// 以纯端侧的规则抽取打底（保证任何设备上都可用、零网络），
-/// 在端侧语言模型可用时再做一次语义提炼。
+/// 这里以前是"抽取式记忆"——扫描最近 20 条消息，把「我叫…」「我喜欢…」
+/// 这类表述统统存下来，结果越记越多。现在只认明确指令
+/// （「记住…」「别忘…」「remember this」等）：一条指令都没有就什么都不写。
 @MainActor
 enum MemoryExtractor {
 
-    /// 回顾一段对话，沉淀值得长期记住的信息。返回新增条数。
+    /// 触发写入的记忆指令（中英，长词优先匹配）。
+    private static let triggers: [String] = [
+        "保存到记忆", "存入记忆", "加入记忆", "帮我记住", "帮我记", "记录一下", "记一下",
+        "记住", "记下", "记牢", "别忘了", "不要忘", "别忘",
+        "remember this", "remember that", "keep in mind", "don't forget", "dont forget", "note that"
+    ].sorted { $0.count > $1.count }
+
+    /// 回顾一段对话：只有用户明确要求记住的内容才会落地。返回新增条数。
     @discardableResult
     static func review(
         conversation: Conversation,
         context: ModelContext,
         store: MemoryStore? = nil
-    ) async -> Int {
+    ) -> Int {
         let userMessages = conversation.orderedMessages
             .filter { $0.role == .user }
             .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -22,18 +30,12 @@ enum MemoryExtractor {
 
         var candidates: [(text: String, quote: String, source: ChatMessage)] = []
         for message in userMessages.suffix(20) {
-            for fact in ruleBasedFacts(in: message.text) {
+            for fact in explicitFacts(in: message.text) {
                 candidates.append((fact, message.text, message))
             }
         }
 
-        if candidates.count < 3,
-           let refined = await semanticFacts(from: userMessages.suffix(6).map(\.text)) {
-            for fact in refined {
-                candidates.append((fact, "", userMessages.last!))
-            }
-        }
-
+        // 没有明确指令：一条都不记。
         guard !candidates.isEmpty else { return 0 }
 
         let existing = (try? context.fetch(FetchDescriptor<MemoryEntry>())) ?? []
@@ -41,7 +43,7 @@ enum MemoryExtractor {
 
         for candidate in candidates {
             let text = candidate.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard text.count >= 6 else { continue }
+            guard text.count >= 4 else { continue }
 
             if isDuplicate(text, among: existing) { continue }
 
@@ -54,8 +56,8 @@ enum MemoryExtractor {
                 sourceQuote: String(candidate.quote.prefix(160)),
                 tags: [],
                 localOnly: false,
-                importance: 0.55,
-                isAutoExtracted: true
+                importance: 0.7,
+                isAutoExtracted: false
             )
             context.insert(entry)
             store?.upsert(entry: entry, context: context)
@@ -68,51 +70,22 @@ enum MemoryExtractor {
         return inserted
     }
 
-    // MARK: - 规则抽取
+    // MARK: - 指令解析
 
-    /// 从一句话里挑出长期有价值的事实型表述。
-    static func ruleBasedFacts(in text: String) -> [String] {
-        let patterns: [(String, String)] = [
-            ("记住", "需要记住的信息"),
-            ("我叫", "称呼"),
-            ("我的名字", "称呼"),
-            ("我是", "身份"),
-            ("我在", "所在地或所属"),
-            ("我住", "居住地"),
-            ("我喜欢", "偏好"),
-            ("我不喜欢", "忌讳"),
-            ("我习惯", "工作习惯"),
-            ("我通常", "工作习惯"),
-            ("我的目标", "目标"),
-            ("我打算", "计划"),
-            ("我计划", "计划"),
-            ("以后都", "长期要求"),
-            ("每次都要", "长期要求"),
-            ("我的项目", "项目背景"),
-            ("我的公司", "工作背景"),
-            ("我的团队", "工作背景"),
-            ("我的生日", "纪念日"),
-            ("生病", "健康情况"),
-            ("过敏", "健康情况")
-        ]
+    /// 命中记忆指令时，返回指令之外的正文（每条一段）；没命中返回空数组。
+    static func explicitFacts(in text: String) -> [String] {
+        let lowered = text.lowercased()
+        guard triggers.contains(where: { lowered.contains($0) }) else { return [] }
 
-        var facts: [String] = []
-        let sentences = text
-            .components(separatedBy: CharacterSet(charactersIn: "。！？!?\n;；"))
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-
-        for sentence in sentences {
-            for (trigger, category) in patterns where sentence.contains(trigger) {
-                let fact = sentence
-                    .replacingOccurrences(of: "记住", with: "")
-                    .trimmingCharacters(in: .whitespaces)
-                guard fact.count >= 4, fact.count <= 120 else { continue }
-                facts.append("[\(category)] \(fact)")
-                break
-            }
+        var cleaned = text
+        for trigger in triggers {
+            cleaned = cleaned.replacingOccurrences(of: trigger, with: "\n", options: [.caseInsensitive])
         }
-        return facts
+
+        return cleaned
+            .components(separatedBy: CharacterSet(charactersIn: "\n。！？!?;；"))
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \t:：,，-—、")) }
+            .filter { $0.count >= 2 && $0.count <= 200 }
     }
 
     private static func isDuplicate(_ text: String, among existing: [MemoryEntry]) -> Bool {
@@ -130,34 +103,6 @@ enum MemoryExtractor {
         text.lowercased().filter { !$0.isWhitespace && !$0.isPunctuation }
     }
 
-    // MARK: - 端侧语义提炼
-
-    private static func semanticFacts(from messages: [String]) async -> [String]? {
-        guard !messages.isEmpty else { return nil }
-        let joined = messages.suffix(6).joined(separator: "\n")
-        let prompt = """
-        下面是用户说过的几句话。请抽取其中值得长期记住的用户事实（身份、偏好、习惯、目标、长期要求）。
-        每行一条，最多 3 条，直接写事实本身，不要编号，不要解释。
-        如果没有任何值得长期记住的内容，只输出 none。
-
-        \(joined)
-        """
-        guard let output = await OnDeviceLanguageModel.generate(prompt: prompt, maxTokens: 220) else {
-            return nil
-        }
-        let facts = output
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .map { line -> String in
-                var value = line
-                while let first = value.first, first.isNumber || first == "-" || first == "•" || first == "." {
-                    value.removeFirst()
-                }
-                return value.trimmingCharacters(in: .whitespaces)
-            }
-            .filter { !$0.isEmpty && $0.lowercased() != "none" && $0.count >= 4 }
-        return facts.isEmpty ? nil : Array(facts.prefix(3))
-    }
 }
 
 /// 长对话摘要：超出上下文窗口时生成滚动摘要，而不是简单截断。

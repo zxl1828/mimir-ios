@@ -8,6 +8,7 @@ struct MainChatView: View {
 
     @Environment(AppSettings.self) private var settings
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.appAccent) private var accent
 
     @State private var chat: ChatViewModel?
     @State private var list: ConversationListViewModel?
@@ -34,6 +35,8 @@ struct MainChatView: View {
     @State private var exportTarget: Conversation?
     @State private var pendingScrollTarget: UUID?
     @State private var highlightedMessageID: UUID?
+    /// 流式滚动节流用的时间戳。
+    @State private var lastScrollAt: Date = .distantPast
     @State private var photoItem: PhotosPickerItem?
     @State private var showPhotoPicker = false
     @State private var showAttachmentOptions = false
@@ -74,7 +77,7 @@ struct MainChatView: View {
             .contentShape(Rectangle())
             .simultaneousGesture(edgeDragGesture(sidebarWidth: sidebarWidth))
         }
-        .background(AppUI.canvas)
+        .background(AppBackgroundView(background: settings.background))
         .task { await bootstrap() }
         .onChange(of: photoItem) { _, newValue in loadPickedPhoto(newValue) }
         .sheet(isPresented: $showSettings) {
@@ -181,7 +184,7 @@ struct MainChatView: View {
             topBar
             messageList
         }
-        .background(AppUI.canvas)
+        .background(Color.clear)
         // 输入栏固定在屏幕底部：键盘弹出时整体上移，消息列表自己滚动。
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomBar
@@ -209,7 +212,7 @@ struct MainChatView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(AppUI.canvas)
+        .background(.bar)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(AppUI.separator.opacity(0.3))
@@ -279,7 +282,7 @@ struct MainChatView: View {
             HStack(spacing: 5) {
                 Image(systemName: "cpu")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppUI.accent)
+                    .foregroundStyle(accent)
                 Text(ModelCatalog.shortLabel(for: currentModelID))
                     .font(AppUI.chip)
                     .foregroundStyle(AppUI.label)
@@ -355,7 +358,7 @@ struct MainChatView: View {
                 scrollToBottom(proxy, animated: true)
             }
             .onChange(of: lastMessageLength) { _, _ in
-                scrollToBottom(proxy, animated: false)
+                throttleScrollToBottom(proxy)
             }
             .task(id: pendingScrollTarget) {
                 guard let target = pendingScrollTarget else { return }
@@ -427,6 +430,14 @@ struct MainChatView: View {
         }
     }
 
+    /// 流式输出时每个 token 都会改变文本长度，这里限制滚动频率，避免逐帧重新布局。
+    private func throttleScrollToBottom(_ proxy: ScrollViewProxy) {
+        let now = Date()
+        guard now.timeIntervalSince(lastScrollAt) >= 0.08 else { return }
+        lastScrollAt = now
+        scrollToBottom(proxy, animated: false)
+    }
+
     private var emptyState: some View {
         VStack(spacing: 14) {
             MimirMascot(size: 118, mood: .calm)
@@ -477,7 +488,7 @@ struct MainChatView: View {
         .padding(.horizontal, AppUI.hPadding)
         .padding(.top, 8)
         .padding(.bottom, 8)
-        .background(AppUI.canvas)
+        .background(.bar)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(AppUI.separator.opacity(0.24))
@@ -507,14 +518,14 @@ struct MainChatView: View {
                     .frame(width: 1, height: 18)
                     .padding(.horizontal, 2)
 
-                agentChip(title: "通用", icon: "sparkles", isSelected: chat?.activeAgent == nil) {
+                UIQuickChip(icon: "sparkles", title: "通用", isSelected: chat?.activeAgent == nil) {
                     chat?.activeAgent = nil
                 }
 
                 ForEach(agents) { agent in
-                    agentChip(
-                        title: agent.name,
+                    UIQuickChip(
                         icon: agent.icon,
+                        title: agent.name,
                         isSelected: chat?.activeAgent?.id == agent.id
                     ) {
                         chat?.activeAgent = agent
@@ -522,7 +533,7 @@ struct MainChatView: View {
                     }
                 }
 
-                agentChip(title: "管理", icon: "slider.horizontal.3", isSelected: false) {
+                UIQuickChip(icon: "slider.horizontal.3", title: "管理") {
                     showAgentManager = true
                 }
             }
@@ -530,35 +541,6 @@ struct MainChatView: View {
             .padding(.vertical, 1)
         }
         .scrollClipDisabled()
-    }
-
-    private func agentChip(
-        title: String,
-        icon: String,
-        isSelected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            Haptics.selectionChanged()
-            action()
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(title)
-                    .font(AppUI.chip)
-                    .lineLimit(1)
-            }
-            .foregroundStyle(isSelected ? Color.white : AppUI.label)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(isSelected ? AnyShapeStyle(AppUI.accent) : AnyShapeStyle(AppUI.secondary))
-            )
-            .contentShape(Capsule(style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 
     /// 快捷入口把提示词写进输入框并聚焦，用户补完内容即可发送。
@@ -576,7 +558,7 @@ struct MainChatView: View {
         HStack(spacing: 8) {
             Image(systemName: "quote.opening")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppUI.accent)
+                .foregroundStyle(accent)
             Text(String(message.text.prefix(60)))
                 .font(AppUI.chip)
                 .foregroundStyle(AppUI.label2)

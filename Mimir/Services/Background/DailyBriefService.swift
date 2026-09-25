@@ -73,7 +73,7 @@ enum DailyBriefService {
             role: .assistant,
             text: text,
             orderIndex: 0,
-            thinkingMode: .quick
+            thinkingMode: .thinking
         )
         message.agentName = "每日简报"
         context.insert(message)

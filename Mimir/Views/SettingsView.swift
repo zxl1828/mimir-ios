@@ -89,6 +89,21 @@ struct SettingsView: View {
                     }
 
                     NavigationLink {
+                        BackgroundSettingsView()
+                    } label: {
+                        HStack(spacing: 12) {
+                            SettingsIcon(name: "photo.on.rectangle.angled")
+                            Text("聊天背景")
+                                .font(AppUI.rowTitle)
+                                .foregroundStyle(AppUI.label)
+                            Spacer(minLength: 8)
+                            Text(settings.background.title)
+                                .font(AppUI.subheadline)
+                                .foregroundStyle(AppUI.label2)
+                        }
+                    }
+
+                    NavigationLink {
                         AccentSettingsView()
                     } label: {
                         HStack(spacing: 12) {
@@ -137,10 +152,12 @@ private struct SettingsIcon: View {
 
     let name: String
 
+    @Environment(\.appAccent) private var accent
+
     var body: some View {
         Image(systemName: name)
             .font(.system(size: 15, weight: .medium))
-            .foregroundStyle(AppUI.accent)
+            .foregroundStyle(accent)
             .frame(width: 26, height: 26)
     }
 }
@@ -281,12 +298,11 @@ private struct MemorySettingsView: View {
         List {
             Section {
                 Toggle("启用本地记忆", isOn: $settings.memoryEnabled)
-                Toggle("后台自动整理记忆", isOn: $settings.backgroundMemoryReview)
                 Toggle("长对话自动摘要", isOn: $settings.autoSummarizeEnabled)
             } header: {
                 Text("记忆")
             } footer: {
-                Text("向量检索与记忆存储全部在本机完成，只有对话内容会发送到你配置的云端接口。")
+                Text("只有你明确说「记住…」时才会写入记忆，其它对话不会被自动收录。记忆与向量检索都在本机完成。")
             }
 
             Section {
@@ -628,7 +644,7 @@ private struct AccentSettingsView: View {
                             if settings.accent == option {
                                 Image(systemName: "checkmark")
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(AppUI.accent)
+                                    .foregroundStyle(option.color)
                             }
                         }
                     }
@@ -641,6 +657,70 @@ private struct AccentSettingsView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("强调色")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - 聊天背景
+
+private struct BackgroundSettingsView: View {
+
+    @Environment(AppSettings.self) private var settings
+
+    var body: some View {
+        @Bindable var settings = settings
+
+        List {
+            Section {
+                ForEach(AppBackground.allCases) { option in
+                    Button {
+                        Haptics.impact(.light)
+                        settings.background = option
+                    } label: {
+                        HStack(spacing: 12) {
+                            thumbnail(option)
+
+                            Text(option.title)
+                                .font(AppUI.rowTitle)
+                                .foregroundStyle(AppUI.label)
+
+                            Spacer(minLength: 8)
+
+                            if settings.background == option {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(settings.accent.color)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            } footer: {
+                Text("背景只作用于对话页；深浅色模式下会自动加一层底衬，保证正文可读。")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("聊天背景")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func thumbnail(_ option: AppBackground) -> some View {
+        Group {
+            if let name = option.assetName {
+                Image(name)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                AppUI.secondary
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(AppUI.separator.opacity(0.5), lineWidth: 0.5)
+        )
     }
 }
 

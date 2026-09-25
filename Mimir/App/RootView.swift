@@ -21,6 +21,7 @@ struct RootView: View {
             }
         }
         .environment(settings)
+        .environment(\.appAccent, settings.accent.color)
         .preferredColorScheme(settings.appearance.colorScheme)
         .tint(settings.accent.color)
         .task {
@@ -66,7 +67,7 @@ enum StartupCoordinator {
                     ScheduledTask(
                         title: "每日简报",
                         prompt: "请生成今天的简报：先用一句话概括今天，再给出三条值得关注的提醒（工作安排、待办梳理、效率建议）。",
-                        thinkingMode: .quick,
+                        thinkingMode: .thinking,
                         hour: 8,
                         minute: 0,
                         isEnabled: false

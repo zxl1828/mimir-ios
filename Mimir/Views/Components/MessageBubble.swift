@@ -18,6 +18,7 @@ struct MessageBubble: View {
 
     @State private var thinkingExpanded = false
     @State private var showsUsage = false
+    @Environment(\.appAccent) private var accent
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -68,7 +69,7 @@ struct MessageBubble: View {
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                            .fill(AppUI.accent)
+                            .fill(accent)
                     )
             }
 
@@ -133,7 +134,7 @@ struct MessageBubble: View {
         .overlay {
             if isHighlighted {
                 RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                    .strokeBorder(AppUI.accent.opacity(0.8), lineWidth: 1.6)
+                    .strokeBorder(accent.opacity(0.8), lineWidth: 1.6)
                     .allowsHitTesting(false)
             }
         }
@@ -170,7 +171,7 @@ struct MessageBubble: View {
                     .padding(.leading, 10)
                     .overlay(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(AppUI.accent.opacity(0.35))
+                            .fill(accent.opacity(0.35))
                             .frame(width: 2)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -205,7 +206,7 @@ struct MessageBubble: View {
     private var quotedChip: some View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(AppUI.accent)
+                .fill(accent)
                 .frame(width: 2.5, height: 14)
             Text(message.quotedPreview)
                 .font(AppUI.caption)

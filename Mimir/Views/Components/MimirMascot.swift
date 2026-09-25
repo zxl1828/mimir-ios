@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Mimir 的卡通形象「米米」：住在智慧之井里的小鲸。
 ///
@@ -44,14 +45,26 @@ private enum MascotRenderer {
 
     private static let design = CGSize(width: 100, height: 86)
 
-    // 配色：浅色 / 深色背景下都能看清，不随外观切换。
-    // 身体带一层淡靛蓝，避免在白色页面上「隐形」。
-    private static let bodyTop = Color(red: 0.94, green: 0.96, blue: 1.00)
-    private static let bodyBottom = Color(red: 0.72, green: 0.80, blue: 1.00)
-    private static let fin = Color(red: 0.71, green: 0.79, blue: 1.00)
-    private static let belly = Color(red: 0.86, green: 0.91, blue: 1.00)
+    // 配色：紫罗兰系，与品牌紫同源；深色模式下自动提亮一档，
+    // 保证在深色页面和紫色壁纸上都不会糊成一团。
+    private static let bodyTop = Color.adaptive(
+        light: UIColor(red: 0.96, green: 0.94, blue: 1.00, alpha: 1),
+        dark: UIColor(red: 0.91, green: 0.87, blue: 1.00, alpha: 1)
+    )
+    private static let bodyBottom = Color.adaptive(
+        light: UIColor(red: 0.74, green: 0.66, blue: 1.00, alpha: 1),
+        dark: UIColor(red: 0.66, green: 0.55, blue: 1.00, alpha: 1)
+    )
+    private static let fin = Color.adaptive(
+        light: UIColor(red: 0.68, green: 0.59, blue: 0.97, alpha: 1),
+        dark: UIColor(red: 0.60, green: 0.50, blue: 0.94, alpha: 1)
+    )
+    private static let belly = Color.adaptive(
+        light: UIColor(red: 0.87, green: 0.81, blue: 1.00, alpha: 1),
+        dark: UIColor(red: 0.82, green: 0.75, blue: 1.00, alpha: 1)
+    )
     private static let gloss = Color.white.opacity(0.55)
-    private static let ink = Color(red: 0.11, green: 0.13, blue: 0.31)
+    private static let ink = Color(red: 0.13, green: 0.10, blue: 0.24)
     private static let blush = Color(red: 1.00, green: 0.60, blue: 0.78)
 
     static func draw(
@@ -103,7 +116,7 @@ private enum MascotRenderer {
         whale.drawLayer { layer in
             layer.addFilter(
                 .shadow(
-                    color: Color(red: 0.22, green: 0.28, blue: 0.68).opacity(0.22),
+                    color: Color(red: 0.30, green: 0.20, blue: 0.62).opacity(0.24),
                     radius: max(1.5, scale * 1.6),
                     x: 0,
                     y: max(1, scale * 0.8)

@@ -457,6 +457,20 @@ final class ChatViewModel {
             var failure: String?
             var wasInterrupted = false
             guard let self else { return }
+            // 逐 token 写回 SwiftData 模型会让整棵会话视图每帧重绘，这里统一节流到 50ms。
+            var lastFlush = Date()
+            func flushStreamingText(force: Bool = false) {
+                let now = Date()
+                guard force || now.timeIntervalSince(lastFlush) >= 0.05 else { return }
+                lastFlush = now
+                // 值没变就不写：避免 SwiftData 变更追踪与视图失效白跑一趟。
+                if assistant.streamingText != accumulated {
+                    assistant.streamingText = accumulated
+                }
+                if assistant.thinkingText != reasoning {
+                    assistant.thinkingText = reasoning
+                }
+            }
             var workingMessages = await self.buildPayloadWithImages(
                 for: conversation,
                 beforeIndex: contextCutoffIndex
@@ -485,10 +499,10 @@ final class ChatViewModel {
                         case .textDelta(let chunk):
                             roundText += chunk
                             accumulated += chunk
-                            assistant.streamingText = accumulated
+                            flushStreamingText()
                         case .reasoningDelta(let chunk):
                             reasoning += chunk
-                            assistant.thinkingText = reasoning
+                            flushStreamingText()
                         case .usage(let usage):
                             assistant.usage = assistant.usage + usage
                         case .toolCallDelta, .finished:
@@ -550,6 +564,8 @@ final class ChatViewModel {
                 }
             }
 
+            // 正常结束 / 出错 / 被中断三条出口都从这里落地，保证最后几个字符不丢。
+            flushStreamingText(force: true)
             assistant.isStreaming = false
             if accumulated.isEmpty {
                 assistant.discardEmptyVersion()
@@ -593,8 +609,9 @@ final class ChatViewModel {
         Task { [weak self] in
             guard let self else { return }
 
-            if self.settings.memoryEnabled && self.settings.backgroundMemoryReview {
-                _ = await MemoryExtractor.review(
+            // 只有用户明确说「记住…」才会真正写入，所以这里不再挂后台整理开关。
+            if self.settings.memoryEnabled {
+                _ = MemoryExtractor.review(
                     conversation: conversation,
                     context: self.modelContext,
                     store: MemoryStore.shared

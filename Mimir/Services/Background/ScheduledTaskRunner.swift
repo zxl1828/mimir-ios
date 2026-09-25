@@ -142,8 +142,8 @@ enum ScheduledTaskRunner {
 
         try? context.save()
 
-        if settings.memoryEnabled && settings.backgroundMemoryReview {
-            _ = await MemoryExtractor.review(conversation: conversation, context: context, store: nil)
+        if settings.memoryEnabled {
+            _ = MemoryExtractor.review(conversation: conversation, context: context, store: nil)
         }
         return true
     }

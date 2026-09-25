@@ -12,6 +12,32 @@ struct MarkdownText: View {
     var isStreaming: Bool = false
 
     var body: some View {
+        if isStreaming {
+            streamingBody
+        } else {
+            parsedBody
+        }
+    }
+
+    /// 流式期间的轻量渲染。
+    ///
+    /// 生成过程中每来一个 token 就会重算一次 body，而完整解析一遍 Markdown
+    /// （标题 / 列表 / 表格 / 代码块）是这段路上最贵的开销，所以流式期间
+    /// 只把原始文本铺成一个 `Text`（换行原样保留），等生成结束再交给解析器
+    /// 渲染成最终形态。样式与最终形态保持一致（同一字体 / 颜色 / 行距）。
+    private var streamingBody: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(raw)
+                .font(AppUI.body)
+                .foregroundStyle(AppUI.label)
+                .fixedSize(horizontal: false, vertical: true)
+            StreamingCursor()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 生成结束后的完整 Markdown 渲染（代码块 / 表格 / LaTeX 等）。
+    private var parsedBody: some View {
         VStack(alignment: .leading, spacing: 10) {
             let blocks = MarkdownBlock.parse(raw)
             ForEach(Array(blocks.enumerated()), id: \.offset) { index, block in

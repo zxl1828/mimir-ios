@@ -21,6 +21,7 @@ struct MessageInputBar: View {
     var onStop: () -> Void
     /// 附件菜单是否展开（由上层持有，方便菜单项触发相册 / 相机 / 扫描）。
     @Binding var showAttachMenu: Bool
+    @Environment(\.appAccent) private var accent
     var onPickPhoto: () -> Void
     var onCamera: () -> Void
     var onScan: () -> Void
@@ -58,7 +59,7 @@ struct MessageInputBar: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(Capsule(style: .continuous).fill(AppUI.secondary))
+            .background(Capsule(style: .continuous).fill(.thinMaterial))
         }
         .animation(AppAnimation.chip, value: attachments.count)
     }
@@ -119,7 +120,7 @@ struct MessageInputBar: View {
                         .foregroundStyle(AppUI.label)
                 } else if canSend {
                     Circle()
-                        .fill(AppUI.accent)
+                        .fill(accent)
                         .frame(width: 32, height: 32)
                     Image(systemName: "arrow.up")
                         .font(.system(size: 15, weight: .bold))

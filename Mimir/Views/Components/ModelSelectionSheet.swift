@@ -111,11 +111,10 @@ struct ModelSelectionSheet: View {
 
     // MARK: - 档位映射
 
-    /// 0...1 位置 → 档位：< 0.25 最低档，≥ 0.85 为 Max。
+    /// 0...1 位置 → 档位：三档分别是 High / X-High / Max（≥ 0.85 为 Max）。
     static func level(for progress: Double) -> ThinkingMode {
         let p = min(max(progress, 0), 1)
-        if p < 0.25 { return .quick }
-        if p < 0.5 { return .thinking }
+        if p < 0.4 { return .thinking }
         if p < 0.85 { return .expert }
         return .ultra
     }
@@ -123,9 +122,8 @@ struct ModelSelectionSheet: View {
     /// 档位 → 滑块停靠位置（与 `level(for:)` 的分段一一对应）。
     static func progress(for level: ThinkingMode) -> Double {
         switch level {
-        case .quick: return 0.12
-        case .thinking: return 0.38
-        case .expert: return 0.68
+        case .thinking: return 0.20
+        case .expert: return 0.62
         case .ultra: return 1.0
         }
     }

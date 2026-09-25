@@ -124,20 +124,20 @@ def draw_icon(kind: str) -> Image.Image:
         belly = gloss = blush = ink = (255, 255, 255, 0)
         spark = (255, 255, 255, 235)
     elif kind == "dark":
-        img = gradient(U, (16, 20, 54), (40, 62, 150)).convert("RGBA")
+        img = gradient(U, (24, 16, 48), (78, 50, 158)).convert("RGBA")
         ring_color, fill_color = (255, 255, 255, 130), (255, 255, 255, 20)
-        body, shade = (238, 243, 255, 255), (196, 210, 250, 255)
+        body, shade = (243, 238, 255, 255), (206, 192, 248, 255)
         belly = (255, 255, 255, 150)
         gloss = (255, 255, 255, 120)
-        ink, spark = (24, 30, 68, 255), (206, 228, 255, 255)
+        ink, spark = (32, 22, 62, 255), (226, 214, 255, 255)
         blush = (255, 150, 192, 110)
     else:
-        img = gradient(U, (129, 96, 255), (52, 112, 255)).convert("RGBA")
+        img = gradient(U, (150, 92, 255), (92, 52, 214)).convert("RGBA")
         ring_color, fill_color = (255, 255, 255, 135), (255, 255, 255, 24)
-        body, shade = (255, 255, 255, 255), (212, 224, 255, 255)
-        belly = (223, 233, 255, 210)
+        body, shade = (255, 255, 255, 255), (216, 204, 255, 255)
+        belly = (228, 219, 255, 210)
         gloss = (255, 255, 255, 120)
-        ink, spark = (28, 34, 78, 255), (255, 255, 255, 235)
+        ink, spark = (34, 24, 66, 255), (255, 255, 255, 235)
         blush = (255, 152, 196, 120)
 
     if kind != "tinted":
@@ -160,7 +160,7 @@ def draw_icon(kind: str) -> Image.Image:
     if kind != "tinted":
         shade_layer = Image.new("RGBA", (U, U), (0, 0, 0, 0))
         ImageDraw.Draw(shade_layer).ellipse(
-            [210 * s, 300 * s, 830 * s, 900 * s], fill=(18, 24, 84, 70)
+            [210 * s, 300 * s, 830 * s, 900 * s], fill=(30, 18, 68, 70)
         )
         img.alpha_composite(shade_layer.filter(ImageFilter.GaussianBlur(int(46 * s))))
 
