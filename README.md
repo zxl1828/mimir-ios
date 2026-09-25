@@ -63,7 +63,7 @@
 ### 语音（全部端侧）
 - 能量 VAD 自动断句（可调阈值），静音 1.5 秒自动提交
 - 端侧语音识别（系统 Speech 框架，强制离线）
-- 内置 Kokoro-82M CoreML 语音模型随 App 打包，中文朗读自动切换到系统语音
+- 朗读交给系统语音合成（AVSpeechSynthesizer），可在设置里挑系统音色
 - 流式逐句合成播放，支持 Barge-in 打断
 - `AVAudioSession` 同时录制与播放，处理中断与路由切换
 
@@ -92,7 +92,7 @@
 | 持久化 | SwiftData |
 | 凭据 | Keychain（API Key 与 MCP Token 均不入 UserDefaults） |
 | 网络 | 自建统一网络层（SSE 流式解析，OpenAI 兼容 + Anthropic 双协议） |
-| 依赖 | `Jud/kokoro-coreml`（内置语音模型）、`modelcontextprotocol/swift-sdk`（MCP） |
+| 依赖 | `modelcontextprotocol/swift-sdk`（MCP） |
 | 工程生成 | XcodeGen（`Project.yml`） |
 
 ## 构建
@@ -174,7 +174,7 @@ OSI 开源定义不允许限制商业使用。除「不得倒卖」这一条外�
 
 An unofficial, local-first AI client for iOS 26 - works with DeepSeek, any OpenAI-compatible gateway and Anthropic endpoints - built with SwiftUI in a
 native iOS design language (system colors, SF Symbols, capsule controls) with Liquid Glass kept for secondary screens: streaming chat, on-device voice (VAD + speech recognition +
-bundled Kokoro-82M CoreML TTS), local vector memory, skills, MCP tools,
+system TTS), local vector memory, skills, MCP tools,
 App Intents, and a fully custom UI.
 
 Build with Xcode 26 + [XcodeGen](https://github.com/yonaskolb/XcodeGen):

@@ -14,9 +14,6 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
 packages:
-  KokoroCoreML:
-    url: https://github.com/Jud/kokoro-coreml
-    from: "0.8.0"
   MCP:
     url: https://github.com/modelcontextprotocol/swift-sdk
     from: "0.11.0"
@@ -58,16 +55,8 @@ targets:
           - processing
     sources:
       - path: Mimir
-        excludes:
-          - "Resources/Models"
-      # 语音模型以文件夹引用的方式整体打入 App Bundle，保持目录结构。
-      - path: Mimir/Resources/Models
-        type: folder
-        optional: true
       - path: Shared
     dependencies:
-      - package: KokoroCoreML
-        product: KokoroCoreML
       - package: MCP
         product: MCP
       - target: MimirWidgets

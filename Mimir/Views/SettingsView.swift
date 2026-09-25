@@ -212,20 +212,6 @@ private struct PersonalizationSettingsView: View {
             }
 
             Section {
-                Picker(
-                    "合成引擎",
-                    selection: Binding(
-                        get: { settings.voice.resolvedSynthesisPreference },
-                        set: { settings.voice.synthesisPreference = $0 }
-                    )
-                ) {
-                    ForEach(VoiceSynthesisPreference.allCases) { option in
-                        Text(option.title).tag(option)
-                    }
-                }
-
-                Toggle("使用内置语音合成模型", isOn: $settings.voice.prefersBuiltInTTS)
-
                 Button {
                     Haptics.impact(.light)
                     showTonePicker = true
@@ -234,7 +220,6 @@ private struct PersonalizationSettingsView: View {
                         icon: "waveform",
                         title: "音色",
                         detail: VoiceToneCatalog.summary(
-                            voiceIdentifier: settings.voice.voiceIdentifier,
                             systemVoiceIdentifier: settings.voice.systemVoiceIdentifier
                         )
                     )

@@ -8,10 +8,12 @@
 | 组件 | 用途 | 许可证 | 来源 |
 |---|---|---|---|
 | MCP Swift SDK | MCP 客户端（HTTP/SSE 传输、工具调用） | MIT / Apache-2.0（项目正在由 MIT 迁移至 Apache-2.0，以仓库 LICENSE 为准） | [modelcontextprotocol/swift-sdk](https://github.com/modelcontextprotocol/swift-sdk) |
-| Kokoro-82M CoreML 语音模型 | 端侧语音合成（约 99MB，构建时下载并打包） | Apache-2.0 | [Jud/kokoro-coreml](https://github.com/Jud/kokoro-coreml)（上游模型 Kokoro-82M，Apache-2.0） |
 
-两者均为 Apache-2.0 兼容许可，可随 MIT 项目一并分发；分发时保留原始版权与许可声明即可
+这些组件均为 Apache-2.0 兼容许可，可随 MIT 项目一并分发；分发时保留原始版权与许可声明即可
 （本文件即该声明）。
+
+> 语音合成已于 2026-09-25 改为完全使用系统框架（AVSpeechSynthesizer），
+> 原先随包分发的 Kokoro-82M CoreML 模型（约 78MB）已从仓库与构建流程中移除。
 
 ## 仅构建阶段使用
 

@@ -19,7 +19,6 @@ final class VoiceSessionViewModel {
     var unavailable: VoiceUnavailableReason?
     var isPreparing: Bool = false
     var infoText: String?
-    var usesBuiltInVoice: Bool = false
 
     // MARK: - 依赖
 
@@ -314,22 +313,17 @@ final class VoiceSessionViewModel {
 
     private func prepareSynthesisEngine() {
         AppDiagnostics.shared.log("voice: tts prepare begin")
-        let router = VoiceSynthesisRouter(preference: settings.voice.resolvedSynthesisPreference)
-        router.builtInVoiceName = settings.voice.voiceIdentifier
-        router.systemVoiceIdentifier = settings.voice.systemVoiceIdentifier
-        router.onLevelUpdate = { [weak self] level in
+        let engine = SystemSpeechEngine()
+        engine.preferredVoiceIdentifier = settings.voice.systemVoiceIdentifier
+        engine.onLevelUpdate = { [weak self] level in
             self?.outputLevel = level
         }
-        router.onFinish = { [weak self] in
+        engine.onFinish = { [weak self] in
             self?.handleSpeechQueueDrained()
         }
-        router.onEngineChanged = { [weak self] isBuiltIn in
-            self?.usesBuiltInVoice = isBuiltIn
-        }
-        try? router.prepare()
+        try? engine.prepare()
         AppDiagnostics.shared.log("voice: tts prepare end")
-        ttsEngine = router
-        usesBuiltInVoice = false
+        ttsEngine = engine
     }
 
     private func enqueueSpeech(_ sentences: [String]) {

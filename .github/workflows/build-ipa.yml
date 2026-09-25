@@ -45,16 +45,6 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Fetch bundled voice models
-        run: |
-          set -euo pipefail
-          if [ -f scripts/fetch-voice-models.sh ]; then
-            bash scripts/fetch-voice-models.sh
-          else
-            echo "no voice model script, skipping"
-          fi
-        continue-on-error: true
-
       - name: Generate Xcode project
         run: xcodegen generate
 

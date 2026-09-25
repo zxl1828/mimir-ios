@@ -99,7 +99,7 @@ struct VoiceModeView: View {
                 Text("语音对话")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColor.primaryText)
-                Text(session.usesBuiltInVoice ? "内置语音模型" : "系统语音合成")
+                Text("系统语音合成")
                     .font(AppFont.chipCompact)
                     .foregroundStyle(AppColor.tertiaryText)
             }
