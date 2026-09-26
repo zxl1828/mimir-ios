@@ -50,16 +50,4 @@ enum ModelCatalog {
         }
     }
 
-    /// 档位面板副标题用的完整模型名；未知模型直接回显用户填写的 ID。
-    static func displayName(for modelID: String) -> String {
-        switch modelID {
-        case "deepseek-chat": return "DeepSeek Chat"
-        case "deepseek-reasoner": return "DeepSeek Reasoner"
-        case "claude-sonnet-4-5": return "Claude Sonnet 4.5"
-        case "claude-haiku-4-5": return "Claude Haiku 4.5"
-        default:
-            let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? "未选择模型" : trimmed
-        }
-    }
 }

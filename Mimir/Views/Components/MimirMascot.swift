@@ -1,13 +1,12 @@
 import SwiftUI
 import UIKit
 
-/// Mimir 的卡通形象「米米」：住在智慧之井里的小鲸。
+/// Mimir 的形象「米米」：住在全息玻璃球里的紫色猫头鹰。
 ///
-/// 与 App 图标同源几何（设计稿 100 × 86），用 `Canvas` 矢量绘制，
-/// 因此在任意尺寸下都清晰，也能跟随状态做动画：
-/// - `.calm`：轻轻上浮、偶尔眨眼，空对话页使用
-/// - `.thinking`：头顶冒泡，生成 / 思考时使用
-/// - `.happy`：闪光炸开，连接成功等庆祝场景使用
+/// 纯 `Canvas` 矢量绘制（设计稿 100 × 100），任意尺寸都清晰，并跟随状态做动画：
+/// - `.calm`：紫色呼吸光晕 + 双轨道缓慢逆向旋转，空对话页使用
+/// - `.thinking`：头顶浮起思考气泡，生成 / 思考时使用
+/// - `.happy`：月牙眼 + 闪光，完成类场景使用
 struct MimirMascot: View {
 
     enum Mood {
@@ -24,7 +23,7 @@ struct MimirMascot: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { timeline in
             Canvas { context, canvasSize in
                 let time = animated ? timeline.date.timeIntervalSinceReferenceDate : 0
-                MascotRenderer.draw(
+                MimirOwlRenderer.draw(
                     in: &context,
                     size: canvasSize,
                     mood: mood,
@@ -32,40 +31,16 @@ struct MimirMascot: View {
                 )
             }
         }
-        .frame(width: size, height: size * MascotRenderer.aspect)
+        .frame(width: size, height: size)
         .accessibilityHidden(true)
     }
 }
 
-/// 纯绘制逻辑，与视图状态无关，便于复用与测试。
-private enum MascotRenderer {
+/// 纯绘制逻辑，与视图状态无关。
+private enum MimirOwlRenderer {
 
-    /// 设计稿高宽比（100 × 86）。
-    static let aspect: CGFloat = 0.86
-
-    private static let design = CGSize(width: 100, height: 86)
-
-    // 配色：紫罗兰系，与品牌紫同源；深色模式下自动提亮一档，
-    // 保证在深色页面和紫色壁纸上都不会糊成一团。
-    private static let bodyTop = Color.adaptive(
-        light: UIColor(red: 0.96, green: 0.94, blue: 1.00, alpha: 1),
-        dark: UIColor(red: 0.91, green: 0.87, blue: 1.00, alpha: 1)
-    )
-    private static let bodyBottom = Color.adaptive(
-        light: UIColor(red: 0.74, green: 0.66, blue: 1.00, alpha: 1),
-        dark: UIColor(red: 0.66, green: 0.55, blue: 1.00, alpha: 1)
-    )
-    private static let fin = Color.adaptive(
-        light: UIColor(red: 0.68, green: 0.59, blue: 0.97, alpha: 1),
-        dark: UIColor(red: 0.60, green: 0.50, blue: 0.94, alpha: 1)
-    )
-    private static let belly = Color.adaptive(
-        light: UIColor(red: 0.87, green: 0.81, blue: 1.00, alpha: 1),
-        dark: UIColor(red: 0.82, green: 0.75, blue: 1.00, alpha: 1)
-    )
-    private static let gloss = Color.white.opacity(0.55)
-    private static let ink = Color(red: 0.13, green: 0.10, blue: 0.24)
-    private static let blush = Color(red: 1.00, green: 0.60, blue: 0.78)
+    /// 设计稿为 100 × 100 的方形。
+    private static let design: CGFloat = 100
 
     static func draw(
         in context: inout GraphicsContext,
@@ -73,141 +48,292 @@ private enum MascotRenderer {
         mood: MimirMascot.Mood,
         time: TimeInterval
     ) {
-        let sx = size.width / design.width
-        let sy = size.height / design.height
-        let scale = min(sx, sy)
+        let scale = min(size.width, size.height) / design
         func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: x * sx, y: y * sy)
+            CGPoint(x: x * scale, y: y * scale)
         }
         func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
-            CGRect(origin: pt(x, y), size: CGSize(width: w * sx, height: h * sy))
+            CGRect(x: x * scale, y: y * scale, width: w * scale, height: h * scale)
         }
 
-        // 呼吸 / 上浮
-        let bob = CGFloat(sin(time * 1.1)) * (mood == .thinking ? 0.6 : 1.1)
-        let wag = CGFloat(sin(time * 2.4)) * (mood == .happy ? 9.0 : 5.0)
+        let accent = AppUI.brandPurple
+        let neon = AppUI.neonViolet
+        let deep = AppUI.deepViolet
 
-        var whale = context
-        whale.translateBy(x: 0, y: bob * sy)
+        // 呼吸：2.2s 一个周期，0...1
+        let breath = 0.5 + 0.5 * sin(time * 2 * .pi / 2.2)
+        let bob = CGFloat(sin(time * 1.05)) * (mood == .thinking ? 0.9 : 1.7)
+        let center = pt(50, 50 + bob * 0.5)
 
-        // MARK: 鳍（在身体之下，只露出边缘）
-        let hinge = pt(25.5, 49.4)
-        var tail = whale
-        tail.translateBy(x: hinge.x, y: hinge.y)
-        tail.rotate(by: Angle(degrees: Double(wag)))
-        tail.translateBy(x: -hinge.x, y: -hinge.y)
-        tail.fill(
-            polygon([(25.5, 49.4), (2.7, 32.7), (12.4, 48.8), (2.7, 65.2), (26.1, 55.2)], pt),
-            with: .color(fin)
-        )
-        whale.fill(
-            polygon([(46.7, 36.7), (57.0, 18.2), (64.5, 36.7)], pt),
-            with: .color(fin)
-        )
-        whale.fill(Path(ellipseIn: rect(74.8, 62.7, 17, 12.5)), with: .color(fin))
-
-        // MARK: 身体（多个椭圆相加成豆形；渐变用绝对坐标，重叠处无缝）
-        var silhouette = Path()
-        silhouette.addEllipse(in: rect(50.8, 25.5, 47.7, 45.7))   // 头
-        silhouette.addEllipse(in: rect(39.4, 30.9, 40.9, 38.5))   // 背线过渡
-        silhouette.addEllipse(in: rect(21.5, 32.1, 57.3, 36.7))   // 后身
-        silhouette.addEllipse(in: rect(23.0, 40.6, 19.7, 21.8))   // 尾根
-
-        whale.drawLayer { layer in
-            layer.addFilter(
-                .shadow(
-                    color: Color(red: 0.30, green: 0.20, blue: 0.62).opacity(0.24),
-                    radius: max(1.5, scale * 1.6),
-                    x: 0,
-                    y: max(1, scale * 0.8)
-                )
-            )
+        // MARK: 1. 呼吸光晕
+        let glowRadius = (45 + breath * 4) * scale
+        context.drawLayer { layer in
+            layer.addFilter(.blur(radius: 11 * scale))
             layer.fill(
-                silhouette,
-                with: .linearGradient(
-                    Gradient(colors: [bodyTop, bodyBottom]),
-                    startPoint: pt(50, 26),
-                    endPoint: pt(50, 72)
-                )
+                Path(ellipseIn: CGRect(
+                    x: center.x - glowRadius,
+                    y: center.y - glowRadius,
+                    width: glowRadius * 2,
+                    height: glowRadius * 2
+                )),
+                with: .color(accent.opacity(0.16 + 0.14 * breath))
             )
         }
 
-        // MARK: 身体内部：腹部与背部高光（按剪影裁切，不会溢出）
-        var inner = whale
-        inner.clip(to: silhouette)
-        inner.fill(Path(ellipseIn: rect(36, 55, 56, 13)), with: .color(belly))
-        var glossPath = Path()
-        glossPath.addArc(
-            center: pt(55, 49),
-            radius: 26 * scale,
-            startAngle: .degrees(196),
-            endAngle: .degrees(268),
-            clockwise: false
+        // MARK: 2. 双同心轨道环（逆向旋转）
+        drawOrbit(
+            in: &context,
+            center: center,
+            scale: scale,
+            radiusX: 44,
+            radiusY: 15,
+            degrees: time * 16,
+            color: neon.opacity(0.55),
+            lineWidth: 1.4,
+            dotPhase: time * 0.85
         )
-        inner.stroke(glossPath, with: .color(gloss), lineWidth: max(0.8, scale * 1.4))
-        inner.fill(Path(ellipseIn: rect(84.2, 50, 10, 5.2)), with: .color(blush.opacity(0.75)))
-
-        // MARK: 眼睛与微笑
-        let blink: CGFloat = {
-            let cycle = time.truncatingRemainder(dividingBy: 4.2)
-            guard cycle < 0.16 else { return 1 }
-            return CGFloat(0.10 + abs(cycle - 0.08) / 0.08 * 0.90)
-        }()
-        if mood == .happy {
-            // 开心时弯成月牙眼
-            var eye = Path()
-            eye.move(to: pt(72.5, 43.5))
-            eye.addQuadCurve(to: pt(83.5, 43.5), control: pt(78, 33.5))
-            whale.stroke(eye, with: .color(ink), style: StrokeStyle(lineWidth: max(1.2, scale * 2.0), lineCap: .round))
-        } else {
-            let eyeBox = rect(73.3, 36.4, 9.7, 9.7 * blink)
-            whale.fill(Path(ellipseIn: eyeBox), with: .color(ink))
-            if blink > 0.5 {
-                whale.fill(Path(ellipseIn: rect(75.5, 38.2, 3.3, 3.3)), with: .color(Color.white.opacity(0.92)))
-                whale.fill(Path(ellipseIn: rect(80.6, 43.3, 1.8, 1.9)), with: .color(Color.white.opacity(0.75)))
-            }
-        }
-        var smile = Path()
-        smile.addArc(
-            center: pt(81.2, 54),
-            radius: 6.4 * scale,
-            startAngle: .degrees(25),
-            endAngle: .degrees(105),
-            clockwise: false
-        )
-        whale.stroke(
-            smile,
-            with: .color(ink.opacity(0.9)),
-            style: StrokeStyle(lineWidth: max(1.0, scale * 1.4), lineCap: .round)
+        drawOrbit(
+            in: &context,
+            center: center,
+            scale: scale,
+            radiusX: 39,
+            radiusY: 13,
+            degrees: -time * 11 + 42,
+            color: accent.opacity(0.38),
+            lineWidth: 1.0,
+            dotPhase: time * 0.55 + 0.4
         )
 
-        // MARK: 头顶喷水 / 冒泡 / 闪光
+        // MARK: 3. 全息玻璃球
+        let sphere = Path(ellipseIn: rect(22, 22, 56, 56))
+        context.fill(
+            sphere,
+            with: .radialGradient(
+                Gradient(colors: [
+                    Color.white.opacity(0.30),
+                    accent.opacity(0.32),
+                    deep.opacity(0.62)
+                ]),
+                center: pt(42, 37),
+                startRadius: 2 * scale,
+                endRadius: 34 * scale
+            )
+        )
+        context.stroke(sphere, with: .color(Color.white.opacity(0.45)), lineWidth: 1.1 * scale)
+
+        // 顶部高光弧
+        var rim = Path()
+        rim.addArc(
+            center: center,
+            radius: 27.5 * scale,
+            startAngle: .degrees(198),
+            endAngle: .degrees(322),
+            clockwise: false
+        )
+        context.stroke(rim, with: .color(Color.white.opacity(breath > 0.5 ? 0.62 : 0.48)), lineWidth: 1.6 * scale)
+
+        // MARK: 4. 猫头鹰
+        drawOwl(
+            in: &context,
+            scale: scale,
+            pt: pt,
+            rect: rect,
+            mood: mood,
+            time: time,
+            accent: accent,
+            neon: neon,
+            deep: deep,
+            bob: bob
+        )
+
+        // MARK: 5. 情绪特效
         switch mood {
+        case .calm:
+            break
+
         case .thinking:
             for index in 0..<3 {
-                let progress = ((time * 0.55) + Double(index) / 3).truncatingRemainder(dividingBy: 1)
-                let radius = CGFloat(1.3 + 1.1 * (1 - progress)) * scale
-                let center = pt(66 + CGFloat(index) * 5.5, 21 - CGFloat(progress) * 15)
-                whale.fill(
-                    Path(ellipseIn: CGRect(
-                        x: center.x - radius,
-                        y: center.y - radius,
-                        width: radius * 2,
-                        height: radius * 2
-                    )),
-                    with: .color(Color.white.opacity(0.75 * (1 - progress) + 0.15))
-                )
+                let phase = (time * 0.9 + Double(index) * 0.33).truncatingRemainder(dividingBy: 1)
+                let rise = CGFloat(phase) * 12
+                let alpha = 1 - phase
+                let radius = (1.5 + CGFloat(index) * 0.9) * scale
+                let bubble = Path(ellipseIn: CGRect(
+                    x: pt(50 + CGFloat(index) * 7 - 3, 16 - rise).x - radius,
+                    y: pt(0, 16 - rise).y - radius,
+                    width: radius * 2,
+                    height: radius * 2
+                ))
+                context.fill(bubble, with: .color(neon.opacity(alpha * 0.85)))
             }
-        default:
-            let pulse: CGFloat = mood == .happy ? 1 + 0.18 * CGFloat(sin(time * 6)) : 1
-            whale.fill(star(center: pt(74.2, 10.6), radius: 7.0 * scale * pulse), with: .color(Color.white.opacity(0.95)))
-            whale.fill(star(center: pt(85.8, 2.6), radius: 3.0 * scale * pulse), with: .color(Color.white.opacity(0.85)))
-            whale.fill(Path(ellipseIn: rect(65.2, 14.5, 4.5, 4.6)), with: .color(Color.white.opacity(0.9)))
-            whale.fill(Path(ellipseIn: rect(82.1, 13.3, 3.4, 3.4)), with: .color(Color.white.opacity(0.8)))
+
+        case .happy:
+            let pulse = CGFloat(0.85 + 0.25 * sin(time * 3.4))
+            context.fill(
+                star(center: pt(74, 26), radius: 6.4 * scale * pulse),
+                with: .color(Color.white.opacity(0.95))
+            )
+            context.fill(
+                star(center: pt(27, 33), radius: 3.8 * scale * pulse),
+                with: .color(neon.opacity(0.9))
+            )
         }
     }
 
-    // MARK: - 小工具
+    // MARK: - 轨道
+
+    private static func drawOrbit(
+        in context: inout GraphicsContext,
+        center: CGPoint,
+        scale: CGFloat,
+        radiusX: CGFloat,
+        radiusY: CGFloat,
+        degrees: Double,
+        color: Color,
+        lineWidth: CGFloat,
+        dotPhase: TimeInterval
+    ) {
+        var layer = context
+        layer.translateBy(x: center.x, y: center.y)
+        layer.rotate(by: .degrees(degrees))
+
+        let orbit = Path(ellipseIn: CGRect(
+            x: -radiusX * scale,
+            y: -radiusY * scale,
+            width: radiusX * 2 * scale,
+            height: radiusY * 2 * scale
+        ))
+        layer.stroke(orbit, with: .color(color), lineWidth: lineWidth * scale)
+
+        // 轨道上的一颗微光点
+        let angle = dotPhase * 2 * .pi
+        let dot = CGPoint(
+            x: cos(angle) * radiusX * scale,
+            y: sin(angle) * radiusY * scale
+        )
+        let dotRadius = 2.2 * scale
+        layer.drawLayer { glow in
+            glow.addFilter(.blur(radius: 3 * scale))
+            glow.fill(
+                Path(ellipseIn: CGRect(
+                    x: dot.x - dotRadius * 2,
+                    y: dot.y - dotRadius * 2,
+                    width: dotRadius * 4,
+                    height: dotRadius * 4
+                )),
+                with: .color(color)
+            )
+        }
+        layer.fill(
+            Path(ellipseIn: CGRect(
+                x: dot.x - dotRadius,
+                y: dot.y - dotRadius,
+                width: dotRadius * 2,
+                height: dotRadius * 2
+            )),
+            with: .color(Color.white.opacity(0.9))
+        )
+    }
+
+    // MARK: - 猫头鹰本体
+
+    private static func drawOwl(
+        in context: inout GraphicsContext,
+        scale: CGFloat,
+        pt: (CGFloat, CGFloat) -> CGPoint,
+        rect: (CGFloat, CGFloat, CGFloat, CGFloat) -> CGRect,
+        mood: MimirMascot.Mood,
+        time: TimeInterval,
+        accent: Color,
+        neon: Color,
+        deep: Color,
+        bob: CGFloat
+    ) {
+        var owl = context
+        owl.translateBy(x: 0, y: bob * scale * 0.4)
+
+        // 耳簇
+        owl.fill(polygon([(36.5, 36), (40.5, 25.5), (45.5, 35)], pt), with: .color(deep))
+        owl.fill(polygon([(63.5, 36), (59.5, 25.5), (54.5, 35)], pt), with: .color(deep))
+
+        // 身体
+        let body = Path(ellipseIn: rect(34, 33, 32, 36))
+        owl.fill(
+            body,
+            with: .linearGradient(
+                Gradient(colors: [deep.opacity(0.96), deep.opacity(0.72)]),
+                startPoint: pt(50, 33),
+                endPoint: pt(50, 69)
+            )
+        )
+        owl.stroke(body, with: .color(accent.opacity(0.45)), lineWidth: 1 * scale)
+
+        // 翅膀
+        owl.stroke(Path(ellipseIn: rect(30.5, 45, 13, 21)), with: .color(accent.opacity(0.42)), lineWidth: 1.3 * scale)
+        owl.stroke(Path(ellipseIn: rect(56.5, 45, 13, 21)), with: .color(accent.opacity(0.42)), lineWidth: 1.3 * scale)
+
+        // 面盘
+        let leftDisc = Path(ellipseIn: rect(35, 34.5, 16.5, 16.5))
+        let rightDisc = Path(ellipseIn: rect(48.5, 34.5, 16.5, 16.5))
+        owl.fill(leftDisc, with: .color(Color.white.opacity(0.92)))
+        owl.fill(rightDisc, with: .color(Color.white.opacity(0.92)))
+        owl.stroke(leftDisc, with: .color(accent.opacity(0.55)), lineWidth: 1.1 * scale)
+        owl.stroke(rightDisc, with: .color(accent.opacity(0.55)), lineWidth: 1.1 * scale)
+
+        // 眼睛（发光底）
+        owl.drawLayer { glow in
+            glow.addFilter(.blur(radius: 2.6 * scale))
+            glow.fill(Path(ellipseIn: rect(38.5, 38, 9.5, 9.5)), with: .color(neon))
+            glow.fill(Path(ellipseIn: rect(52, 38, 9.5, 9.5)), with: .color(neon))
+        }
+
+        if mood == .happy {
+            // 月牙眼：两条上凸弧
+            for originX in [CGFloat(40.0), CGFloat(53.5)] {
+                var arc = Path()
+                arc.addArc(
+                    center: pt(originX + 3, 43.6),
+                    radius: 3.4 * scale,
+                    startAngle: .degrees(200),
+                    endAngle: .degrees(340),
+                    clockwise: false
+                )
+                owl.stroke(arc, with: .color(deep.opacity(0.95)), lineWidth: 1.9 * scale)
+            }
+        } else {
+            owl.fill(Path(ellipseIn: rect(40.2, 39.8, 6.1, 6.1)), with: .color(deep.opacity(0.96)))
+            owl.fill(Path(ellipseIn: rect(53.7, 39.8, 6.1, 6.1)), with: .color(deep.opacity(0.96)))
+            // 眼神高光
+            let blink = sin(time * 0.7) > 0.985 ? 0.35 : 1.0
+            owl.fill(
+                Path(ellipseIn: rect(44.4, 40.6, 2.1, 2.1)),
+                with: .color(Color.white.opacity(0.95 * blink))
+            )
+            owl.fill(
+                Path(ellipseIn: rect(57.9, 40.6, 2.1, 2.1)),
+                with: .color(Color.white.opacity(0.95 * blink))
+            )
+        }
+
+        // 喙（锐利下折角）
+        owl.fill(
+            polygon([(50, 45.4), (45.6, 52.6), (50, 51.2), (54.4, 52.6)], pt),
+            with: .color(neon.opacity(0.95))
+        )
+
+        // 胸前羽纹
+        owl.stroke(
+            polygon([(43, 58), (50, 60.5), (57, 58)], pt),
+            with: .color(accent.opacity(0.5)),
+            lineWidth: 1.2 * scale
+        )
+        owl.stroke(
+            polygon([(45.5, 62.5), (50, 64.2), (54.5, 62.5)], pt),
+            with: .color(accent.opacity(0.35)),
+            lineWidth: 1.1 * scale
+        )
+    }
+
+    // MARK: - 几何辅助
 
     private static func polygon(
         _ points: [(CGFloat, CGFloat)],
@@ -234,7 +360,7 @@ private enum MascotRenderer {
                 (0, radius),
                 (-w, w),
                 (-radius, 0),
-                (-w, -w),
+                (-w, -w)
             ],
             { CGPoint(x: center.x + $0, y: center.y + $1) }
         )

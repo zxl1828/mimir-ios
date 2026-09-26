@@ -38,27 +38,21 @@ enum AppUI {
         dark: UIColor(red: 0.66, green: 0.52, blue: 1.00, alpha: 1)
     )
 
+    /// 霓虹紫：黑底上最"发光"的一档，用于 Codex 风格的高亮态。
+    static let neonViolet = Color.adaptive(
+        light: UIColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1),
+        dark: UIColor(red: 0.75, green: 0.52, blue: 1.00, alpha: 1)
+    )
+
+    /// 深紫罗兰：低亮度底色 / 深色模式下的沉稳强调色。
+    static let deepViolet = Color.adaptive(
+        light: UIColor(red: 0.36, green: 0.16, blue: 0.72, alpha: 1),
+        dark: UIColor(red: 0.52, green: 0.32, blue: 0.95, alpha: 1)
+    )
+
     /// 品牌强调色（默认紫）。视图里请优先用 `@Environment(\.appAccent)`，
     /// 这样设置里换强调色才能全局生效；这里只作为环境默认值。
     static let accent = brandPurple
-
-    /// 滑块轨道渐变：浅紫 → 深紫，深浅色模式下都保持可辨识。
-    static var levelGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.adaptive(
-                    light: UIColor(red: 0.72, green: 0.45, blue: 1.00, alpha: 1),
-                    dark: UIColor(red: 0.80, green: 0.58, blue: 1.00, alpha: 1)
-                ),
-                Color.adaptive(
-                    light: UIColor(red: 0.42, green: 0.26, blue: 0.92, alpha: 1),
-                    dark: UIColor(red: 0.55, green: 0.36, blue: 0.98, alpha: 1)
-                )
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
 
     // MARK: - 字体（SF Pro / 系统默认）
 
@@ -75,6 +69,25 @@ enum AppUI {
 
     static var drawer: Animation { .spring(response: 0.36, dampingFraction: 0.86) }
     static var snap: Animation { .spring(response: 0.28, dampingFraction: 0.82) }
+
+    // MARK: - 液态玻璃（Codex 桌面端风格）
+
+    /// 折射描边：顶部高位白光 → 中段融合强调色微光 → 底部弱光。
+    /// 深色下白光更弱、强调色更亮，黑底上才有"通透悬浮"感。
+    static func refractionEdge(_ accent: Color, scheme: ColorScheme) -> LinearGradient {
+        let topWhite = scheme == .dark ? 0.40 : 0.70
+        let bottomWhite = scheme == .dark ? 0.08 : 0.26
+        return LinearGradient(
+            stops: [
+                .init(color: Color.white.opacity(topWhite), location: 0.0),
+                .init(color: accent.opacity(scheme == .dark ? 0.45 : 0.30), location: 0.42),
+                .init(color: accent.opacity(scheme == .dark ? 0.28 : 0.16), location: 0.68),
+                .init(color: Color.white.opacity(bottomWhite), location: 1.0)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
 
 extension Color {
@@ -238,14 +251,65 @@ struct UIQuickChip: View {
     }
 }
 
-/// 底部 Sheet 顶部的灰色拖拽条。
-struct SheetGrabber: View {
+// MARK: - 液态玻璃修饰器
 
-    var body: some View {
-        Capsule(style: .continuous)
-            .fill(Color(uiColor: .systemGray4))
-            .frame(width: 40, height: 4)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
+/// Codex 桌面端风格的液态玻璃：超薄材质 + 物理折射描边 + 环境辉光。
+///
+/// 与 `GlassStyles` 里基于系统 `glassEffect` 的旧写法并存——新组件统一用它，
+/// 旧页面不受影响。
+struct LiquidGlassModifier: ViewModifier {
+
+    @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
+
+    var cornerRadius: CGFloat = AppUI.cardRadius
+    var isHighlighted: Bool = false
+    var glowIntensity: CGFloat = 0.35
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            }
+            // 外层折射倒角
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+            }
+            // 内聚光晕：高亮态更亮
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        accent.opacity(isHighlighted ? 0.55 : 0.20),
+                        lineWidth: isHighlighted ? 1.4 : 1
+                    )
+                    .blur(radius: 0.6)
+                    .allowsHitTesting(false)
+            }
+            .shadow(
+                color: accent.opacity(glowIntensity * (scheme == .dark ? 0.55 : 0.28)),
+                radius: isHighlighted ? 18 : 12,
+                y: 5
+            )
+            .shadow(color: .black.opacity(scheme == .dark ? 0.42 : 0.10), radius: 10, y: 4)
+            .animation(AppUI.snap, value: isHighlighted)
+    }
+}
+
+extension View {
+    /// 液态玻璃容器：超薄材质 + 折射描边 + 环境辉光。
+    func liquidGlass(
+        cornerRadius: CGFloat = AppUI.cardRadius,
+        isHighlighted: Bool = false,
+        glowIntensity: CGFloat = 0.35
+    ) -> some View {
+        modifier(
+            LiquidGlassModifier(
+                cornerRadius: cornerRadius,
+                isHighlighted: isHighlighted,
+                glowIntensity: glowIntensity
+            )
+        )
     }
 }

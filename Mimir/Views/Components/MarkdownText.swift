@@ -376,57 +376,127 @@ struct CodeBlockView: View {
     let code: String
 
     @State private var copied = false
+    @Environment(\.appAccent) private var accent
     @Environment(\.colorScheme) private var scheme
+
+    private var lines: [String] {
+        let split = code.components(separatedBy: "\n")
+        // 末尾空行不占行号
+        return split.last == "" ? Array(split.dropLast()) : split
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Text(language.isEmpty ? "代码" : language.lowercased())
-                    .font(AppFont.codeSmall)
-                    .foregroundStyle(AppColor.secondaryText)
-                Spacer(minLength: 8)
-                Button {
-                    UIPasteboard.general.string = code
-                    Haptics.impact(.light)
-                    copied = true
-                    Task {
-                        try? await Task.sleep(for: .seconds(1.6))
-                        copied = false
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                        Text(copied ? "已复制" : "复制")
-                    }
-                    .font(AppFont.codeSmall)
-                    .foregroundStyle(copied ? AppColor.success : AppColor.secondaryText)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 9)
-            .padding(.bottom, 6)
+            titleBar
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                Text(code)
-                    .font(AppFont.code)
-                    .foregroundStyle(AppColor.primaryText)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
-                    .padding(.top, 2)
-            }
+            Rectangle()
+                .fill(accent.opacity(scheme == .dark ? 0.22 : 0.14))
+                .frame(height: 0.5)
+
+            codeArea
         }
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(scheme == .dark
-                      ? Color.white.opacity(0.05)
-                      : Color.black.opacity(0.04))
+                .fill(scheme == .dark ? Color.black.opacity(0.55) : Color.black.opacity(0.05))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(AppColor.separator.opacity(0.35), lineWidth: 0.7)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
         )
+    }
+
+    // MARK: - 终端标题栏
+
+    private var titleBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 5) {
+                trafficLight(Color(red: 1.00, green: 0.37, blue: 0.34))
+                trafficLight(Color(red: 1.00, green: 0.78, blue: 0.25))
+                trafficLight(Color(red: 0.30, green: 0.85, blue: 0.39))
+            }
+
+            Text(language.isEmpty ? "code" : language.lowercased())
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(AppUI.label3)
+
+            Spacer(minLength: 8)
+
+            Button {
+                copyCode()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: copied ? "checkmark" : "square.on.square")
+                    Text(copied ? "已复制" : "复制")
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(copied ? Color(red: 0.24, green: 0.78, blue: 0.38) : AppUI.label2)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(copied
+                              ? AnyShapeStyle(Color(red: 0.24, green: 0.78, blue: 0.38).opacity(0.18))
+                              : AnyShapeStyle(AppUI.fill))
+                )
+                .contentShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .animation(.easeInOut(duration: 0.2), value: copied)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+
+    private func trafficLight(_ color: Color) -> some View {
+        Circle()
+            .fill(color.opacity(0.85))
+            .frame(width: 9, height: 9)
+            .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+    }
+
+    // MARK: - 代码区（行号 + 横向滚动）
+
+    private var codeArea: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .trailing, spacing: 0) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { index, _ in
+                        Text("\(index + 1)")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(AppUI.label3.opacity(0.65))
+                            .frame(height: 18)
+                    }
+                }
+                .padding(.trailing, 2)
+                .overlay(alignment: .trailing) {
+                    Rectangle()
+                        .fill(accent.opacity(0.16))
+                        .frame(width: 0.5)
+                }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        Text(line.isEmpty ? " " : line)
+                            .font(.system(size: 12.5, design: .monospaced))
+                            .foregroundStyle(AppUI.label)
+                            .frame(height: 18, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+    }
+
+    private func copyCode() {
+        UIPasteboard.general.string = code
+        Haptics.impact(.light)
+        copied = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            copied = false
+        }
     }
 }
 

@@ -19,6 +19,11 @@ struct MessageBubble: View {
     @State private var thinkingExpanded = false
     @State private var showsUsage = false
     @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
+    @Environment(AppSettings.self) private var settings
+    /// 单条消息的朗读引擎（懒加载，只在这条气泡里用）。
+    @State private var speaker: SystemSpeechEngine?
+    @State private var isSpeaking = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -69,8 +74,19 @@ struct MessageBubble: View {
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                            .fill(accent)
+                            .fill(
+                                LinearGradient(
+                                    colors: [accent.opacity(0.98), accent.opacity(0.74)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
+                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    )
+                    .shadow(color: accent.opacity(0.38), radius: 12, y: 4)
             }
 
             metaRow(isUser: true)
@@ -94,7 +110,13 @@ struct MessageBubble: View {
 
     private var assistantBubble: some View {
         VStack(alignment: .leading, spacing: 8) {
-            nameLabel("模型", isUser: false)
+            HStack(spacing: 8) {
+                Text("模型")
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label3)
+                Spacer(minLength: 0)
+                speakButton
+            }
 
             if message.hasVisibleThinking {
                 thinkingSection
@@ -127,10 +149,8 @@ struct MessageBubble: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                .fill(AppUI.secondary)
-        )
+        // Agent Turn 卡片：液态玻璃底衬
+        .liquidGlass(cornerRadius: AppUI.bubbleRadius, glowIntensity: 0.16)
         .overlay {
             if isHighlighted {
                 RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
@@ -141,6 +161,51 @@ struct MessageBubble: View {
         .contextMenu { menuItems }
     }
 
+    /// 悬浮微光液态朗读按钮：用系统合成念这条回复。
+    private var speakButton: some View {
+        Button {
+            toggleSpeech()
+        } label: {
+            Image(systemName: isSpeaking ? "stop.fill" : "speaker.wave.2.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(accent)
+                .frame(width: 26, height: 26)
+                .liquidGlass(cornerRadius: 13, isHighlighted: isSpeaking, glowIntensity: 0.5)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isSpeaking ? "停止朗读" : "朗读这条回复")
+    }
+
+    @MainActor
+    private func toggleSpeech() {
+        let engine: SystemSpeechEngine
+        if let speaker {
+            engine = speaker
+        } else {
+            let created = SystemSpeechEngine()
+            speaker = created
+            engine = created
+        }
+        engine.preferredVoiceIdentifier = settings.voice.systemVoiceIdentifier
+
+        if isSpeaking {
+            engine.stop()
+            isSpeaking = false
+            return
+        }
+
+        engine.speak(message.text, rate: settings.voice.speechRate)
+        isSpeaking = true
+        // 说完自动复位；用轮询而不是代理回调，避免跨隔离域捕获。
+        Task {
+            while engine.isSpeaking {
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            isSpeaking = false
+        }
+    }
+
     private var thinkingSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
@@ -148,10 +213,19 @@ struct MessageBubble: View {
                 withAnimation(AppAnimation.chip) { thinkingExpanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "brain")
+                    Image(systemName: "waveform.path.ecg")
                         .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(accent)
                     Text(message.isStreaming && thinkingExpanded == false ? "正在思考…" : "思考过程")
                         .font(AppUI.chip)
+                    if message.thinkingMode != nil {
+                        Text(message.thinkingMode?.title ?? "")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(accent)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule(style: .continuous).fill(accent.opacity(0.16)))
+                    }
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .bold))
                         .rotationEffect(.degrees(thinkingExpanded ? 180 : 0))
@@ -182,7 +256,11 @@ struct MessageBubble: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppUI.fill)
+                .fill(scheme == .dark ? Color.black.opacity(0.38) : Color.black.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(accent.opacity(0.22), lineWidth: 1)
         )
     }
 

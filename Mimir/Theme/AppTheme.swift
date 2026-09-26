@@ -31,6 +31,8 @@ enum AppAppearance: String, CaseIterable, Identifiable, Sendable {
 enum AppAccent: String, CaseIterable, Identifiable, Sendable {
 
     case purple
+    case neon
+    case deepViolet
     case indigo
     case blue
     case pink
@@ -43,6 +45,8 @@ enum AppAccent: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .purple: "紫色"
+        case .neon: "霓虹紫"
+        case .deepViolet: "深紫罗兰"
         case .indigo: "靛蓝"
         case .blue: "蓝色"
         case .pink: "粉色"
@@ -55,6 +59,8 @@ enum AppAccent: String, CaseIterable, Identifiable, Sendable {
     var color: Color {
         switch self {
         case .purple: AppUI.brandPurple
+        case .neon: AppUI.neonViolet
+        case .deepViolet: AppUI.deepViolet
         case .indigo: .indigo
         case .blue: .blue
         case .pink: .pink

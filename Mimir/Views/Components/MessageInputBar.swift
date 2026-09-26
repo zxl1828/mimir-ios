@@ -59,7 +59,8 @@ struct MessageInputBar: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(Capsule(style: .continuous).fill(.thinMaterial))
+            // Omni Bar：液态玻璃大圆角胶囊
+            .liquidGlass(cornerRadius: 26, glowIntensity: 0.22)
         }
         .animation(AppAnimation.chip, value: attachments.count)
     }

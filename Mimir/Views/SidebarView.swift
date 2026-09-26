@@ -59,10 +59,22 @@ struct SidebarView: View {
 
             footer
         }
-        .background(AppUI.groupCanvas)
+        // 液态超薄材质：抽屉打开时能透出后面的主界面
+        .background(.ultraThinMaterial)
         .overlay(alignment: .trailing) {
+            // 右边缘 1px 折射高光分界线
             Rectangle()
-                .fill(AppUI.separator.opacity(0.5))
+                .fill(
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color.white.opacity(0.42), location: 0.0),
+                            .init(color: accent.opacity(0.35), location: 0.5),
+                            .init(color: Color.white.opacity(0.32), location: 1.0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .frame(width: 0.5)
                 .ignoresSafeArea()
         }
@@ -106,7 +118,7 @@ struct SidebarView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(accent)
                     .frame(width: 36, height: 36)
-                    .background(Circle().fill(AppUI.secondary))
+                    .liquidGlass(cornerRadius: 18, isHighlighted: true, glowIntensity: 0.5)
                     .contentShape(Circle())
             }
             .buttonStyle(.plain)
@@ -273,6 +285,15 @@ struct SidebarView: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(isCurrent ? AppUI.fill : Color.clear)
             )
+            .overlay(alignment: .leading) {
+                if isCurrent {
+                    Capsule(style: .continuous)
+                        .fill(accent)
+                        .frame(width: 2.5)
+                        .padding(.vertical, 9)
+                        .shadow(color: accent.opacity(0.65), radius: 5)
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

@@ -20,7 +20,6 @@ struct MainChatView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var showSettings = false
     @State private var showVoiceMode = false
-    @State private var showLevelSheet = false
     @State private var showScheduledTasks = false
     @State private var showMemoryBrowser = false
     @State private var showDataFlow = false
@@ -71,6 +70,8 @@ struct MainChatView: View {
                         // 之前写成 -(sidebarWidth - dragOffset)，抽屉一打开就被推出屏幕，看起来全空白。
                         .offset(x: sidebarOpen ? max(dragOffset, 0) : -(sidebarWidth - max(dragOffset, 0)))
                         .animation(AppAnimation.sidebar, value: sidebarOpen)
+                        // 关闭动画期间不要再拦截主界面的手势。
+                        .allowsHitTesting(sidebarOpen)
                         .zIndex(2)
                 }
             }
@@ -84,15 +85,6 @@ struct MainChatView: View {
             if let chat, let list {
                 SettingsView(chat: chat, list: list)
             }
-        }
-        .sheet(isPresented: $showLevelSheet) {
-            ModelSelectionSheet(
-                currentLevel: Binding(
-                    get: { chat?.thinkingMode ?? .thinking },
-                    set: { chat?.thinkingMode = $0 }
-                ),
-                modelName: ModelCatalog.displayName(for: currentModelID)
-            )
         }
         .sheet(isPresented: $showScheduledTasks) {
             ScheduledTasksView()
@@ -197,104 +189,50 @@ struct MainChatView: View {
             UIBarButton(icon: "line.3.horizontal", label: "打开侧边栏") {
                 openSidebar()
             }
+            // 长按汉堡：重命名当前对话（原来挂在档位胶囊上）。
+            .contextMenu {
+                Button {
+                    Haptics.impact(.light)
+                    titleDraft = chat?.conversation?.title ?? ""
+                    editingTitle = true
+                } label: {
+                    Label("重命名当前对话", systemImage: "pencil")
+                }
+            }
 
-            Spacer(minLength: 0)
+            // 中间：模型命令胶囊滑块（Codex 桌面端样式）
+            ModelSegmentedSwitcher(
+                options: ModelCatalog.options(for: settings.credential, customModels: settings.customModels),
+                selectedID: Binding(
+                    get: { currentModelID },
+                    set: { selectModel($0) }
+                ),
+                onOpenSettings: { showSettings = true }
+            )
+            .frame(maxWidth: 240)
 
-            levelCapsule
+            Spacer(minLength: 4)
 
-            Spacer(minLength: 0)
-
-            modelMenu
+            // 右侧：思考强度三档阶梯滑块（High / X-High / Max）
+            ReasoningEffortSlider(
+                level: Binding(
+                    get: { chat?.thinkingMode ?? .thinking },
+                    set: { chat?.thinkingMode = $0 }
+                )
+            )
 
             UIBarButton(icon: "square.and.pencil", label: "新建对话") {
                 newConversation()
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .background(.bar)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(AppUI.separator.opacity(0.3))
                 .frame(height: 0.5)
         }
-    }
-
-    /// 中间胶囊：显示当前档位（Light / High / X-High / Max），点开档位与额度面板。
-    private var levelCapsule: some View {
-        Button {
-            Haptics.impact(.light)
-            showLevelSheet = true
-        } label: {
-            HStack(spacing: 5) {
-                Text(currentLevel.title)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(AppUI.label)
-                    .lineLimit(1)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppUI.label3)
-            }
-            .padding(.horizontal, 14)
-            .frame(height: 34)
-            .background(Capsule(style: .continuous).fill(AppUI.secondary))
-            .contentShape(Capsule(style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button {
-                Haptics.impact(.light)
-                titleDraft = chat?.conversation?.title ?? ""
-                editingTitle = true
-            } label: {
-                Label("重命名当前对话", systemImage: "pencil")
-            }
-        }
-        .accessibilityLabel("当前档位 \(currentLevel.title)")
-    }
-
-    private var currentLevel: ThinkingMode {
-        chat?.thinkingMode ?? .thinking
-    }
-
-    /// 模型切换：胶囊显示当前模型，点开是玻璃菜单。
-    private var modelMenu: some View {
-        Menu {
-            ForEach(ModelCatalog.options(for: settings.credential, customModels: settings.customModels)) { option in
-                Button {
-                    selectModel(option.id)
-                } label: {
-                    if option.id == currentModelID {
-                        Label(option.title, systemImage: "checkmark")
-                    } else {
-                        Text(option.title)
-                    }
-                }
-            }
-            Divider()
-            Button {
-                showSettings = true
-            } label: {
-                Label("自定义模型 / 参数…", systemImage: "slider.horizontal.3")
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "cpu")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(accent)
-                Text(ModelCatalog.shortLabel(for: currentModelID))
-                    .font(AppUI.chip)
-                    .foregroundStyle(AppUI.label)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 32)
-            .background(Capsule(style: .continuous).fill(AppUI.secondary))
-            .contentShape(Capsule(style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("切换模型")
     }
 
     private var currentModelID: String {
