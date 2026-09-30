@@ -11,6 +11,8 @@ struct MarkdownText: View {
     let raw: String
     var isStreaming: Bool = false
 
+    @Environment(\.appAccent) private var accent
+
     var body: some View {
         if isStreaming {
             streamingBody
@@ -20,11 +22,6 @@ struct MarkdownText: View {
     }
 
     /// 流式期间的轻量渲染。
-    ///
-    /// 生成过程中每来一个 token 就会重算一次 body，而完整解析一遍 Markdown
-    /// （标题 / 列表 / 表格 / 代码块）是这段路上最贵的开销，所以流式期间
-    /// 只把原始文本铺成一个 `Text`（换行原样保留），等生成结束再交给解析器
-    /// 渲染成最终形态。样式与最终形态保持一致（同一字体 / 颜色 / 行距）。
     private var streamingBody: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(raw)
@@ -53,25 +50,25 @@ struct MarkdownText: View {
         case .heading(let level, let text):
             Text(inline(text))
                 .font(.system(size: headingSize(level), weight: .semibold))
-                .foregroundStyle(AppColor.primaryText)
+                .foregroundStyle(AppUI.label)
                 .padding(.top, level <= 2 ? 4 : 2)
 
         case .paragraph(let text):
             Text(inline(text))
-                .font(AppFont.bubbleBody)
-                .foregroundStyle(AppColor.primaryText)
+                .font(AppUI.body)
+                .foregroundStyle(AppUI.label)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
 
         case .bullet(let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Circle()
-                    .fill(AppColor.secondaryText)
+                    .fill(accent.opacity(0.85))
                     .frame(width: 5, height: 5)
                     .offset(y: -2)
                 Text(inline(text))
-                    .font(AppFont.bubbleBody)
-                    .foregroundStyle(AppColor.primaryText)
+                    .font(AppUI.body)
+                    .foregroundStyle(AppUI.label)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -79,22 +76,22 @@ struct MarkdownText: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(marker)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(AppColor.brandIndigo)
+                    .foregroundStyle(accent)
                     .frame(minWidth: 18, alignment: .leading)
                 Text(inline(text))
-                    .font(AppFont.bubbleBody)
-                    .foregroundStyle(AppColor.primaryText)
+                    .font(AppUI.body)
+                    .foregroundStyle(AppUI.label)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
         case .quote(let text):
             HStack(alignment: .top, spacing: 10) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(AppColor.brandIndigo.opacity(0.55))
+                    .fill(accent.opacity(0.65))
                     .frame(width: 3)
                 Text(inline(text))
-                    .font(AppFont.bubbleBody)
-                    .foregroundStyle(AppColor.secondaryText)
+                    .font(AppUI.body)
+                    .foregroundStyle(AppUI.label2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -117,8 +114,8 @@ struct MarkdownText: View {
 
         case .raw(let text):
             Text(text)
-                .font(AppFont.bubbleBody)
-                .foregroundStyle(AppColor.primaryText)
+                .font(AppUI.body)
+                .foregroundStyle(AppUI.label)
         }
 
         if isStreaming && isLast {
@@ -152,10 +149,11 @@ struct MarkdownText: View {
 /// 流式输出时的光标。
 struct StreamingCursor: View {
     @State private var visible = true
+    @Environment(\.appAccent) private var accent
 
     var body: some View {
         RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-            .fill(AppColor.brandIndigo)
+            .fill(accent)
             .frame(width: 9, height: 16)
             .opacity(visible ? 1 : 0.15)
             .onAppear {
@@ -368,7 +366,7 @@ enum MarkdownBlock: Hashable {
     }
 }
 
-// MARK: - 代码块
+// MARK: - Codex 终端代码块（macOS 三色圆点 + 语言胶囊 + 一键复制 + 行号 + 液态玻璃折射边）
 
 struct CodeBlockView: View {
 
@@ -381,7 +379,6 @@ struct CodeBlockView: View {
 
     private var lines: [String] {
         let split = code.components(separatedBy: "\n")
-        // 末尾空行不占行号
         return split.last == "" ? Array(split.dropLast()) : split
     }
 
@@ -390,17 +387,21 @@ struct CodeBlockView: View {
             titleBar
 
             Rectangle()
-                .fill(accent.opacity(scheme == .dark ? 0.22 : 0.14))
-                .frame(height: 0.5)
+                .fill(accent.opacity(scheme == .dark ? 0.24 : 0.16))
+                .frame(height: 0.6)
 
             codeArea
         }
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(scheme == .dark ? Color.black.opacity(0.55) : Color.black.opacity(0.05))
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(
+                    scheme == .dark
+                        ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.84)
+                        : Color(red: 0.96, green: 0.95, blue: 0.99)
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
         )
     }
@@ -409,34 +410,48 @@ struct CodeBlockView: View {
 
     private var titleBar: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 trafficLight(Color(red: 1.00, green: 0.37, blue: 0.34))
-                trafficLight(Color(red: 1.00, green: 0.78, blue: 0.25))
-                trafficLight(Color(red: 0.30, green: 0.85, blue: 0.39))
+                trafficLight(Color(red: 1.00, green: 0.75, blue: 0.22))
+                trafficLight(Color(red: 0.24, green: 0.82, blue: 0.38))
             }
 
-            Text(language.isEmpty ? "code" : language.lowercased())
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(AppUI.label3)
+            Spacer(minLength: 4)
 
-            Spacer(minLength: 8)
+            // 语言标签胶囊（对齐参考图 CS+ 标签）
+            Text(language.isEmpty ? "code" : language.lowercased())
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(AppUI.label2)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(AppUI.fill)
+                )
 
             Button {
                 copyCode()
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: copied ? "checkmark" : "square.on.square")
-                    Text(copied ? "已复制" : "复制")
+                    Text(copied ? "已复制" : "1-tap Copy")
                 }
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(copied ? Color(red: 0.24, green: 0.78, blue: 0.38) : AppUI.label2)
+                .foregroundStyle(copied ? Color(red: 0.20, green: 0.80, blue: 0.40) : AppUI.label)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
                 .background(
                     Capsule(style: .continuous)
                         .fill(copied
-                              ? AnyShapeStyle(Color(red: 0.24, green: 0.78, blue: 0.38).opacity(0.18))
+                              ? AnyShapeStyle(Color(red: 0.20, green: 0.80, blue: 0.40).opacity(0.18))
                               : AnyShapeStyle(AppUI.fill))
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .strokeBorder(
+                            copied ? Color(red: 0.20, green: 0.80, blue: 0.40).opacity(0.45) : accent.opacity(0.22),
+                            lineWidth: 0.6
+                        )
                 )
                 .contentShape(Capsule(style: .continuous))
             }
@@ -445,12 +460,17 @@ struct CodeBlockView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
+        .background(
+            scheme == .dark
+                ? Color.white.opacity(0.03)
+                : accent.opacity(0.04)
+        )
     }
 
     private func trafficLight(_ color: Color) -> some View {
         Circle()
-            .fill(color.opacity(0.85))
-            .frame(width: 9, height: 9)
+            .fill(color.opacity(0.88))
+            .frame(width: 9.5, height: 9.5)
             .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
     }
 
@@ -458,20 +478,20 @@ struct CodeBlockView: View {
 
     private var codeArea: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .top, spacing: 11) {
                 VStack(alignment: .trailing, spacing: 0) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { index, _ in
                         Text("\(index + 1)")
                             .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(AppUI.label3.opacity(0.65))
-                            .frame(height: 18)
+                            .foregroundStyle(AppUI.label3.opacity(0.70))
+                            .frame(height: 19)
                     }
                 }
-                .padding(.trailing, 2)
+                .padding(.trailing, 4)
                 .overlay(alignment: .trailing) {
                     Rectangle()
-                        .fill(accent.opacity(0.16))
-                        .frame(width: 0.5)
+                        .fill(accent.opacity(0.20))
+                        .frame(width: 0.6)
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
@@ -479,7 +499,7 @@ struct CodeBlockView: View {
                         Text(line.isEmpty ? " " : line)
                             .font(.system(size: 12.5, design: .monospaced))
                             .foregroundStyle(AppUI.label)
-                            .frame(height: 18, alignment: .leading)
+                            .frame(height: 19, alignment: .leading)
                             .textSelection(.enabled)
                     }
                 }
@@ -507,6 +527,9 @@ struct MarkdownTableView: View {
     let header: [String]
     let rows: [[String]]
 
+    @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 0) {
@@ -518,11 +541,11 @@ struct MarkdownTableView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(AppColor.subtle.opacity(0.5))
+                    .fill(scheme == .dark ? Color.white.opacity(0.05) : Color.black.opacity(0.03))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(AppColor.separator.opacity(0.3), lineWidth: 0.7)
+                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
             )
         }
     }
@@ -532,7 +555,7 @@ struct MarkdownTableView: View {
             ForEach(Array(values.enumerated()), id: \.offset) { index, value in
                 Text(value)
                     .font(isHeader ? .system(size: 13.5, weight: .semibold) : .system(size: 13.5))
-                    .foregroundStyle(isHeader ? AppColor.primaryText : AppColor.secondaryText)
+                    .foregroundStyle(isHeader ? AppUI.label : AppUI.label2)
                     .multilineTextAlignment(.leading)
                     .frame(minWidth: 74, alignment: .leading)
                     .padding(.horizontal, 10)

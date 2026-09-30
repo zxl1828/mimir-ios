@@ -22,6 +22,7 @@ struct RootView: View {
         }
         .environment(settings)
         .environment(\.appAccent, settings.accent.color)
+        .environment(\.appBackground, settings.background)
         .preferredColorScheme(settings.appearance.colorScheme)
         .tint(settings.accent.color)
         .task {

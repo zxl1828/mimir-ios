@@ -50,4 +50,16 @@ enum ModelCatalog {
         }
     }
 
+    /// 思考浮动卡片与底部状态胶囊使用的完整展示名。
+    static func cardLabel(for modelID: String) -> String {
+        switch modelID {
+        case "deepseek-chat": return "DeepSeek-Chat"
+        case "deepseek-reasoner": return "DeepSeek-Reasoner"
+        case "claude-sonnet-4-5": return "Claude-Sonnet-4.5"
+        case "claude-haiku-4-5": return "Claude-Haiku-4.5"
+        default:
+            let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "DeepSeek-Chat" : trimmed
+        }
+    }
 }

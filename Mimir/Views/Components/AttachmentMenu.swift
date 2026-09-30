@@ -9,16 +9,17 @@ struct AttachmentMenu: View {
     var onCamera: () -> Void
     var onScan: () -> Void
 
+    @Environment(\.appAccent) private var accent
+
     var body: some View {
         VStack(spacing: 2) {
-            row(icon: "photo.on.rectangle.angled", title: "从相册选择", tint: AppColor.brandIndigo, action: onPickPhoto)
-            row(icon: "camera", title: "拍照", tint: AppColor.brandBlue, action: onCamera)
-            row(icon: "doc.viewfinder", title: "扫描文档", tint: AppColor.brandTeal, action: onScan)
+            row(icon: "photo.on.rectangle.angled", title: "从相册选择", tint: accent, action: onPickPhoto)
+            row(icon: "camera", title: "拍照", tint: AppUI.neonViolet, action: onCamera)
+            row(icon: "doc.viewfinder", title: "扫描文档", tint: AppUI.deepViolet, action: onScan)
         }
         .padding(6)
         .frame(width: 216)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 22))
-        .glassHairline(cornerRadius: 22)
+        .liquidGlass(cornerRadius: 22, glowIntensity: 0.28)
     }
 
     private func row(
@@ -37,8 +38,8 @@ struct AttachmentMenu: View {
                     .foregroundStyle(tint)
                     .frame(width: 26, height: 26)
                 Text(title)
-                    .font(AppFont.bubbleBody)
-                    .foregroundStyle(AppColor.primaryText)
+                    .font(AppUI.subheadline)
+                    .foregroundStyle(AppUI.label)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)

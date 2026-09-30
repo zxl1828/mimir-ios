@@ -13,6 +13,8 @@ struct SkillPicker: View {
     var onSelect: (Skill) -> Void
     var onDismiss: () -> Void
 
+    @Environment(\.appAccent) private var accent
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -42,13 +44,7 @@ struct SkillPicker: View {
                 .frame(maxHeight: maxListHeight)
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.clear)
-        )
-        .liquidGlass(.regular, in: .rect(cornerRadius: 16))
-        .glassHairline(cornerRadius: 16)
-        .shadow(color: Color.black.opacity(0.18), radius: 22, y: 10)
+        .liquidGlass(cornerRadius: 18, glowIntensity: 0.28)
         .padding(.horizontal, 6)
         .transition(
             .asymmetric(
@@ -66,23 +62,23 @@ struct SkillPicker: View {
         HStack(spacing: 8) {
             Image(systemName: "slash.circle.fill")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppColor.brandPurple)
+                .foregroundStyle(accent)
 
             if query.isEmpty {
                 Text("选择技能")
-                    .font(AppFont.chip)
-                    .foregroundStyle(AppColor.secondaryText)
+                    .font(AppUI.chip)
+                    .foregroundStyle(AppUI.label2)
             } else {
                 Text("/" + query)
-                    .font(AppFont.chip)
-                    .foregroundStyle(AppColor.primaryText)
+                    .font(AppUI.chip)
+                    .foregroundStyle(AppUI.label)
             }
 
             Spacer(minLength: 4)
 
             Text("↑↓ 选择 · 回车确认 · Esc 取消")
-                .font(AppFont.chipCompact)
-                .foregroundStyle(AppColor.tertiaryText)
+                .font(AppUI.caption)
+                .foregroundStyle(AppUI.label3)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -92,22 +88,22 @@ struct SkillPicker: View {
         HStack(spacing: 11) {
             Image(systemName: skill.icon)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(isHighlighted ? .white : AppColor.brandPurple)
+                .foregroundStyle(isHighlighted ? .white : accent)
                 .frame(width: 28, height: 28)
                 .background(
                     Circle().fill(isHighlighted
-                                  ? AnyShapeStyle(AppColor.accentGradient)
-                                  : AnyShapeStyle(AppColor.brandPurple.opacity(0.12)))
+                                  ? AnyShapeStyle(accent)
+                                  : AnyShapeStyle(accent.opacity(0.14)))
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(skill.name)
                     .font(.system(size: 14.5, weight: .medium))
-                    .foregroundStyle(isHighlighted ? AppColor.brandIndigo : AppColor.primaryText)
+                    .foregroundStyle(isHighlighted ? accent : AppUI.label)
                 if !skill.summary.isEmpty {
                     Text(skill.summary)
-                        .font(AppFont.chipCompact)
-                        .foregroundStyle(AppColor.secondaryText)
+                        .font(AppUI.caption)
+                        .foregroundStyle(AppUI.label2)
                         .lineLimit(1)
                 }
             }
@@ -115,14 +111,14 @@ struct SkillPicker: View {
             Spacer(minLength: 4)
 
             Text("/" + skill.slashCommand)
-                .font(AppFont.codeSmall)
-                .foregroundStyle(AppColor.tertiaryText)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(AppUI.label3)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isHighlighted ? AppColor.brandIndigo.opacity(0.10) : Color.clear)
+                .fill(isHighlighted ? accent.opacity(0.12) : Color.clear)
         )
         .contentShape(Rectangle())
         .padding(.horizontal, 6)
@@ -131,11 +127,11 @@ struct SkillPicker: View {
     private var emptyHint: some View {
         VStack(spacing: 6) {
             Text("没有匹配的技能")
-                .font(AppFont.hint)
-                .foregroundStyle(AppColor.secondaryText)
+                .font(AppUI.footnote)
+                .foregroundStyle(AppUI.label2)
             Text("继续输入普通文字即可关闭，或到设置里新建技能")
-                .font(AppFont.chipCompact)
-                .foregroundStyle(AppColor.tertiaryText)
+                .font(AppUI.caption)
+                .foregroundStyle(AppUI.label3)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)

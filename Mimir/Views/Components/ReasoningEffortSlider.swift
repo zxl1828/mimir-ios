@@ -1,10 +1,115 @@
 import SwiftUI
 
-/// 思考强度阶梯滑块（Codex 桌面端的 Reasoning Effort）。
+/// 1:1 复刻实机参考图的「思考强度浮动卡片」（含大号发光档位标题、模型切换行、星尘阶梯滑块）。
+struct ReasoningEffortCard: View {
+
+    @Binding var level: ThinkingMode
+    let options: [ModelCatalog.Option]
+    @Binding var selectedModelID: String
+    var onOpenSettings: () -> Void = {}
+
+    @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        VStack(spacing: 10) {
+            // 1. 顶部居中大字档位标题（High / X-High / Ultra），带霓虹紫辉光
+            Text(level.heroTitle)
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(scheme == .dark ? 0.95 : 0.25),
+                            accent,
+                            AppUI.neonViolet
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .shadow(color: accent.opacity(scheme == .dark ? 0.85 : 0.45), radius: 12, y: 0)
+                .shadow(color: AppUI.neonViolet.opacity(scheme == .dark ? 0.55 : 0.25), radius: 22, y: 2)
+                .contentTransition(.numericText())
+                .animation(AppUI.snap, value: level)
+
+            // 2. 居中模型选择行：[当前模型名称] >
+            Menu {
+                ForEach(options) { option in
+                    Button {
+                        Haptics.selectionChanged()
+                        selectedModelID = option.id
+                    } label: {
+                        HStack {
+                            Text(option.title)
+                            if option.id == selectedModelID {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+                Divider()
+                Button {
+                    onOpenSettings()
+                } label: {
+                    Label("自定义模型与参数…", systemImage: "slider.horizontal.3")
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Text(ModelCatalog.cardLabel(for: selectedModelID))
+                        .font(.system(size: 14.5, weight: .medium))
+                        .lineLimit(1)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11.5, weight: .semibold))
+                }
+                .foregroundStyle(AppUI.label2)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 3)
+                .contentShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            // 3. 星尘阶梯滑轨（Stepped Stardust Slider）
+            ReasoningEffortSlider(level: $level)
+                .padding(.top, 4)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 18)
+        .frame(maxWidth: 296)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(
+                            scheme == .dark
+                                ? Color(red: 0.10, green: 0.09, blue: 0.16).opacity(0.76)
+                                : Color.white.opacity(0.78)
+                        )
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1.1)
+                .allowsHitTesting(false)
+        }
+        .shadow(
+            color: accent.opacity(scheme == .dark ? 0.36 : 0.18),
+            radius: 22,
+            y: 8
+        )
+        .shadow(
+            color: .black.opacity(scheme == .dark ? 0.55 : 0.12),
+            radius: 16,
+            y: 6
+        )
+    }
+}
+
+/// 实机 1:1 星尘阶梯滑块（Stepped Stardust Slider）。
 ///
-/// 微型液态玻璃滑轨 + 三个物理停靠刻度（High / X-High / Max），
-/// 游标是内嵌脑波图标的发光圆钮；拖动或点按都会平滑吸附到最近刻度，
-/// 每次换档都有触觉反馈。直接绑定真实的 `ThinkingMode`，改完立即作用于下一次请求。
+/// 加厚胶囊轨道 + 电光紫渐变激活段 + 星座连线与微光星尘纹理 + 离散停靠刻度点 + 纯白立体圆钮。
+/// 严格限定三档：`High` / `X-High` / `Max (Ultra)`，绝不引入"不思考"档。
 struct ReasoningEffortSlider: View {
 
     @Binding var level: ThinkingMode
@@ -12,64 +117,83 @@ struct ReasoningEffortSlider: View {
     @Environment(\.appAccent) private var accent
     @Environment(\.colorScheme) private var scheme
 
-    /// 拖动过程中显示连续位置；松手后回到档位停靠点。
+    /// 拖动过程中显示连续位置；松手后平滑吸附到三档停靠点。
     @State private var dragProgress: Double?
 
-    private static let trackWidth: CGFloat = 118
-    private static let thumbSize: CGFloat = 26
-    private static let trackHeight: CGFloat = 6
+    private static let trackHeight: CGFloat = 40
+    private static let thumbSize: CGFloat = 34
+
+    /// 三档停靠在轨道上的归一化位置：让 High 也有一段饱满的星座紫轨（与参考图一致）。
+    static func progress(for mode: ThinkingMode) -> Double {
+        switch mode {
+        case .thinking: return 0.24
+        case .expert: return 0.56
+        case .ultra: return 0.90
+        }
+    }
+
+    static func nearest(_ progress: Double) -> ThinkingMode {
+        let candidates = ThinkingMode.allCases
+        return candidates.min(by: {
+            abs(Self.progress(for: $0) - progress) < abs(Self.progress(for: $1) - progress)
+        }) ?? .thinking
+    }
+
+    private var currentProgress: Double {
+        dragProgress ?? Self.progress(for: level)
+    }
 
     var body: some View {
         GeometryReader { proxy in
-            let inset = Self.thumbSize / 2
-            let usable = max(proxy.size.width - inset * 2, 1)
+            let width = proxy.size.width
+            let inset = Self.thumbSize / 2 + 3
+            let usable = max(width - inset * 2, 1)
             let progress = currentProgress
-            let thumbX = inset + usable * progress
+            let thumbCenterX = inset + usable * progress
+            let activeWidth = min(max(thumbCenterX + Self.thumbSize * 0.18, Self.trackHeight), width)
 
             ZStack(alignment: .leading) {
-                track
+                // 1. 未激活底轨（半透明磨砂深灰/浅灰底衬）
+                inactiveTrack
 
-                Capsule(style: .continuous)
-                    .fill(accent.opacity(0.9))
-                    .frame(width: max(thumbX, Self.trackHeight), height: Self.trackHeight)
-                    .shadow(color: accent.opacity(0.65), radius: 6)
+                // 2. 左侧电光紫激活段 + 星尘与星座连线纹理
+                activeStardustSegment(width: activeWidth)
 
-                ForEach(Array(ThinkingMode.allCases.enumerated()), id: \.offset) { index, mode in
-                    let stopX = inset + usable * Self.progress(for: mode)
-                    Circle()
-                        .fill(Color.white.opacity(level == mode ? 0 : 0.55))
-                        .frame(width: 3, height: 3)
-                        .offset(x: stopX - 1.5)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
+                // 3. 轨道内的离散刻度点（7 颗微点，其中 3 颗对应主档位）
+                tickDotsLayer(inset: inset, usable: usable, thumbCenterX: thumbCenterX)
 
-                thumb
-                    .offset(x: thumbX - inset)
+                // 4. 纯白立体圆钮（White Circular Thumb）
+                whiteThumb
+                    .offset(x: thumbCenterX - Self.thumbSize / 2)
             }
-            .frame(height: proxy.size.height)
-            .contentShape(Rectangle())
+            .frame(width: width, height: Self.trackHeight)
+            .contentShape(Capsule(style: .continuous))
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let raw = (value.location.x - inset) / usable
-                        let clamped = min(max(raw, 0), 1)
+                        let clamped = min(max(raw, 0.16), 0.96)
                         dragProgress = clamped
-                        let nearest = Self.nearest(clamped)
-                        if nearest != level {
-                            level = nearest
+                        let snapped = Self.nearest(clamped)
+                        if snapped != level {
+                            level = snapped
                         }
                     }
-                    .onEnded { _ in
-                        withAnimation(AppUI.snap) { dragProgress = nil }
+                    .onEnded { value in
+                        let raw = (value.location.x - inset) / usable
+                        let snapped = Self.nearest(raw)
+                        withAnimation(AppUI.snap) {
+                            level = snapped
+                            dragProgress = nil
+                        }
                     }
             )
         }
-        .frame(width: Self.trackWidth, height: Self.thumbSize)
+        .frame(height: Self.trackHeight)
         .sensoryFeedback(.selection, trigger: level)
         .accessibilityElement()
         .accessibilityLabel("思考强度")
-        .accessibilityValue(level.title)
+        .accessibilityValue(level.heroTitle)
         .accessibilityAdjustableAction { direction in
             let all = ThinkingMode.allCases
             guard let index = all.firstIndex(of: level) else { return }
@@ -84,69 +208,267 @@ struct ReasoningEffortSlider: View {
         }
     }
 
-    // MARK: - 部件
+    // MARK: - 滑轨子层
 
-    private var track: some View {
+    private var inactiveTrack: some View {
         Capsule(style: .continuous)
-            .fill(.ultraThinMaterial)
-            .frame(height: Self.trackHeight)
+            .fill(
+                scheme == .dark
+                    ? Color.white.opacity(0.12)
+                    : Color.black.opacity(0.08)
+            )
+            .overlay(alignment: .trailing) {
+                // 右侧微弱算力芯片水印图标（对应实机截图滑轨右侧的暗纹）
+                Image(systemName: "rectangle.portrait.on.rectangle.portrait")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(
+                        scheme == .dark
+                            ? Color.white.opacity(0.16)
+                            : Color.black.opacity(0.14)
+                    )
+                    .padding(.trailing, 20)
+            }
             .overlay(
                 Capsule(style: .continuous)
-                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    .strokeBorder(
+                        scheme == .dark
+                            ? Color.white.opacity(0.18)
+                            : Color.black.opacity(0.10),
+                        lineWidth: 0.8
+                    )
             )
     }
 
-    private var thumb: some View {
-        ZStack {
-            Circle().fill(.ultraThinMaterial)
-            Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-            Circle()
-                .strokeBorder(accent.opacity(0.5), lineWidth: 1)
-                .blur(radius: 0.6)
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(accent)
+    private func activeStardustSegment(width: CGFloat) -> some View {
+        ZStack(alignment: .leading) {
+            Capsule(style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            AppUI.stardustElectric,
+                            AppUI.stardustGlow,
+                            accent
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+
+            // 星座连线 + 微型星尘粒子纹理
+            StardustTrackCanvas(intensity: level == .thinking ? 0.65 : (level == .expert ? 0.90 : 1.0))
+                .clipShape(Capsule(style: .continuous))
         }
-        .frame(width: Self.thumbSize, height: Self.thumbSize)
-        .shadow(color: accent.opacity(0.55), radius: 9)
-        .scaleEffect(dragProgress == nil ? 1 : 1.08)
+        .frame(width: width, height: Self.trackHeight - 4)
+        .padding(.leading, 2)
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.7)
+                .padding(.leading, 2)
+        )
+        .shadow(color: accent.opacity(scheme == .dark ? 0.60 : 0.32), radius: 10, x: 0, y: 2)
     }
 
-    // MARK: - 档位几何
+    private func tickDotsLayer(inset: CGFloat, usable: CGFloat, thumbCenterX: CGFloat) -> some View {
+        let stops: [Double] = [0.08, 0.24, 0.40, 0.56, 0.73, 0.90, 0.98]
+        let majorStops: Set<Int> = [1, 3, 5] // 对应 High (0.24), X-High (0.56), Max/Ultra (0.90)
 
-    private var currentProgress: Double {
-        dragProgress ?? Self.progress(for: level)
+        return ZStack(alignment: .leading) {
+            ForEach(Array(stops.enumerated()), id: \.offset) { index, stop in
+                let x = inset + usable * stop
+                let isCoveredByThumb = abs(x - thumbCenterX) < Self.thumbSize * 0.52
+                let isActive = x < thumbCenterX
+                let isMajor = majorStops.contains(index)
+                let dotSize: CGFloat = isMajor ? 5.2 : 4.0
+
+                Circle()
+                    .fill(
+                        isActive
+                            ? Color.white.opacity(isMajor ? 0.88 : 0.55)
+                            : (scheme == .dark
+                                ? Color.white.opacity(isMajor ? 0.36 : 0.22)
+                                : Color.black.opacity(isMajor ? 0.26 : 0.16))
+                    )
+                    .frame(width: dotSize, height: dotSize)
+                    .offset(x: x - dotSize / 2)
+                    .opacity(isCoveredByThumb ? 0 : 1)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
-    /// 三档均分：High = 0、X-High = 0.5、Max = 1。
-    static func progress(for mode: ThinkingMode) -> Double {
-        let all = ThinkingMode.allCases
-        guard let index = all.firstIndex(of: mode), all.count > 1 else { return 0 }
-        return Double(index) / Double(all.count - 1)
-    }
-
-    static func nearest(_ progress: Double) -> ThinkingMode {
-        let all = ThinkingMode.allCases
-        guard all.count > 1 else { return all.first ?? .thinking }
-        let scaled = progress * Double(all.count - 1)
-        let index = Int(scaled.rounded())
-        return all[min(max(index, 0), all.count - 1)]
+    private var whiteThumb: some View {
+        Circle()
+            .fill(Color.white)
+            .frame(width: Self.thumbSize, height: Self.thumbSize)
+            .overlay(
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.95), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.28), radius: 4, x: 0, y: 1)
+            .shadow(color: accent.opacity(0.45), radius: 8, x: 0, y: 0)
+            .scaleEffect(dragProgress == nil ? 1.0 : 1.06)
+            .animation(AppUI.snap, value: dragProgress == nil)
     }
 }
 
-private struct ReasoningEffortSliderPreviewHost: View {
+/// 激活滑轨内部的星座连线与微光星尘绘制层（复刻实机参考图的星图细节）。
+private struct StardustTrackCanvas: View {
 
-    @State private var level: ThinkingMode = .expert
+    var intensity: Double = 1.0
 
     var body: some View {
-        VStack(spacing: 20) {
-            ReasoningEffortSlider(level: $level)
-            Text(level.title).font(AppUI.footnote).foregroundStyle(AppUI.label2)
+        Canvas { context, size in
+            let w = size.width
+            let h = size.height
+            guard w > 24 else { return }
+
+            // 1. 星座折线（仿参考图左上至中段的星图连线）
+            let constellation: [(CGFloat, CGFloat)] = [
+                (0.14, 0.42),
+                (0.24, 0.26),
+                (0.35, 0.34),
+                (0.46, 0.22),
+                (0.58, 0.38)
+            ]
+            var linePath = Path()
+            for (index, pt) in constellation.enumerated() {
+                let p = CGPoint(x: pt.0 * w, y: pt.1 * h)
+                if index == 0 {
+                    linePath.move(to: p)
+                } else {
+                    linePath.addLine(to: p)
+                }
+            }
+            context.stroke(
+                linePath,
+                with: .color(Color.white.opacity(0.32 * intensity)),
+                lineWidth: 0.75
+            )
+
+            for pt in constellation {
+                let p = CGPoint(x: pt.0 * w, y: pt.1 * h)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: p.x - 1.3, y: p.y - 1.3, width: 2.6, height: 2.6)),
+                    with: .color(Color.white.opacity(0.78 * intensity))
+                )
+            }
+
+            // 2. 散布的星尘微粒与十字微星
+            let dust: [(CGFloat, CGFloat, CGFloat)] = [
+                (0.09, 0.68, 1.1),
+                (0.19, 0.76, 1.4),
+                (0.29, 0.62, 1.0),
+                (0.41, 0.78, 1.6),
+                (0.52, 0.66, 1.2),
+                (0.66, 0.28, 1.5),
+                (0.74, 0.72, 1.3),
+                (0.84, 0.32, 1.4)
+            ]
+            for (rx, ry, r) in dust {
+                let p = CGPoint(x: rx * w, y: ry * h)
+                context.fill(
+                    Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2)),
+                    with: .color(Color.white.opacity(0.55 * intensity))
+                )
+            }
+
+            // 两颗四角微星
+            for starPt in [CGPoint(x: 0.39 * w, y: 0.74 * h), CGPoint(x: 0.68 * w, y: 0.30 * h)] {
+                var star = Path()
+                let sr: CGFloat = 2.8
+                star.move(to: CGPoint(x: starPt.x, y: starPt.y - sr))
+                star.addLine(to: CGPoint(x: starPt.x, y: starPt.y + sr))
+                star.move(to: CGPoint(x: starPt.x - sr, y: starPt.y))
+                star.addLine(to: CGPoint(x: starPt.x + sr, y: starPt.y))
+                context.stroke(star, with: .color(Color.white.opacity(0.75 * intensity)), lineWidth: 0.8)
+            }
         }
-        .padding(30)
+        .allowsHitTesting(false)
     }
 }
 
-#Preview {
-    ReasoningEffortSliderPreviewHost()
+/// 底部输入框上方的思考状态胶囊（对应参考图 1 底部的 `DeepSeek-V4.1-Flash Ultra` 胶囊）。
+///
+/// 点击可展开 / 收起上方的 `ReasoningEffortCard` 星尘浮动卡片。
+struct ReasoningStatusChip: View {
+
+    let modelID: String
+    let level: ThinkingMode
+    let isExpanded: Bool
+    var action: () -> Void
+
+    @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button {
+            Haptics.impact(.light)
+            action()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(accent)
+
+                Text("\(ModelCatalog.cardLabel(for: modelID))")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppUI.label)
+                    .lineLimit(1)
+
+                Text(level.heroTitle)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(accent)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(accent.opacity(scheme == .dark ? 0.22 : 0.14))
+                    )
+
+                // 右侧立体微光圆珠（对应参考图胶囊右侧的圆球指示器）
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white,
+                                scheme == .dark ? Color(white: 0.78) : accent.opacity(0.45)
+                            ],
+                            center: .topLeading,
+                            startRadius: 1,
+                            endRadius: 14
+                        )
+                    )
+                    .frame(width: 18, height: 18)
+                    .shadow(color: accent.opacity(isExpanded ? 0.65 : 0.25), radius: 4, y: 1)
+            }
+            .padding(.leading, 11)
+            .padding(.trailing, 7)
+            .padding(.vertical, 6)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .fill(AppUI.glassTint(scheme: scheme, isHighlighted: isExpanded))
+                    )
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .strokeBorder(
+                        isExpanded
+                            ? AnyShapeStyle(accent.opacity(0.85))
+                            : AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme)),
+                        lineWidth: isExpanded ? 1.2 : 0.9
+                    )
+            )
+            .shadow(
+                color: isExpanded ? accent.opacity(scheme == .dark ? 0.42 : 0.22) : .black.opacity(scheme == .dark ? 0.25 : 0.06),
+                radius: isExpanded ? 10 : 5,
+                y: 2
+            )
+            .contentShape(Capsule(style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("思考强度与模型：\(ModelCatalog.cardLabel(for: modelID)) \(level.heroTitle)")
+    }
 }

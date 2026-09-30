@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import UIKit
 
-/// 抽屉式侧边栏：搜索、主导航、最近对话、智能体与技能，底部悬浮「聊天」。
+/// 抽屉式侧边栏（Codex 桌面端线程抽屉风格）：搜索、主导航、最近对话、智能体与技能，底部悬浮「聊天」。
 struct SidebarView: View {
 
     let list: ConversationListViewModel?
@@ -30,6 +30,7 @@ struct SidebarView: View {
     @State private var searchText = ""
     @State private var expandedSection: SectionKey? = .history
     @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
 
     private enum SectionKey: String {
         case history
@@ -59,23 +60,19 @@ struct SidebarView: View {
 
             footer
         }
-        // 液态超薄材质：抽屉打开时能透出后面的主界面
-        .background(.ultraThinMaterial)
+        // 液态超薄材质 + 深浅色自适应底衬：抽屉打开时通透且保证文字高对比度
+        .background {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                Rectangle().fill(AppUI.glassTint(scheme: scheme))
+            }
+            .ignoresSafeArea()
+        }
         .overlay(alignment: .trailing) {
-            // 右边缘 1px 折射高光分界线
+            // 右边缘 1px 物理折射高光分界线
             Rectangle()
-                .fill(
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color.white.opacity(0.42), location: 0.0),
-                            .init(color: accent.opacity(0.35), location: 0.5),
-                            .init(color: Color.white.opacity(0.32), location: 1.0)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: 0.5)
+                .fill(AppUI.refractionEdge(accent, scheme: scheme))
+                .frame(width: 1)
                 .ignoresSafeArea()
         }
         .alert("重命名对话", isPresented: Binding(
@@ -97,14 +94,14 @@ struct SidebarView: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            MimirMascot(size: 34, mood: .calm)
+            MimirMascot(size: 38, mood: .calm)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Mimir")
                     .font(.system(size: 19, weight: .bold, design: .rounded))
                     .foregroundStyle(AppUI.label)
-                Text("本地优先的私人 AI")
-                    .font(AppUI.caption)
+                Text("Cyber-Owl Agent Workspace")
+                    .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(AppUI.label2)
             }
 
@@ -125,7 +122,7 @@ struct SidebarView: View {
             .accessibilityLabel("新建对话")
         }
         .padding(.horizontal, 16)
-        .padding(.top, 18)
+        .padding(.top, 16)
         .padding(.bottom, 12)
     }
 
@@ -137,6 +134,7 @@ struct SidebarView: View {
             TextField("搜索对话", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(AppUI.subheadline)
+                .foregroundStyle(AppUI.label)
                 .onChange(of: searchText) { _, newValue in
                     list?.searchText = newValue
                 }
@@ -154,14 +152,21 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(Capsule(style: .continuous).fill(AppUI.secondary))
+        .background(
+            Capsule(style: .continuous)
+                .fill(scheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
+        )
         .padding(.horizontal, 16)
         .padding(.top, 2)
     }
 
     // MARK: - 主导航
 
-    /// 固定 5 项功能入口，图标与顺序是产品规格的一部分。
+    /// 固定 5 项功能入口，图标与顺序保持一致。
     private var navList: some View {
         VStack(spacing: 2) {
             navRow(icon: "photo.on.rectangle", title: "图片") { onPickPhoto() }
@@ -171,7 +176,7 @@ struct SidebarView: View {
             navRow(icon: "square.grid.2x2", title: "探索") { onSearchAll() }
         }
         .padding(.horizontal, 10)
-        .padding(.top, 12)
+        .padding(.top, 10)
         .padding(.bottom, 4)
     }
 
@@ -183,7 +188,7 @@ struct SidebarView: View {
             HStack(spacing: 12) {
                 Image(systemName: icon)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(AppUI.label)
+                    .foregroundStyle(accent)
                     .frame(width: 24)
                 Text(title)
                     .font(AppUI.rowTitle)
@@ -191,14 +196,12 @@ struct SidebarView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 10)
-            .frame(height: 44)
+            .frame(height: 42)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
-    /// 「搜索全部对话与记忆」独立成一行：之前用 overlay 挂在搜索框底部，
-    /// 既不占布局空间，又会和搜索框、对话记录标题叠在一起。
     private var searchAllButton: some View {
         Button {
             Haptics.impact(.light)
@@ -216,7 +219,11 @@ struct SidebarView: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(AppUI.fill)
+                    .fill(accent.opacity(scheme == .dark ? 0.14 : 0.09))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(accent.opacity(0.28), lineWidth: 0.8)
             )
             .contentShape(Rectangle())
         }
@@ -266,7 +273,7 @@ struct SidebarView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(conversation.title)
-                        .font(AppUI.subheadline)
+                        .font(.system(size: 14.5, weight: isCurrent ? .semibold : .regular))
                         .foregroundStyle(AppUI.label)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -282,16 +289,26 @@ struct SidebarView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isCurrent ? AppUI.fill : Color.clear)
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(
+                        isCurrent
+                            ? accent.opacity(scheme == .dark ? 0.18 : 0.12)
+                            : (scheme == .dark ? Color.white.opacity(0.03) : Color.black.opacity(0.02))
+                    )
             )
+            .overlay {
+                if isCurrent {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .strokeBorder(accent.opacity(0.35), lineWidth: 0.8)
+                }
+            }
             .overlay(alignment: .leading) {
                 if isCurrent {
                     Capsule(style: .continuous)
                         .fill(accent)
-                        .frame(width: 2.5)
-                        .padding(.vertical, 9)
-                        .shadow(color: accent.opacity(0.65), radius: 5)
+                        .frame(width: 3)
+                        .padding(.vertical, 8)
+                        .shadow(color: accent.opacity(0.75), radius: 5)
                 }
             }
             .contentShape(Rectangle())
@@ -368,8 +385,8 @@ struct SidebarView: View {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(accent)
-                    .frame(width: 22, height: 22)
-                    .background(Circle().fill(AppUI.fill))
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(accent.opacity(0.14)))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(name)
@@ -411,8 +428,8 @@ struct SidebarView: View {
                         Image(systemName: skill.icon)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(accent)
-                            .frame(width: 22, height: 22)
-                            .background(Circle().fill(AppUI.fill))
+                            .frame(width: 24, height: 24)
+                            .background(Circle().fill(accent.opacity(0.14)))
 
                         VStack(alignment: .leading, spacing: 1) {
                             Text("/" + skill.slashCommand)
@@ -442,8 +459,8 @@ struct SidebarView: View {
     private var footer: some View {
         VStack(spacing: 0) {
             Rectangle()
-                .fill(AppUI.separator.opacity(0.5))
-                .frame(height: 0.5)
+                .fill(AppUI.refractionEdge(accent, scheme: scheme))
+                .frame(height: 0.8)
 
             HStack(spacing: 8) {
                 Button {
@@ -459,7 +476,21 @@ struct SidebarView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 18)
                     .frame(height: 40)
-                    .background(Capsule(style: .continuous).fill(accent))
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [accent, AppUI.neonViolet],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.8)
+                    )
+                    .shadow(color: accent.opacity(scheme == .dark ? 0.50 : 0.28), radius: 10, y: 3)
                     .contentShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -471,18 +502,19 @@ struct SidebarView: View {
                     onOpenSettings()
                 } label: {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(AppUI.label2)
-                        .frame(width: 40, height: 40)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppUI.label)
+                        .frame(width: 38, height: 38)
+                        .liquidGlass(cornerRadius: 19, glowIntensity: 0.2)
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("设置")
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 14)
             .padding(.vertical, 10)
         }
-        .background(AppUI.canvas)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - 复用件

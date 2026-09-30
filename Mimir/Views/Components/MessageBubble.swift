@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// 单条消息气泡。用户消息右对齐蓝底白字，助手消息左对齐浅灰卡片。
+/// 单条消息卡片（Codex 桌面端 Agent Turn 风格，自动适配浅色与深色模式）。
 struct MessageBubble: View {
 
     let message: ChatMessage
@@ -27,11 +27,16 @@ struct MessageBubble: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            if message.role == .user { Spacer(minLength: 44) }
+            if message.role == .user { Spacer(minLength: 40) }
             content
-            if message.role != .user { Spacer(minLength: 24) }
+            if message.role != .user { Spacer(minLength: 18) }
         }
         .padding(.horizontal, 14)
+        .onAppear {
+            if showsThinkingByDefault && !thinkingExpanded {
+                thinkingExpanded = true
+            }
+        }
         .transition(.asymmetric(
             insertion: .move(edge: .bottom).combined(with: .opacity),
             removal: .opacity
@@ -47,11 +52,11 @@ struct MessageBubble: View {
         }
     }
 
-    // MARK: - 用户消息
+    // MARK: - 用户消息（Glassmorphic Bubble with Purple Glow Edge）
 
     private var userBubble: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            nameLabel("我", isUser: true)
+            nameLabel("User Input · 我", isUser: true)
 
             if !message.quotedPreview.isEmpty {
                 quotedChip
@@ -63,6 +68,10 @@ struct MessageBubble: View {
                     .scaledToFill()
                     .frame(maxWidth: 220, maxHeight: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    )
             }
 
             if !message.text.isEmpty {
@@ -70,23 +79,40 @@ struct MessageBubble: View {
                     .font(AppUI.body)
                     .foregroundStyle(.white)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 11)
+                    .background {
                         RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [accent.opacity(0.98), accent.opacity(0.74)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: scheme == .dark
+                                                ? [accent.opacity(0.42), AppUI.deepViolet.opacity(0.62)]
+                                                : [accent.opacity(0.95), AppUI.deepViolet.opacity(0.88)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
                             )
-                    )
+                    }
                     .overlay(
                         RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.65),
+                                        accent.opacity(0.90),
+                                        AppUI.neonViolet.opacity(0.75)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.15
+                            )
                     )
-                    .shadow(color: accent.opacity(0.38), radius: 12, y: 4)
+                    .shadow(color: accent.opacity(scheme == .dark ? 0.45 : 0.28), radius: 12, y: 4)
             }
 
             metaRow(isUser: true)
@@ -94,14 +120,13 @@ struct MessageBubble: View {
         .contextMenu { menuItems }
     }
 
-    // MARK: - 助手消息
+    // MARK: - 助手消息（Agent Turn Card）
 
-    /// 微信式名称标识：一眼分清「我」和「模型」。
     private func nameLabel(_ text: String, isUser: Bool) -> some View {
         HStack(spacing: 0) {
             if isUser { Spacer(minLength: 0) }
             Text(text)
-                .font(AppUI.caption)
+                .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(AppUI.label3)
                 .padding(.horizontal, 2)
             if !isUser { Spacer(minLength: 0) }
@@ -109,11 +134,32 @@ struct MessageBubble: View {
     }
 
     private var assistantBubble: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
+            // 顶部角色标识 + TTS 朗读悬浮圆钮
             HStack(spacing: 8) {
-                Text("模型")
-                    .font(AppUI.caption)
-                    .foregroundStyle(AppUI.label3)
+                Circle()
+                    .fill(accent)
+                    .frame(width: 6, height: 6)
+                    .shadow(color: accent.opacity(0.8), radius: 4)
+
+                Text(message.agentName.isEmpty ? "Assistant" : message.agentName)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppUI.label2)
+
+                if !message.skillName.isEmpty {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 5, height: 5)
+                        Text("/" + message.skillName)
+                            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                            .foregroundStyle(AppUI.label2)
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule(style: .continuous).fill(AppUI.fill))
+                }
+
                 Spacer(minLength: 0)
                 speakButton
             }
@@ -125,9 +171,9 @@ struct MessageBubble: View {
             if message.isError && !message.errorText.isEmpty {
                 errorSection
             } else if message.text.isEmpty && message.isStreaming {
-                HStack(spacing: 8) {
-                    MimirMascot(size: 26, mood: .thinking)
-                    Text("正在生成…")
+                HStack(spacing: 10) {
+                    MimirMascot(size: 30, mood: .thinking)
+                    Text("正在推演生成…")
                         .font(AppUI.footnote)
                         .foregroundStyle(AppUI.label2)
                 }
@@ -147,21 +193,21 @@ struct MessageBubble: View {
             metaRow(isUser: false)
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         // Agent Turn 卡片：液态玻璃底衬
-        .liquidGlass(cornerRadius: AppUI.bubbleRadius, glowIntensity: 0.16)
+        .liquidGlass(cornerRadius: AppUI.bubbleRadius, glowIntensity: 0.18)
         .overlay {
             if isHighlighted {
                 RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                    .strokeBorder(accent.opacity(0.8), lineWidth: 1.6)
+                    .strokeBorder(accent.opacity(0.85), lineWidth: 1.6)
                     .allowsHitTesting(false)
             }
         }
         .contextMenu { menuItems }
     }
 
-    /// 悬浮微光液态朗读按钮：用系统合成念这条回复。
+    /// 悬浮微光液态朗读按钮：用系统原生 `AVSpeechSynthesizer` 念这条回复。
     private var speakButton: some View {
         Button {
             toggleSpeech()
@@ -169,8 +215,8 @@ struct MessageBubble: View {
             Image(systemName: isSpeaking ? "stop.fill" : "speaker.wave.2.fill")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(accent)
-                .frame(width: 26, height: 26)
-                .liquidGlass(cornerRadius: 13, isHighlighted: isSpeaking, glowIntensity: 0.5)
+                .frame(width: 28, height: 28)
+                .liquidGlass(cornerRadius: 14, isHighlighted: isSpeaking, glowIntensity: 0.5)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -206,30 +252,40 @@ struct MessageBubble: View {
         }
     }
 
+    /// 思考折叠卡片（Thinking Stream / Thought Disclosure）：紫脉冲脑电图标 + 档位徽标 + 磨砂紫底衬。
     private var thinkingSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Button {
                 Haptics.selectionChanged()
                 withAnimation(AppAnimation.chip) { thinkingExpanded.toggle() }
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 7) {
                     Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12.5, weight: .bold))
                         .foregroundStyle(accent)
-                    Text(message.isStreaming && thinkingExpanded == false ? "正在思考…" : "思考过程")
-                        .font(AppUI.chip)
-                    Text(message.thinkingMode.title)
-                        .font(.system(size: 10, weight: .semibold))
+                        .shadow(color: accent.opacity(0.6), radius: 4)
+
+                    Text(message.isStreaming && !thinkingExpanded ? "Thinking Stream · 正在思考…" : "Thinking Stream")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppUI.label)
+
+                    Text("(\(message.thinkingMode.title))")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(accent)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Capsule(style: .continuous).fill(accent.opacity(0.16)))
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(accent.opacity(scheme == .dark ? 0.20 : 0.12))
+                        )
+
+                    Spacer(minLength: 4)
+
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(AppUI.label2)
                         .rotationEffect(.degrees(thinkingExpanded ? 180 : 0))
-                    Spacer(minLength: 0)
                 }
-                .foregroundStyle(AppUI.label2)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -242,23 +298,27 @@ struct MessageBubble: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 10)
                     .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(accent.opacity(0.35))
-                            .frame(width: 2)
+                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                            .fill(accent.opacity(0.55))
+                            .frame(width: 2.5)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(scheme == .dark ? Color.black.opacity(0.38) : Color.black.opacity(0.05))
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(
+                    scheme == .dark
+                        ? Color(red: 0.14, green: 0.09, blue: 0.25).opacity(0.72)
+                        : accent.opacity(0.08)
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(accent.opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(accent.opacity(scheme == .dark ? 0.34 : 0.24), lineWidth: 1)
         )
     }
 
@@ -266,7 +326,7 @@ struct MessageBubble: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 13))
-                .foregroundStyle(AppColor.warning)
+                .foregroundStyle(Color.orange)
             Text(message.errorText)
                 .font(AppUI.footnote)
                 .foregroundStyle(AppUI.label2)
@@ -275,7 +335,7 @@ struct MessageBubble: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppColor.warning.opacity(0.10))
+                .fill(Color.orange.opacity(0.12))
         )
     }
 
@@ -309,10 +369,10 @@ struct MessageBubble: View {
                             Text("记忆")
                                 .font(AppUI.caption)
                         }
-                        .foregroundStyle(AppUI.label2)
+                        .foregroundStyle(accent)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 5)
-                        .background(Capsule(style: .continuous).fill(AppUI.fill))
+                        .background(Capsule(style: .continuous).fill(accent.opacity(0.14)))
                     }
                     .buttonStyle(.plain)
                 }
@@ -368,16 +428,6 @@ struct MessageBubble: View {
 
     private func metaRow(isUser: Bool) -> some View {
         HStack(spacing: 8) {
-            if !message.agentName.isEmpty {
-                Text(message.agentName)
-                    .font(AppUI.caption)
-                    .foregroundStyle(AppUI.label3)
-            }
-            if !message.skillName.isEmpty {
-                Text("/" + message.skillName)
-                    .font(AppUI.caption)
-                    .foregroundStyle(AppUI.label3)
-            }
             if message.isInterrupted {
                 Text("已打断")
                     .font(AppUI.caption)

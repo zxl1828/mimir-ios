@@ -12,13 +12,15 @@ struct SuggestionChips: View {
     var onPickReply: (String) -> Void
     var onDismiss: () -> Void
 
+    @Environment(\.appAccent) private var accent
+
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             if !skillSuggestions.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "wand.and.stars")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppColor.brandPurple)
+                        .foregroundStyle(accent)
 
                     ForEach(skillSuggestions) { skill in
                         Button {
@@ -29,12 +31,12 @@ struct SuggestionChips: View {
                                 Image(systemName: skill.icon)
                                     .font(.system(size: 10.5, weight: .semibold))
                                 Text(skill.name)
-                                    .font(AppFont.chipCompact)
+                                    .font(AppUI.caption)
                             }
-                            .foregroundStyle(AppColor.brandPurple)
+                            .foregroundStyle(accent)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Capsule(style: .continuous).fill(AppColor.brandPurple.opacity(0.13)))
+                            .background(Capsule(style: .continuous).fill(accent.opacity(0.14)))
                         }
                         .buttonStyle(.plain)
                         .transition(.opacity.combined(with: .move(edge: .leading)))
@@ -42,8 +44,8 @@ struct SuggestionChips: View {
 
                     if let confidence, confidence > 0 {
                         Text("\(Int(confidence * 100))%")
-                            .font(AppFont.chipCompact)
-                            .foregroundStyle(AppColor.tertiaryText)
+                            .font(AppUI.caption)
+                            .foregroundStyle(AppUI.label3)
                     }
 
                     Button {
@@ -52,7 +54,7 @@ struct SuggestionChips: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(AppColor.tertiaryText)
+                            .foregroundStyle(AppUI.label3)
                             .padding(5)
                     }
                     .buttonStyle(.plain)
@@ -71,18 +73,18 @@ struct SuggestionChips: View {
                                 onPickReply(reply)
                             } label: {
                                 Text(reply)
-                                    .font(AppFont.chipCompact)
-                                    .foregroundStyle(AppColor.primaryText)
+                                    .font(AppUI.caption)
+                                    .foregroundStyle(AppUI.label)
                                     .lineLimit(1)
                                     .padding(.horizontal, 11)
                                     .padding(.vertical, 6)
                                     .background(
                                         Capsule(style: .continuous)
-                                            .fill(AppColor.secondaryText.opacity(0.10))
+                                            .fill(AppUI.fill)
                                     )
                                     .overlay(
                                         Capsule(style: .continuous)
-                                            .strokeBorder(AppColor.separator.opacity(0.25), lineWidth: 0.6)
+                                            .strokeBorder(accent.opacity(0.24), lineWidth: 0.6)
                                     )
                             }
                             .buttonStyle(.plain)
@@ -95,7 +97,7 @@ struct SuggestionChips: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .liquidGlassClear(cornerRadius: 16)
+        .liquidGlass(cornerRadius: 16, glowIntensity: 0.2)
         .padding(.horizontal, 6)
         .transition(.opacity)
     }

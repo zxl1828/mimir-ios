@@ -3,12 +3,14 @@ import SwiftData
 import PhotosUI
 import UIKit
 
-/// 主对话界面。只呈现当前对话，导航与辅助功能全部收进左侧抽屉。
+/// 主对话界面（Codex 桌面端 Agent Command Center 风格）。
+/// 只呈现当前对话，导航与辅助功能全部收进左侧抽屉；底部悬浮思考状态胶囊与星尘阶梯滑块卡片。
 struct MainChatView: View {
 
     @Environment(AppSettings.self) private var settings
     @Environment(\.modelContext) private var modelContext
     @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
 
     @State private var chat: ChatViewModel?
     @State private var list: ConversationListViewModel?
@@ -18,6 +20,7 @@ struct MainChatView: View {
 
     @State private var sidebarOpen = false
     @State private var dragOffset: CGFloat = 0
+    @State private var showReasoningCard = false
     @State private var showSettings = false
     @State private var showVoiceMode = false
     @State private var showScheduledTasks = false
@@ -55,7 +58,7 @@ struct MainChatView: View {
 
                 if sidebarOpen || dragOffset > 0 {
                     Color.black
-                        .opacity(0.3 * dimProgress(sidebarWidth: sidebarWidth))
+                        .opacity(0.35 * dimProgress(sidebarWidth: sidebarWidth))
                         .ignoresSafeArea()
                         .animation(AppAnimation.sidebar, value: sidebarOpen)
                         .onTapGesture { closeSidebar() }
@@ -66,8 +69,6 @@ struct MainChatView: View {
                     sidebar(width: sidebarWidth)
                         .frame(width: sidebarWidth)
                         .ignoresSafeArea(edges: [.top, .bottom, .leading])
-                        // 展开时停在屏幕内（offset 0），关闭时才推到左边外面。
-                        // 之前写成 -(sidebarWidth - dragOffset)，抽屉一打开就被推出屏幕，看起来全空白。
                         .offset(x: sidebarOpen ? max(dragOffset, 0) : -(sidebarWidth - max(dragOffset, 0)))
                         .animation(AppAnimation.sidebar, value: sidebarOpen)
                         // 关闭动画期间不要再拦截主界面的手势。
@@ -81,6 +82,11 @@ struct MainChatView: View {
         .background(AppBackgroundView(background: settings.background))
         .task { await bootstrap() }
         .onChange(of: photoItem) { _, newValue in loadPickedPhoto(newValue) }
+        .onChange(of: inputFocused) { _, focused in
+            if focused && showReasoningCard {
+                withAnimation(AppUI.snap) { showReasoningCard = false }
+            }
+        }
         .sheet(isPresented: $showSettings) {
             if let chat, let list {
                 SettingsView(chat: chat, list: list)
@@ -183,13 +189,15 @@ struct MainChatView: View {
         }
     }
 
-    /// 顶栏：左汉堡、中间档位胶囊、右侧模型与新建。
+    /// 顶栏（Command Header）：左汉堡、中间模型命令胶囊滑块、右侧思考脉冲圆钮与新建对话。
     private var topBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             UIBarButton(icon: "line.3.horizontal", label: "打开侧边栏") {
+                if showReasoningCard {
+                    withAnimation(AppUI.snap) { showReasoningCard = false }
+                }
                 openSidebar()
             }
-            // 长按汉堡：重命名当前对话（原来挂在档位胶囊上）。
             .contextMenu {
                 Button {
                     Haptics.impact(.light)
@@ -200,43 +208,55 @@ struct MainChatView: View {
                 }
             }
 
+            Spacer(minLength: 2)
+
             // 中间：模型命令胶囊滑块（Codex 桌面端样式）
             ModelSegmentedSwitcher(
-                options: ModelCatalog.options(for: settings.credential, customModels: settings.customModels),
+                options: currentModelOptions,
                 selectedID: Binding(
                     get: { currentModelID },
                     set: { selectModel($0) }
                 ),
                 onOpenSettings: { showSettings = true }
             )
-            .frame(maxWidth: 240)
+            .frame(maxWidth: 236)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
 
-            // 右侧：思考强度三档阶梯滑块（High / X-High / Max）
-            ReasoningEffortSlider(
-                level: Binding(
-                    get: { chat?.thinkingMode ?? .thinking },
-                    set: { chat?.thinkingMode = $0 }
-                )
-            )
+            // 右侧：思考档位脉冲触发圆钮（对应参考图 2 顶栏右侧的脑电图标圆钮）
+            UIBarButton(
+                icon: "waveform.path.ecg",
+                label: "思考强度：\(chat?.thinkingMode.heroTitle ?? "High")",
+                isHighlighted: showReasoningCard
+            ) {
+                withAnimation(AppUI.snap) {
+                    showReasoningCard.toggle()
+                }
+            }
 
             UIBarButton(icon: "square.and.pencil", label: "新建对话") {
+                if showReasoningCard {
+                    withAnimation(AppUI.snap) { showReasoningCard = false }
+                }
                 newConversation()
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(.bar)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(AppUI.separator.opacity(0.3))
-                .frame(height: 0.5)
+                .fill(AppUI.refractionEdge(accent, scheme: scheme))
+                .frame(height: 0.6)
         }
     }
 
     private var currentModelID: String {
         chat?.activeModelID ?? settings.credential.modelID
+    }
+
+    private var currentModelOptions: [ModelCatalog.Option] {
+        ModelCatalog.options(for: settings.credential, customModels: settings.customModels)
     }
 
     /// 面板贴到屏幕顶边后，内容要自己避开灵动岛 / 状态栏。
@@ -249,7 +269,7 @@ struct MainChatView: View {
     private func selectModel(_ modelID: String) {
         Haptics.selectionChanged()
         chat?.setModel(modelID)
-        toast = "已切换到 \(ModelCatalog.shortLabel(for: modelID))"
+        showToast("已切换到 \(ModelCatalog.cardLabel(for: modelID))")
     }
 
     private var messageList: some View {
@@ -290,6 +310,16 @@ struct MainChatView: View {
                 }
                 .padding(.vertical, 16)
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    if showReasoningCard {
+                        withAnimation(AppUI.snap) {
+                            showReasoningCard = false
+                        }
+                    }
+                }
+            )
             .scrollDismissesKeyboard(.interactively)
             .onAppear { scrollToBottom(proxy, animated: false) }
             .onChange(of: chat?.messages.count ?? 0) { _, _ in
@@ -315,41 +345,70 @@ struct MainChatView: View {
         .overlay(alignment: .bottom) { floatingPanels }
     }
 
-    /// 输入框上方的浮层：技能选择器优先，其次是推荐。
+    /// 输入框上方的浮层：思考强度浮动卡片、MCP 工具进度、技能选择器与意图推荐。
     @ViewBuilder
     private var floatingPanels: some View {
-        if let chat {
-            if !MCPClientManager.shared.activeCalls.isEmpty {
-                ToolProgressView(calls: MCPClientManager.shared.activeCalls)
+        VStack(spacing: 10) {
+            if showReasoningCard {
+                ReasoningEffortCard(
+                    level: Binding(
+                        get: { chat?.thinkingMode ?? .thinking },
+                        set: { chat?.thinkingMode = $0 }
+                    ),
+                    options: currentModelOptions,
+                    selectedModelID: Binding(
+                        get: { currentModelID },
+                        set: { selectModel($0) }
+                    ),
+                    onOpenSettings: {
+                        withAnimation(AppUI.snap) { showReasoningCard = false }
+                        showSettings = true
+                    }
+                )
+                .padding(.horizontal, 16)
+                .transition(
+                    .asymmetric(
+                        insertion: .scale(scale: 0.90, anchor: .bottom)
+                            .combined(with: .opacity)
+                            .combined(with: .offset(y: 12)),
+                        removal: .scale(scale: 0.94, anchor: .bottom)
+                            .combined(with: .opacity)
+                    )
+                )
+            }
+
+            if let chat {
+                if !MCPClientManager.shared.activeCalls.isEmpty {
+                    ToolProgressView(calls: MCPClientManager.shared.activeCalls)
+                        .padding(.horizontal, 8)
+                } else if chat.isSkillPickerVisible {
+                    SkillPicker(
+                        skills: chat.filteredSkills,
+                        query: chat.slashQuery ?? "",
+                        highlightedIndex: chat.highlightedSkillIndex,
+                        onHighlight: { chat.highlightedSkillIndex = $0 },
+                        onSelect: { chat.applySkill($0) },
+                        onDismiss: { chat.dismissSkillPicker(removingCommand: false) }
+                    )
                     .padding(.horizontal, 8)
-                    .padding(.bottom, 10)
-            } else if chat.isSkillPickerVisible {
-                SkillPicker(
-                    skills: chat.filteredSkills,
-                    query: chat.slashQuery ?? "",
-                    highlightedIndex: chat.highlightedSkillIndex,
-                    onHighlight: { chat.highlightedSkillIndex = $0 },
-                    onSelect: { chat.applySkill($0) },
-                    onDismiss: { chat.dismissSkillPicker(removingCommand: false) }
-                )
-                .padding(.horizontal, 8)
-                .padding(.bottom, 10)
-            } else if !chat.skillSuggestions.isEmpty || !chat.replySuggestions.isEmpty {
-                SuggestionChips(
-                    skillSuggestions: chat.skillSuggestions,
-                    replySuggestions: chat.replySuggestions,
-                    confidence: chat.recommendationConfidence,
-                    onPickSkill: { chat.applySkill($0) },
-                    onPickReply: { reply in
-                        chat.inputText = reply
-                        inputFocused = true
-                    },
-                    onDismiss: { chat.dismissRecommendations() }
-                )
-                .padding(.horizontal, 8)
-                .padding(.bottom, 10)
+                } else if !chat.skillSuggestions.isEmpty || !chat.replySuggestions.isEmpty {
+                    SuggestionChips(
+                        skillSuggestions: chat.skillSuggestions,
+                        replySuggestions: chat.replySuggestions,
+                        confidence: chat.recommendationConfidence,
+                        onPickSkill: { chat.applySkill($0) },
+                        onPickReply: { reply in
+                            chat.inputText = reply
+                            inputFocused = true
+                        },
+                        onDismiss: { chat.dismissRecommendations() }
+                    )
+                    .padding(.horizontal, 8)
+                }
             }
         }
+        .padding(.bottom, 10)
+        .animation(AppUI.snap, value: showReasoningCard)
     }
 
     private static let bottomAnchor = "chat.bottom.anchor"
@@ -376,20 +435,25 @@ struct MainChatView: View {
         scrollToBottom(proxy, animated: false)
     }
 
+    /// 空对话页：全息玻璃球与双轨环绕的赛博猫头鹰（1:1 复刻参考图 2 右屏）。
     private var emptyState: some View {
         VStack(spacing: 14) {
-            MimirMascot(size: 118, mood: .calm)
-                .padding(.bottom, 2)
-            Text("开始一段新对话")
-                .font(.system(size: 17, weight: .semibold))
+            MimirMascot(size: 168, mood: .calm)
+                .padding(.bottom, 4)
+
+            Text("Cyber-Owl Agent Workspace")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.label)
-            Text("输入问题，或用 / 唤起技能")
+
+            Text("输入问题，用 / 唤起技能，或点按下方胶囊调节思考强度")
                 .font(AppUI.footnote)
                 .foregroundStyle(AppUI.label2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 28)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 90)
-        .padding(.bottom, 40)
+        .padding(.top, 72)
+        .padding(.bottom, 36)
     }
 
     private var bottomBar: some View {
@@ -411,8 +475,13 @@ struct MainChatView: View {
                 ),
                 focus: $inputFocused,
                 isGenerating: chat?.isGenerating ?? false,
-                placeholder: "询问 Mimir",
-                onSend: { chat?.send() },
+                placeholder: "询问 Mimir…",
+                onSend: {
+                    if showReasoningCard {
+                        withAnimation(AppUI.snap) { showReasoningCard = false }
+                    }
+                    chat?.send()
+                },
                 onStop: { chat?.stopGenerating() },
                 showAttachMenu: $showAttachmentOptions,
                 onPickPhoto: { showPhotoPicker = true },
@@ -426,19 +495,34 @@ struct MainChatView: View {
         .padding(.horizontal, AppUI.hPadding)
         .padding(.top, 8)
         .padding(.bottom, 8)
-        .background(.bar)
+        .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(AppUI.separator.opacity(0.24))
-                .frame(height: 0.5)
+                .fill(AppUI.refractionEdge(accent, scheme: scheme))
+                .frame(height: 0.6)
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
     }
 
-    /// 输入框上方的快捷功能栏：三个功能胶囊 + 智能体胶囊（横向滚动）。
+    /// 输入框上方的快捷功能栏：首项为思考状态胶囊（点击弹出星尘滑轨卡片），后接快捷功能与智能体胶囊。
     private var quickActionBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                ReasoningStatusChip(
+                    modelID: currentModelID,
+                    level: chat?.thinkingMode ?? .thinking,
+                    isExpanded: showReasoningCard
+                ) {
+                    withAnimation(AppUI.snap) {
+                        showReasoningCard.toggle()
+                    }
+                }
+
+                Rectangle()
+                    .fill(AppUI.separator.opacity(0.5))
+                    .frame(width: 1, height: 18)
+                    .padding(.horizontal, 2)
+
                 UIQuickChip(icon: "photo", title: "生成图片") {
                     insertPrompt("画一张图片，画面是：")
                 }
@@ -476,7 +560,7 @@ struct MainChatView: View {
                 }
             }
             .padding(.horizontal, 1)
-            .padding(.vertical, 1)
+            .padding(.vertical, 2)
         }
         .scrollClipDisabled()
     }
@@ -514,10 +598,7 @@ struct MainChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppUI.secondary)
-        )
+        .liquidGlass(cornerRadius: 12, glowIntensity: 0.14)
         .padding(.horizontal, 2)
     }
 
@@ -725,11 +806,19 @@ struct MainChatView: View {
     private var toastView: some View {
         if let toast {
             Text(toast)
-                .font(AppFont.chip)
+                .font(AppUI.chip)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Capsule(style: .continuous).fill(Color.black.opacity(0.75)))
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(accent.opacity(0.92))
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.8)
+                )
+                .shadow(color: accent.opacity(0.45), radius: 10, y: 3)
                 .padding(.top, 54)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .animation(AppAnimation.chip, value: toast)

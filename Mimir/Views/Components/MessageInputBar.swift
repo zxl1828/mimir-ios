@@ -9,19 +9,20 @@ enum InputKeyCommand {
     case escape
 }
 
-/// 底部输入区：附件、多行输入、语音、发送 / 停止。
+/// 底部悬浮调度输入栏（Dispatch Omni-Bar）：附件、多行输入、语音、发送 / 停止。
 struct MessageInputBar: View {
 
     @Binding var text: String
     @Binding var attachments: [Data]
     var focus: FocusState<Bool>.Binding
     let isGenerating: Bool
-    var placeholder: String = "发消息…"
+    var placeholder: String = "询问 Mimir…"
     var onSend: () -> Void
     var onStop: () -> Void
     /// 附件菜单是否展开（由上层持有，方便菜单项触发相册 / 相机 / 扫描）。
     @Binding var showAttachMenu: Bool
     @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
     var onPickPhoto: () -> Void
     var onCamera: () -> Void
     var onScan: () -> Void
@@ -36,7 +37,7 @@ struct MessageInputBar: View {
                 attachmentStrip
             }
 
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 10) {
                 attachButton
 
                 TextField(placeholder, text: $text, axis: .vertical)
@@ -46,7 +47,7 @@ struct MessageInputBar: View {
                     .lineLimit(1...6)
                     .focused(focus)
                     .submitLabel(.return)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 8)
                     .onChange(of: text) { _, newValue in
                         onTextChanged(newValue)
                     }
@@ -59,8 +60,8 @@ struct MessageInputBar: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            // Omni Bar：液态玻璃大圆角胶囊
-            .liquidGlass(cornerRadius: 26, glowIntensity: 0.22)
+            // Dispatch Omni-Bar：液态玻璃大圆角悬浮胶囊 + 高位白光折射描边
+            .liquidGlass(cornerRadius: 27, isHighlighted: focus.wrappedValue, glowIntensity: 0.26)
         }
         .animation(AppAnimation.chip, value: attachments.count)
     }
@@ -74,10 +75,19 @@ struct MessageInputBar: View {
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(AppUI.label2)
-                .frame(width: 32, height: 32)
+                .foregroundStyle(AppUI.label)
+                .frame(width: 36, height: 36)
                 .background(
-                    Circle().fill(Color.primary.opacity(showAttachMenu ? 0.10 : 0.0001))
+                    Circle()
+                        .fill(
+                            scheme == .dark
+                                ? Color.white.opacity(showAttachMenu ? 0.16 : 0.08)
+                                : Color.black.opacity(showAttachMenu ? 0.10 : 0.05)
+                        )
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
                 )
                 .contentShape(Circle())
                 .rotationEffect(.degrees(showAttachMenu ? 45 : 0))
@@ -97,7 +107,7 @@ struct MessageInputBar: View {
         }
     }
 
-    /// 右侧单按钮：空输入 → 语音；有文字 → 蓝色圆形发送；生成中 → 停止。
+    /// 右侧单按钮：空输入 → 语音；有文字 → 霓虹紫发光圆形发送；生成中 → 停止。
     private var trailingButton: some View {
         Button {
             if isGenerating {
@@ -114,23 +124,53 @@ struct MessageInputBar: View {
             ZStack {
                 if isGenerating {
                     Circle()
-                        .fill(AppUI.label.opacity(0.12))
-                        .frame(width: 32, height: 32)
+                        .fill(accent.opacity(0.18))
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(accent.opacity(0.6), lineWidth: 1)
+                        )
                     Image(systemName: "stop.fill")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(AppUI.label)
+                        .foregroundStyle(accent)
                 } else if canSend {
                     Circle()
-                        .fill(accent)
-                        .frame(width: 32, height: 32)
+                        .fill(
+                            LinearGradient(
+                                colors: [accent, AppUI.neonViolet],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(Color.white.opacity(0.38), lineWidth: 0.9)
+                        )
+                        .shadow(color: accent.opacity(scheme == .dark ? 0.65 : 0.35), radius: 10, y: 2)
                     Image(systemName: "arrow.up")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(.white)
                 } else {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    accent.opacity(scheme == .dark ? 0.32 : 0.16),
+                                    AppUI.neonViolet.opacity(scheme == .dark ? 0.22 : 0.10)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Circle()
+                                .strokeBorder(accent.opacity(0.45), lineWidth: 0.9)
+                        )
                     Image(systemName: "waveform")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(AppUI.label2)
-                        .frame(width: 32, height: 32)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(accent)
                 }
             }
             .contentShape(Circle())
@@ -155,6 +195,10 @@ struct MessageInputBar: View {
                             .scaledToFill()
                             .frame(width: 58, height: 58)
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
+                            )
                             .overlay(alignment: .topTrailing) {
                                 Button {
                                     Haptics.impact(.light)

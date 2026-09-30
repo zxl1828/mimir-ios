@@ -3,7 +3,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/icon-dark.png">
-    <img src="docs/brand/icon.png" width="112" alt="Mimir 图标：智慧之井里的小鲸">
+    <img src="docs/brand/icon.png" width="112" alt="Mimir 图标：全息玻璃球里的赛博猫头鹰">
   </picture>
 </p>
 
@@ -13,8 +13,8 @@
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
 
 本地优先的私人 AI 客户端，SwiftUI + MVVM，最低支持 iOS 26，
-核心界面（对话 / 侧边栏 / 设置 / 档位面板）采用原生 iOS 系统风：
-系统语义色、SF Symbols、胶囊与 insetGrouped 卡片；语音、引导页等二级界面保留 Liquid Glass 材质。
+界面采用 Codex 桌面端 Agent Command Center 与 iOS 26 液态玻璃（Liquid Glass + 霓虹紫）设计语言，
+支持星尘阶梯思考滑轨（High / X-High / Max）与浅色 / 深色双模式自适应。
 
 > 非官方项目，与 DeepSeek 官方无隶属或背书关系；「DeepSeek」为相应权利人的商标。
 
@@ -140,17 +140,17 @@ xcodebuild -project Mimir.xcodeproj -scheme Mimir \
 
 ## 品牌
 
-吉祥物叫**米米**，是住在智慧之井里的小鲸：用 `Canvas` 矢量绘制
-（`Mimir/Views/Components/MimirMascot.swift`，设计稿 100 × 86，与 App 图标同源几何），
-会呼吸上浮、随机眨眼、摆动尾巴，并按场景切换三档情绪 ——
-`.calm` 空对话页 / `.thinking` 生成中（头顶冒泡）/ `.happy` 引导页连接成功（月牙眼 + 闪光）。
+吉祥物叫**米米（Cyber-Owl）**，是悬浮在全息液态玻璃球中的赛博猫头鹰：用 `Canvas` 矢量绘制
+（`Mimir/Views/Components/MimirMascot.swift`，设计稿 100 × 100，与 App 图标同源几何），
+带双同心倾斜星轨逆向旋转、2.2s 呼吸光晕与眨眼动画，并按场景切换三档情绪 ——
+`.calm` 空对话页 / `.thinking` 生成中（星轨加速 + 思考星尘）/ `.happy` 引导页连接成功（月牙笑眼 + 四角星闪光）。
 
 App 图标在 `Mimir/Resources/Assets.xcassets/AppIcon.appiconset`，
 含浅色 / 深色 / 着色（tinted）三套 1024×1024 资源；
 改色改形后重跑 `python tools/icon/generate_icon.py` 即可重新生成，无需设计稿。
 
 <p align="center">
-  <img src="docs/brand/mascot.png" width="620" alt="米米在浅色与深色背景下的效果">
+  <img src="docs/brand/mascot.png" width="620" alt="赛博猫头鹰米米在浅色与深色背景下的效果">
 </p>
 
 ## 许可
