@@ -3,8 +3,7 @@ import UIKit
 
 /// 原生风格与 Codex 液态玻璃统一设计令牌。
 ///
-/// 所有视图统一走系统语义色与 `@Environment(\.appAccent)` / `@Environment(\.appBackground)`，
-/// 保证在浅色与深色模式、辅助功能下自动适配，杜绝写死颜色。
+/// 整体背景采用纯黑（Dark）或纯白（Light），所有界面元素全面采用液态玻璃（Liquid Glass + 霓虹紫）设计语言。
 enum AppUI {
 
     // MARK: - 尺寸
@@ -22,21 +21,46 @@ enum AppUI {
     /// 主视图打开抽屉时向右偏移的距离。
     static let sidebarShift: CGFloat = 280
 
-    // MARK: - 颜色（全部系统语义色 + 自适应深浅色）
+    // MARK: - 颜色（纯黑 / 纯白背景 + 系统语义色 + 自适应深浅色）
 
-    static var canvas: Color { Color(uiColor: .systemBackground) }
-    static var groupCanvas: Color { Color(uiColor: .systemGroupedBackground) }
-    static var secondary: Color { Color(uiColor: .secondarySystemBackground) }
-    static var fill: Color { Color(uiColor: .tertiarySystemFill) }
+    /// 画布主背景：深色下纯黑（OLED #000000），浅色下纯白（#FFFFFF）。
+    static var canvas: Color {
+        Color.adaptive(light: .white, dark: .black)
+    }
+
+    /// 分组背景：深色下纯黑，浅色下纯白。
+    static var groupCanvas: Color {
+        Color.adaptive(light: .white, dark: .black)
+    }
+
+    static var secondary: Color {
+        Color.adaptive(
+            light: UIColor(white: 0.94, alpha: 1.0),
+            dark: UIColor(red: 0.11, green: 0.10, blue: 0.15, alpha: 1.0)
+        )
+    }
+
+    static var fill: Color {
+        Color.adaptive(
+            light: UIColor(white: 0.90, alpha: 0.8),
+            dark: UIColor(white: 0.18, alpha: 0.6)
+        )
+    }
+
     static var label: Color { Color(uiColor: .label) }
     static var label2: Color { Color(uiColor: .secondaryLabel) }
     static var label3: Color { Color(uiColor: .tertiaryLabel) }
-    static var separator: Color { Color(uiColor: .separator) }
+    static var separator: Color {
+        Color.adaptive(
+            light: UIColor(white: 0.86, alpha: 0.7),
+            dark: UIColor(white: 0.22, alpha: 0.5)
+        )
+    }
 
-    /// 品牌紫：浅色模式下足够深（白字压得住），深色模式下自动提亮（黑底上通透）。
+    /// 品牌紫：浅色模式下足够深（白字压得住），深色模式下自动提亮（纯黑底上通透高光）。
     static let brandPurple = Color.adaptive(
         light: UIColor(red: 0.50, green: 0.31, blue: 0.96, alpha: 1),
-        dark: UIColor(red: 0.67, green: 0.50, blue: 1.00, alpha: 1)
+        dark: UIColor(red: 0.68, green: 0.51, blue: 1.00, alpha: 1)
     )
 
     /// 霓虹紫：Codex 桌面端风格的高亮态与星尘激活轨主色。
@@ -51,7 +75,7 @@ enum AppUI {
         dark: UIColor(red: 0.50, green: 0.28, blue: 0.94, alpha: 1)
     )
 
-    /// 星尘滑轨电光紫起点（深浅色下均保持浓郁高对比度，衬托白色星尘与圆钮）。
+    /// 星尘滑轨电光紫起点。
     static let stardustElectric = Color.adaptive(
         light: UIColor(red: 0.36, green: 0.16, blue: 0.96, alpha: 1),
         dark: UIColor(red: 0.38, green: 0.15, blue: 0.98, alpha: 1)
@@ -63,7 +87,7 @@ enum AppUI {
         dark: UIColor(red: 0.66, green: 0.32, blue: 1.00, alpha: 1)
     )
 
-    /// 品牌强调色（默认紫）。视图里请优先用 `@Environment(\.appAccent)`。
+    /// 品牌强调色（默认紫）。视图里优先用 `@Environment(\.appAccent)`。
     static let accent = brandPurple
 
     // MARK: - 字体（SF Pro / 系统默认）
@@ -82,19 +106,18 @@ enum AppUI {
     static var drawer: Animation { .spring(response: 0.36, dampingFraction: 0.86) }
     static var snap: Animation { .spring(response: 0.28, dampingFraction: 0.82) }
 
-    // MARK: - 液态玻璃（Codex 桌面端风格，兼顾浅色与深色模式）
+    // MARK: - 液态玻璃（Codex 桌面端风格，纯黑与纯白底板上的通透悬浮）
 
     /// 物理折射描边：顶部高位白光透射 → 中段融合强调色微光 → 底部柔光。
-    /// 浅色模式下加重强调色边缘折射，避免白光在浅底上隐形；深色模式下突出高光通透感。
     static func refractionEdge(_ accent: Color, scheme: ColorScheme) -> LinearGradient {
-        let topWhite = scheme == .dark ? 0.44 : 0.86
-        let midAccent = scheme == .dark ? 0.48 : 0.36
-        let lowAccent = scheme == .dark ? 0.28 : 0.22
-        let bottomTint = scheme == .dark ? Color.white.opacity(0.10) : accent.opacity(0.18)
+        let topWhite = scheme == .dark ? 0.62 : 0.90
+        let midAccent = scheme == .dark ? 0.52 : 0.42
+        let lowAccent = scheme == .dark ? 0.30 : 0.24
+        let bottomTint = scheme == .dark ? Color.white.opacity(0.12) : accent.opacity(0.20)
         return LinearGradient(
             stops: [
                 .init(color: Color.white.opacity(topWhite), location: 0.0),
-                .init(color: accent.opacity(midAccent), location: 0.42),
+                .init(color: accent.opacity(midAccent), location: 0.40),
                 .init(color: accent.opacity(lowAccent), location: 0.72),
                 .init(color: bottomTint, location: 1.0)
             ],
@@ -103,13 +126,13 @@ enum AppUI {
         )
     }
 
-    /// 液态玻璃表面底衬色：深色下带微弱深紫黑底衬，浅色下带珠光白底衬。
+    /// 液态玻璃表面底衬色：纯黑 OLED 底上带微弱紫夜磨砂，纯白底上带通透珠光。
     static func glassTint(scheme: ColorScheme, isHighlighted: Bool = false) -> Color {
         if scheme == .dark {
-            return Color(red: 0.09, green: 0.07, blue: 0.16)
-                .opacity(isHighlighted ? 0.56 : 0.42)
+            return Color(red: 0.10, green: 0.08, blue: 0.18)
+                .opacity(isHighlighted ? 0.62 : 0.46)
         } else {
-            return Color.white.opacity(isHighlighted ? 0.76 : 0.62)
+            return Color.white.opacity(isHighlighted ? 0.82 : 0.70)
         }
     }
 }
@@ -130,7 +153,7 @@ private struct AppAccentKey: EnvironmentKey {
 }
 
 private struct AppBackgroundKey: EnvironmentKey {
-    static let defaultValue: AppBackground = .violetMist
+    static let defaultValue: AppBackground = .plain
 }
 
 extension EnvironmentValues {
@@ -147,9 +170,9 @@ extension EnvironmentValues {
     }
 }
 
-// MARK: - 背景
+// MARK: - 背景（纯黑 / 纯白）
 
-/// 全屏聊天背景：纯色，或内置壁纸 + 一层可读性遮罩（自动适配深浅色模式）。
+/// 全屏聊天背景：深色下纯黑（#000000），浅色下纯白（#FFFFFF），支持按用户设置切为内置壁纸。
 struct AppBackgroundView: View {
 
     var background: AppBackground
@@ -159,7 +182,8 @@ struct AppBackgroundView: View {
 
     var body: some View {
         ZStack {
-            AppUI.canvas
+            // 底板：纯黑（深色）或纯白（浅色）
+            scheme == .dark ? Color.black : Color.white
 
             if let name = background.assetName {
                 Image(name)
@@ -168,20 +192,9 @@ struct AppBackgroundView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
                     .overlay(
-                        Color(uiColor: .systemBackground)
-                            .opacity(scheme == .dark ? 0.56 : 0.78)
+                        (scheme == .dark ? Color.black : Color.white)
+                            .opacity(scheme == .dark ? 0.68 : 0.82)
                     )
-            } else {
-                // 纯色模式下在顶部叠一层极淡的紫罗兰环境光晕，契合 Codex 氛围且不影响浅色可读性
-                RadialGradient(
-                    colors: [
-                        accent.opacity(scheme == .dark ? 0.14 : 0.07),
-                        Color.clear
-                    ],
-                    center: .top,
-                    startRadius: 20,
-                    endRadius: 420
-                )
             }
         }
         .ignoresSafeArea()
@@ -197,7 +210,6 @@ struct SettingsRow: View {
     let icon: String
     let title: String
     var detail: String?
-    /// 传 nil 时使用全局强调色。
     var tint: Color? = nil
     var showsChevron: Bool = true
 
@@ -234,7 +246,7 @@ struct SettingsRow: View {
     }
 }
 
-/// 顶栏圆形液态玻璃图标按钮（契合 Codex 桌面端 Command Header 风格）。
+/// 顶栏圆形液态玻璃图标按钮（Codex 桌面端 Command Header 风格）。
 struct UIBarButton: View {
 
     let icon: String
@@ -259,21 +271,21 @@ struct UIBarButton: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             Circle()
-                                .fill(isHighlighted ? accent.opacity(scheme == .dark ? 0.22 : 0.14) : AppUI.glassTint(scheme: scheme))
+                                .fill(isHighlighted ? accent.opacity(scheme == .dark ? 0.24 : 0.16) : AppUI.glassTint(scheme: scheme))
                         )
                 }
                 .overlay {
                     Circle()
                         .strokeBorder(
                             isHighlighted
-                                ? AnyShapeStyle(accent.opacity(0.75))
+                                ? AnyShapeStyle(accent.opacity(0.85))
                                 : AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme)),
                             lineWidth: isHighlighted ? 1.2 : 0.9
                         )
                 }
                 .shadow(
-                    color: isHighlighted ? accent.opacity(scheme == .dark ? 0.45 : 0.25) : .black.opacity(scheme == .dark ? 0.28 : 0.06),
-                    radius: isHighlighted ? 10 : 5,
+                    color: isHighlighted ? accent.opacity(scheme == .dark ? 0.50 : 0.28) : .black.opacity(scheme == .dark ? 0.32 : 0.08),
+                    radius: isHighlighted ? 11 : 6,
                     y: 2
                 )
                 .contentShape(Circle())
@@ -283,12 +295,11 @@ struct UIBarButton: View {
     }
 }
 
-/// 输入框上方的快捷功能胶囊。
+/// 输入框上方的快捷功能胶囊（液态玻璃风格）。
 struct UIQuickChip: View {
 
     let icon: String
     let title: String
-    /// 选中态：用于智能体这类需要高亮当前项的胶囊。
     var isSelected: Bool = false
     var action: () -> Void
 
@@ -314,21 +325,25 @@ struct UIQuickChip: View {
             .foregroundStyle(isSelected ? Color.white : AppUI.label)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .background(
+            .background {
                 Capsule(style: .continuous)
                     .fill(isSelected ? AnyShapeStyle(accent) : AnyShapeStyle(.ultraThinMaterial))
-            )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .fill(isSelected ? Color.clear : AppUI.glassTint(scheme: scheme))
+                    )
+            }
             .overlay(
                 Capsule(style: .continuous)
                     .strokeBorder(
                         isSelected
-                            ? AnyShapeStyle(Color.white.opacity(0.32))
+                            ? AnyShapeStyle(Color.white.opacity(0.36))
                             : AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme)),
-                        lineWidth: 0.8
+                        lineWidth: 0.9
                     )
             )
             .shadow(
-                color: isSelected ? accent.opacity(scheme == .dark ? 0.40 : 0.24) : .clear,
+                color: isSelected ? accent.opacity(scheme == .dark ? 0.45 : 0.25) : .black.opacity(scheme == .dark ? 0.20 : 0.04),
                 radius: 6,
                 y: 2
             )
@@ -340,7 +355,7 @@ struct UIQuickChip: View {
 
 // MARK: - 液态玻璃修饰器
 
-/// Codex 桌面端风格的液态玻璃：超薄材质 + 自适应底衬 + 物理折射描边 + 环境辉光。
+/// Codex 桌面端风格的液态玻璃修饰器：超薄材质 + 自适应底衬 + 物理折射描边 + 悬浮辉光投影。
 struct LiquidGlassModifier: ViewModifier {
 
     @Environment(\.appAccent) private var accent
@@ -366,11 +381,11 @@ struct LiquidGlassModifier: ViewModifier {
                     .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                     .allowsHitTesting(false)
             }
-            // 内聚光晕：高亮态更亮
+            // 内聚光晕
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(
-                        accent.opacity(isHighlighted ? 0.62 : (scheme == .dark ? 0.22 : 0.16)),
+                        accent.opacity(isHighlighted ? 0.65 : (scheme == .dark ? 0.24 : 0.16)),
                         lineWidth: isHighlighted ? 1.4 : 0.9
                     )
                     .blur(radius: 0.5)
@@ -381,13 +396,13 @@ struct LiquidGlassModifier: ViewModifier {
                 radius: isHighlighted ? 18 : 12,
                 y: 5
             )
-            .shadow(color: .black.opacity(scheme == .dark ? 0.42 : 0.08), radius: 10, y: 4)
+            .shadow(color: .black.opacity(scheme == .dark ? 0.46 : 0.08), radius: 10, y: 4)
             .animation(AppUI.snap, value: isHighlighted)
     }
 }
 
 extension View {
-    /// 液态玻璃容器：超薄材质 + 折射描边 + 环境辉光。
+    /// 液态玻璃容器：超薄材质 + 折射描边 + 悬浮辉光。
     func liquidGlass(
         cornerRadius: CGFloat = AppUI.cardRadius,
         isHighlighted: Bool = false,

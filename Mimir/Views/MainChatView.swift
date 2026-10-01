@@ -437,13 +437,17 @@ struct MainChatView: View {
 
     /// 空对话页：全息玻璃球与双轨环绕的赛博猫头鹰（1:1 复刻参考图 2 右屏）。
     private var emptyState: some View {
-        VStack(spacing: 14) {
-            MimirMascot(size: 168, mood: .calm)
-                .padding(.bottom, 4)
+        VStack(spacing: 16) {
+            MimirMascot(size: 260, mood: .calm)
+                .padding(.bottom, 6)
 
-            Text("Cyber-Owl Agent Workspace")
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+            Text("Assistant Turn Workspace")
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.label)
+
+            Text("Mimir Cyber-Owl Mascot")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(accent)
 
             Text("输入问题，用 / 唤起技能，或点按下方胶囊调节思考强度")
                 .font(AppUI.footnote)
@@ -452,7 +456,7 @@ struct MainChatView: View {
                 .padding(.horizontal, 28)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 72)
+        .padding(.top, 40)
         .padding(.bottom, 36)
     }
 
@@ -493,14 +497,9 @@ struct MainChatView: View {
             )
         }
         .padding(.horizontal, AppUI.hPadding)
-        .padding(.top, 8)
+        .padding(.top, 6)
         .padding(.bottom, 8)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(AppUI.refractionEdge(accent, scheme: scheme))
-                .frame(height: 0.6)
-        }
+        .background(Color.clear)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
     }
 

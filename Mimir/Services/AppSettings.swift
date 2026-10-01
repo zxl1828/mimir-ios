@@ -158,7 +158,7 @@ final class AppSettings {
         self.accent = AppAccent(rawValue: defaults.string(forKey: Key.accent) ?? "")
             ?? .purple
         self.background = AppBackground(rawValue: defaults.string(forKey: Key.background) ?? "")
-            ?? .violetMist
+            ?? .plain
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)
             ?? APICredential.placeholder

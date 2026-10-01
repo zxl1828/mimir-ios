@@ -109,7 +109,7 @@ struct ReasoningEffortCard: View {
 /// 实机 1:1 星尘阶梯滑块（Stepped Stardust Slider）。
 ///
 /// 加厚胶囊轨道 + 电光紫渐变激活段 + 星座连线与微光星尘纹理 + 离散停靠刻度点 + 纯白立体圆钮。
-/// 严格限定三档：`High` / `X-High` / `Max (Ultra)`，绝不引入"不思考"档。
+/// 严格限定四档思考：`Light` / `High` / `X-High` / `Max (Ultra)`，全部档位均执行推理，绝不引入"不思考"模式。
 struct ReasoningEffortSlider: View {
 
     @Binding var level: ThinkingMode
@@ -117,18 +117,19 @@ struct ReasoningEffortSlider: View {
     @Environment(\.appAccent) private var accent
     @Environment(\.colorScheme) private var scheme
 
-    /// 拖动过程中显示连续位置；松手后平滑吸附到三档停靠点。
+    /// 拖动过程中显示连续位置；松手后平滑吸附到四档停靠点。
     @State private var dragProgress: Double?
 
     private static let trackHeight: CGFloat = 40
     private static let thumbSize: CGFloat = 34
 
-    /// 三档停靠在轨道上的归一化位置：让 High 也有一段饱满的星座紫轨（与参考图一致）。
+    /// 四档停靠在轨道上的归一化位置：让每档都有对应的星尘轨迹段。
     static func progress(for mode: ThinkingMode) -> Double {
         switch mode {
-        case .thinking: return 0.24
-        case .expert: return 0.56
-        case .ultra: return 0.90
+        case .light: return 0.12
+        case .thinking: return 0.38
+        case .expert: return 0.66
+        case .ultra: return 0.92
         }
     }
 
@@ -159,7 +160,7 @@ struct ReasoningEffortSlider: View {
                 // 2. 左侧电光紫激活段 + 星尘与星座连线纹理
                 activeStardustSegment(width: activeWidth)
 
-                // 3. 轨道内的离散刻度点（7 颗微点，其中 3 颗对应主档位）
+                // 3. 轨道内的离散刻度点（7 颗微点，其中 4 颗对应主档位）
                 tickDotsLayer(inset: inset, usable: usable, thumbCenterX: thumbCenterX)
 
                 // 4. 纯白立体圆钮（White Circular Thumb）
@@ -172,7 +173,7 @@ struct ReasoningEffortSlider: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let raw = (value.location.x - inset) / usable
-                        let clamped = min(max(raw, 0.16), 0.96)
+                        let clamped = min(max(raw, 0.08), 0.96)
                         dragProgress = clamped
                         let snapped = Self.nearest(clamped)
                         if snapped != level {
@@ -255,8 +256,10 @@ struct ReasoningEffortSlider: View {
                 )
 
             // 星座连线 + 微型星尘粒子纹理
-            StardustTrackCanvas(intensity: level == .thinking ? 0.65 : (level == .expert ? 0.90 : 1.0))
-                .clipShape(Capsule(style: .continuous))
+            StardustTrackCanvas(
+                intensity: level == .light ? 0.45 : (level == .thinking ? 0.68 : (level == .expert ? 0.88 : 1.0))
+            )
+            .clipShape(Capsule(style: .continuous))
         }
         .frame(width: width, height: Self.trackHeight - 4)
         .padding(.leading, 2)
@@ -269,8 +272,8 @@ struct ReasoningEffortSlider: View {
     }
 
     private func tickDotsLayer(inset: CGFloat, usable: CGFloat, thumbCenterX: CGFloat) -> some View {
-        let stops: [Double] = [0.08, 0.24, 0.40, 0.56, 0.73, 0.90, 0.98]
-        let majorStops: Set<Int> = [1, 3, 5] // 对应 High (0.24), X-High (0.56), Max/Ultra (0.90)
+        let stops: [Double] = [0.12, 0.25, 0.38, 0.52, 0.66, 0.79, 0.92]
+        let majorStops: Set<Int> = [0, 2, 4, 6] // 对应 Light (0.12), High (0.38), X-High (0.66), Max/Ultra (0.92)
 
         return ZStack(alignment: .leading) {
             ForEach(Array(stops.enumerated()), id: \.offset) { index, stop in
