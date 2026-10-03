@@ -45,6 +45,8 @@ struct MainChatView: View {
     @State private var showCamera = false
     @State private var showScanner = false
     @State private var toast: String?
+    @State private var previewImage: UIImage?
+    @State private var showToolsDrawer = false
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -173,6 +175,20 @@ struct MainChatView: View {
             Text(branchDeletionHint)
         }
         .overlay(alignment: .top) { toastView }
+        .overlay {
+            if let image = previewImage {
+                SharedElementImageViewer(image: image) {
+                    previewImage = nil
+                }
+                .zIndex(100)
+            }
+        }
+        .overlay {
+            FluidRubberBandDrawer(isPresented: $showToolsDrawer, minHeight: 180, maxHeight: 420) {
+                toolsDrawerContent
+            }
+            .zIndex(90)
+        }
     }
 
     // MARK: - 主列
@@ -280,7 +296,7 @@ struct MainChatView: View {
                         emptyState
                     }
 
-                    ForEach(chat?.messages ?? []) { message in
+                    ForEach(Array((chat?.messages ?? []).enumerated()), id: \.element.id) { index, message in
                         MessageBubble(
                             message: message,
                             isHighlighted: highlightedMessageID == message.id,
@@ -299,8 +315,14 @@ struct MainChatView: View {
                                 Haptics.impact(.medium)
                                 chat?.delete(message: message)
                             },
-                            onOpenMemory: { _ in showMemoryBrowser = true }
+                            onOpenMemory: { _ in showMemoryBrowser = true },
+                            onTapImage: { image in
+                                withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                                    previewImage = image
+                                }
+                            }
                         )
+                        .staggeredSlideEntrance(index: index)
                         .id(message.id)
                     }
 
@@ -455,8 +477,25 @@ struct MainChatView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 28)
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 24)
+        .background {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(.ultraThinMaterial.opacity(0.35))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .fill(AppUI.glassTint(scheme: scheme).opacity(0.40))
+                )
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+        }
+        .rotatingGlowBorder(cornerRadius: 30, lineWidth: 1.2, isAnimated: true, glowRadius: 36)
+        .interactiveTilt(maxAngle: 7.5, cornerRadius: 30)
         .frame(maxWidth: .infinity)
-        .padding(.top, 40)
+        .padding(.horizontal, 16)
+        .padding(.top, 24)
         .padding(.bottom, 36)
     }
 
@@ -512,7 +551,7 @@ struct MainChatView: View {
                     level: chat?.thinkingMode ?? .thinking,
                     isExpanded: showReasoningCard
                 ) {
-                    withAnimation(AppUI.snap) {
+                    withAnimation(.spring(response: 0.42, dampingFraction: 0.80)) {
                         showReasoningCard.toggle()
                     }
                 }
@@ -554,8 +593,10 @@ struct MainChatView: View {
                     }
                 }
 
-                UIQuickChip(icon: "slider.horizontal.3", title: "管理") {
-                    showAgentManager = true
+                UIQuickChip(icon: "slider.horizontal.3", title: "工具箱") {
+                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                        showToolsDrawer = true
+                    }
                 }
             }
             .padding(.horizontal, 1)
@@ -822,5 +863,100 @@ struct MainChatView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .animation(AppAnimation.chip, value: toast)
         }
+    }
+
+    // MARK: - 底部抽屉工具箱（支持阻尼橡皮筋回弹与速度吸附）
+
+    private var toolsDrawerContent: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("快捷工具与智能体")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppUI.label)
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.36, dampingFraction: 0.84)) {
+                        showToolsDrawer = false
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(AppUI.label3)
+                }
+                .buttonStyle(PhysicalElasticCircleButtonStyle())
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 4)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                toolDrawerItem(icon: "person.2.badge.gearshape", title: "智能体管理", index: 0) {
+                    showToolsDrawer = false
+                    showAgentManager = true
+                }
+                toolDrawerItem(icon: "clock.badge.checkmark", title: "定时任务", index: 1) {
+                    showToolsDrawer = false
+                    showScheduledTasks = true
+                }
+                toolDrawerItem(icon: "brain.head.profile", title: "记忆库", index: 2) {
+                    showToolsDrawer = false
+                    showMemoryBrowser = true
+                }
+                toolDrawerItem(icon: "point.3.connected.trianglepath.dotted", title: "数据流监控", index: 3) {
+                    showToolsDrawer = false
+                    showDataFlow = true
+                }
+                toolDrawerItem(icon: "network", title: "MCP 插件", index: 4) {
+                    showToolsDrawer = false
+                    showMCPServers = true
+                }
+                toolDrawerItem(icon: "waveform.circle", title: "实时语音", index: 5) {
+                    showToolsDrawer = false
+                    showVoiceMode = true
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+        }
+    }
+
+    private func toolDrawerItem(icon: String, title: String, index: Int, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 44, height: 44)
+                    .background {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Circle().fill(AppUI.glassTint(scheme: scheme)))
+                    }
+                    .overlay {
+                        Circle()
+                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.9)
+                    }
+
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppUI.label)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(.ultraThinMaterial.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(AppUI.glassTint(scheme: scheme))
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
+            }
+        }
+        .buttonStyle(PhysicalElasticButtonStyle(cornerRadius: 16))
+        .staggeredSlideEntrance(index: index, baseDelay: 0.04)
     }
 }

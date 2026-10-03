@@ -93,6 +93,8 @@ struct ReasoningEffortCard: View {
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1.1)
                 .allowsHitTesting(false)
         }
+        .rotatingGlowBorder(cornerRadius: 22, lineWidth: 1.2, isAnimated: true, glowRadius: 26)
+        .interactiveTilt(maxAngle: 6.5, cornerRadius: 22)
         .shadow(
             color: accent.opacity(scheme == .dark ? 0.36 : 0.18),
             radius: 22,
@@ -471,7 +473,7 @@ struct ReasoningStatusChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
         .accessibilityLabel("思考强度与模型：\(ModelCatalog.cardLabel(for: modelID)) \(level.heroTitle)")
     }
 }

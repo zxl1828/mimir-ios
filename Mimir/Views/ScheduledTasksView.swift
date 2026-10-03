@@ -25,8 +25,9 @@ struct ScheduledTasksView: View {
                             .font(AppFont.hint)
                             .foregroundStyle(AppColor.secondaryText)
                     }
-                    ForEach(tasks) { task in
+                    ForEach(Array(tasks.enumerated()), id: \.element.id) { index, task in
                         taskRow(task)
+                            .staggeredSlideEntrance(index: index)
                     }
                     .onDelete { offsets in
                         for index in offsets where tasks.indices.contains(index) {
@@ -139,7 +140,7 @@ struct ScheduledTasksView: View {
                     .padding(.vertical, 6)
                     .background(Capsule().fill(AppColor.accentGradient))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PhysicalElasticCapsuleButtonStyle())
                 .disabled(runningTaskID != nil)
 
                 Button {

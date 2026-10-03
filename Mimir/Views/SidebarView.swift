@@ -118,7 +118,7 @@ struct SidebarView: View {
                     .liquidGlass(cornerRadius: 18, isHighlighted: true, glowIntensity: 0.5)
                     .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PhysicalElasticCircleButtonStyle())
             .accessibilityLabel("新建对话")
         }
         .padding(.horizontal, 16)
@@ -147,7 +147,7 @@ struct SidebarView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(AppUI.label3)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PhysicalElasticCircleButtonStyle())
             }
         }
         .padding(.horizontal, 12)
@@ -169,18 +169,18 @@ struct SidebarView: View {
     /// 固定 5 项功能入口，图标与顺序保持一致。
     private var navList: some View {
         VStack(spacing: 2) {
-            navRow(icon: "photo.on.rectangle", title: "图片") { onPickPhoto() }
-            navRow(icon: "square.stack", title: "资料库") { onOpenMemory() }
-            navRow(icon: "folder", title: "项目") { onOpenMCP() }
-            navRow(icon: "clock", title: "定时任务") { onOpenScheduledTasks() }
-            navRow(icon: "square.grid.2x2", title: "探索") { onSearchAll() }
+            navRow(icon: "photo.on.rectangle", title: "图片", index: 0) { onPickPhoto() }
+            navRow(icon: "square.stack", title: "资料库", index: 1) { onOpenMemory() }
+            navRow(icon: "folder", title: "项目", index: 2) { onOpenMCP() }
+            navRow(icon: "clock", title: "定时任务", index: 3) { onOpenScheduledTasks() }
+            navRow(icon: "square.grid.2x2", title: "探索", index: 4) { onSearchAll() }
         }
         .padding(.horizontal, 10)
         .padding(.top, 10)
         .padding(.bottom, 4)
     }
 
-    private func navRow(icon: String, title: String, action: @escaping () -> Void) -> some View {
+    private func navRow(icon: String, title: String, index: Int, action: @escaping () -> Void) -> some View {
         Button {
             Haptics.impact(.light)
             action()
@@ -199,7 +199,8 @@ struct SidebarView: View {
             .frame(height: 42)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticButtonStyle(cornerRadius: 10))
+        .staggeredSlideEntrance(index: index, baseDelay: 0.035)
     }
 
     private var searchAllButton: some View {
@@ -248,18 +249,18 @@ struct SidebarView: View {
 
             if !pinned.isEmpty {
                 subLabel("置顶")
-                ForEach(pinned) { conversation in
-                    conversationRow(conversation, pinned: true)
+                ForEach(Array(pinned.enumerated()), id: \.element.id) { index, conversation in
+                    conversationRow(conversation, pinned: true, index: index)
                 }
             }
 
-            ForEach(regular) { conversation in
-                conversationRow(conversation, pinned: false)
+            ForEach(Array(regular.enumerated()), id: \.element.id) { index, conversation in
+                conversationRow(conversation, pinned: false, index: index + pinned.count)
             }
         }
     }
 
-    private func conversationRow(_ conversation: Conversation, pinned: Bool) -> some View {
+    private func conversationRow(_ conversation: Conversation, pinned: Bool, index: Int) -> some View {
         let isCurrent = conversation.id == currentConversationID
         return Button {
             Haptics.selectionChanged()
@@ -313,7 +314,8 @@ struct SidebarView: View {
             }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticButtonStyle(cornerRadius: 11))
+        .staggeredSlideEntrance(index: index, baseDelay: 0.025)
         .contextMenu {
             Button {
                 renameText = conversation.title

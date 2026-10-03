@@ -15,6 +15,7 @@ struct MessageBubble: View {
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
     var onOpenMemory: (UUID) -> Void = { _ in }
+    var onTapImage: (UIImage) -> Void = { _ in }
 
     @State private var thinkingExpanded = false
     @State private var showsUsage = false
@@ -63,15 +64,20 @@ struct MessageBubble: View {
             }
 
             if let data = message.attachmentData, let image = UIImage(data: data) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: 220, maxHeight: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                    )
+                Button {
+                    onTapImage(image)
+                } label: {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: 220, maxHeight: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(PhysicalElasticButtonStyle(cornerRadius: 16))
             }
 
             if !message.text.isEmpty {
@@ -113,6 +119,7 @@ struct MessageBubble: View {
                             )
                     )
                     .shadow(color: accent.opacity(scheme == .dark ? 0.45 : 0.28), radius: 12, y: 4)
+                    .interactiveTilt(maxAngle: 5.5, cornerRadius: AppUI.bubbleRadius)
             }
 
             metaRow(isUser: true)
@@ -195,8 +202,9 @@ struct MessageBubble: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Agent Turn 卡片：液态玻璃底衬
+        // Agent Turn 卡片：液态玻璃底衬 + 跟随触摸的 3D 透视倾斜与镜像反射流光
         .liquidGlass(cornerRadius: AppUI.bubbleRadius, glowIntensity: 0.18)
+        .interactiveTilt(maxAngle: 5.0, cornerRadius: AppUI.bubbleRadius)
         .overlay {
             if isHighlighted {
                 RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
@@ -219,7 +227,7 @@ struct MessageBubble: View {
                 .liquidGlass(cornerRadius: 14, isHighlighted: isSpeaking, glowIntensity: 0.5)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticCircleButtonStyle())
         .accessibilityLabel(isSpeaking ? "停止朗读" : "朗读这条回复")
     }
 

@@ -93,7 +93,7 @@ struct MessageInputBar: View {
                 .rotationEffect(.degrees(showAttachMenu ? 45 : 0))
                 .animation(AppAnimation.chip, value: showAttachMenu)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticCircleButtonStyle())
         .accessibilityLabel("添加图片")
         // 锚定在加号上，从按钮位置向上展开（iPhone 上也能保持气泡形态）。
         .popover(isPresented: $showAttachMenu, attachmentAnchor: .point(.top), arrowEdge: .bottom) {
@@ -175,7 +175,7 @@ struct MessageInputBar: View {
             }
             .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticCircleButtonStyle())
         .animation(.easeInOut(duration: 0.18), value: canSend)
         .animation(.easeInOut(duration: 0.18), value: isGenerating)
         .accessibilityLabel(isGenerating ? "停止生成" : (canSend ? "发送" : "语音模式"))

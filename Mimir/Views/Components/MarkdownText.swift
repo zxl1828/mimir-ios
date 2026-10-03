@@ -404,6 +404,7 @@ struct CodeBlockView: View {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
         )
+        .interactiveTilt(maxAngle: 4.5, cornerRadius: 15)
     }
 
     // MARK: - 终端标题栏
@@ -455,7 +456,7 @@ struct CodeBlockView: View {
                 )
                 .contentShape(Capsule(style: .continuous))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PhysicalElasticCapsuleButtonStyle())
             .animation(.easeInOut(duration: 0.2), value: copied)
         }
         .padding(.horizontal, 12)

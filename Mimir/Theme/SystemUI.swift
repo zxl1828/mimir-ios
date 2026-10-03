@@ -290,7 +290,7 @@ struct UIBarButton: View {
                 )
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticCircleButtonStyle())
         .accessibilityLabel(label)
     }
 }
@@ -349,7 +349,7 @@ struct UIQuickChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
     }
 }
 
