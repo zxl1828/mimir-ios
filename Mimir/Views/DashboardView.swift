@@ -19,6 +19,8 @@ struct DashboardView: View {
     private var skills: [Skill]
     @Query
     private var mcpConfigs: [MCPServerConfig]
+    @Query
+    private var memories: [MemoryEntry]
 
     @State private var showSettings = false
     @State private var showHelpGuide = false
@@ -554,7 +556,7 @@ struct DashboardView: View {
 
                 Spacer()
 
-                Text("\(MemoryStore.shared.factsCount) 记忆")
+                Text("\(memories.count) 记忆")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Color(hex: "F472B6"))
                     .padding(.horizontal, 6)

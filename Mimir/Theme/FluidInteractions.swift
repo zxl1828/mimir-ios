@@ -599,14 +599,14 @@ extension View {
 // MARK: - 8. 真实卡片交互与暗色磨砂玻璃操作蒙版 (Interactive Glass Card & Dark Glass Action Overlay)
 
 /// 卡片浮动操作按钮定义。
-public struct GlassCardAction: Identifiable, Sendable {
-    public let id: String
-    public let title: String
-    public let icon: String
-    public let role: ButtonRole?
-    public let action: @Sendable () -> Void
+struct GlassCardAction: Identifiable, Sendable {
+    let id: String
+    let title: String
+    let icon: String
+    let role: ButtonRole?
+    let action: @Sendable () -> Void
 
-    public init(
+    init(
         title: String,
         icon: String,
         role: ButtonRole? = nil,
@@ -624,7 +624,7 @@ public struct GlassCardAction: Identifiable, Sendable {
 /// - 按压时触发 scaleEffect(0.96) 物理弹性压缩与触感反馈；
 /// - 长按或触发时弹起黑色磨砂玻璃操作蒙版（Color.black.opacity(0.35) + 极细紫白折射微光高亮描边）；
 /// - 展示操作图标按钮，点击后平滑收起或点击外部收起。
-public struct GlassCardInteractiveModifier: ViewModifier {
+struct GlassCardInteractiveModifier: ViewModifier {
 
     var cornerRadius: CGFloat
     var actions: [GlassCardAction]
@@ -635,7 +635,7 @@ public struct GlassCardInteractiveModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
 
-    public init(
+    init(
         cornerRadius: CGFloat = AppUI.cardRadius,
         actions: [GlassCardAction] = [],
         onPrimaryTap: (() -> Void)? = nil
@@ -770,7 +770,7 @@ public struct GlassCardInteractiveModifier: ViewModifier {
 
 extension View {
     /// 为卡片添加 0.96 物理弹性按压触感与长按弹出的深色磨砂玻璃操作蒙版。
-    public func interactiveGlassCard(
+    func interactiveGlassCard(
         cornerRadius: CGFloat = AppUI.cardRadius,
         actions: [GlassCardAction] = [],
         onPrimaryTap: (() -> Void)? = nil

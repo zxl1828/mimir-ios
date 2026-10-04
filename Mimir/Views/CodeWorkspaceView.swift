@@ -280,7 +280,7 @@ struct CodeWorkspaceView: View {
                 // 3. AI 重新生成 / 重构 (arrow.triangle.2.circlepath)
                 Button {
                     Haptics.impact(.medium)
-                    executeAIRefactor()
+                    coordinator.navigateToAssistant(withPrompt: "针对代码文件 \(fileName)（\(selectedLanguage.rawValue)）进行代码审查与优化建议：\n```\(selectedLanguage.rawValue)\n\(currentCode)\n```")
                 } label: {
                     Image(systemName: "arrow.triangle.2.circlepath")
                         .font(.system(size: 13, weight: .medium))
