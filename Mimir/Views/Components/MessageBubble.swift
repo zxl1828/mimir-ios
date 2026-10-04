@@ -119,7 +119,6 @@ struct MessageBubble: View {
                             )
                     )
                     .shadow(color: accent.opacity(scheme == .dark ? 0.45 : 0.28), radius: 12, y: 4)
-                    .interactiveTilt(maxAngle: 5.5, cornerRadius: AppUI.bubbleRadius)
             }
 
             metaRow(isUser: true)
@@ -202,9 +201,8 @@ struct MessageBubble: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Agent Turn 卡片：液态玻璃底衬 + 跟随触摸的 3D 透视倾斜与镜像反射流光
+        // Agent Turn 卡片：液态玻璃底衬
         .liquidGlass(cornerRadius: AppUI.bubbleRadius, glowIntensity: 0.18)
-        .interactiveTilt(maxAngle: 5.0, cornerRadius: AppUI.bubbleRadius)
         .overlay {
             if isHighlighted {
                 RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
