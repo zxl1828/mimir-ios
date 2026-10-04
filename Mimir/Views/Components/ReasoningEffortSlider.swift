@@ -123,23 +123,22 @@ struct ReasoningEffortSlider: View {
     @State private var dragProgress: Double?
 
     private static let trackHeight: CGFloat = 40
-    private static let thumbSize: CGFloat = 34
+    private static let thumbDiameter: CGFloat = 34
+    private static let horizontalPadding: CGFloat = 3
 
-    /// 四档停靠在轨道上的归一化位置：让每档都有对应的星尘轨迹段。
+    /// 四档停靠在轨道上的归一化位置：让每档都有对应的星尘轨迹段（0.0 ~ 1.0 严格对称动态映射）。
     static func progress(for mode: ThinkingMode) -> Double {
-        switch mode {
-        case .light: return 0.12
-        case .thinking: return 0.38
-        case .expert: return 0.66
-        case .ultra: return 0.92
-        }
+        let all = ThinkingMode.allCases
+        guard let index = all.firstIndex(of: mode), all.count > 1 else { return 0.0 }
+        return Double(index) / Double(all.count - 1)
     }
 
     static func nearest(_ progress: Double) -> ThinkingMode {
-        let candidates = ThinkingMode.allCases
-        return candidates.min(by: {
-            abs(Self.progress(for: $0) - progress) < abs(Self.progress(for: $1) - progress)
-        }) ?? .thinking
+        let all = ThinkingMode.allCases
+        guard all.count > 1 else { return all.first ?? .thinking }
+        let index = Int(round(progress * Double(all.count - 1)))
+        let clamped = min(max(index, 0), all.count - 1)
+        return all[clamped]
     }
 
     private var currentProgress: Double {
@@ -148,49 +147,70 @@ struct ReasoningEffortSlider: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = proxy.size.width
-            let inset = Self.thumbSize / 2 + 3
-            let usable = max(width - inset * 2, 1)
+            let trackWidth = max(proxy.size.width, 0)
+            let thumbDiameter = Self.thumbDiameter
+            let horizontalPadding = Self.horizontalPadding
+            let maxOffset = max(trackWidth - thumbDiameter - (horizontalPadding * 2), 0)
+
             let progress = currentProgress
-            let thumbCenterX = inset + usable * progress
-            let activeWidth = min(max(thumbCenterX + Self.thumbSize * 0.18, Self.trackHeight), width)
+            let currentOffset = progress * maxOffset
+            let thumbCenterX = horizontalPadding + currentOffset + (thumbDiameter / 2)
+            let activeWidth = thumbDiameter + currentOffset
 
             ZStack(alignment: .leading) {
                 // 1. 未激活底轨（半透明磨砂深灰/浅灰底衬）
                 inactiveTrack
 
                 // 2. 左侧电光紫激活段 + 星尘与星座连线纹理
-                activeStardustSegment(width: activeWidth)
+                activeStardustSegment(
+                    width: activeWidth,
+                    height: Self.trackHeight - (horizontalPadding * 2),
+                    padding: horizontalPadding
+                )
 
                 // 3. 轨道内的离散刻度点（7 颗微点，其中 4 颗对应主档位）
-                tickDotsLayer(inset: inset, usable: usable, thumbCenterX: thumbCenterX)
+                tickDotsLayer(
+                    horizontalPadding: horizontalPadding,
+                    maxOffset: maxOffset,
+                    thumbDiameter: thumbDiameter,
+                    thumbCenterX: thumbCenterX
+                )
 
                 // 4. 纯白立体圆钮（White Circular Thumb）
                 whiteThumb
-                    .offset(x: thumbCenterX - Self.thumbSize / 2)
+                    .offset(x: horizontalPadding + currentOffset)
             }
-            .frame(width: width, height: Self.trackHeight)
+            .frame(width: trackWidth, height: Self.trackHeight)
             .contentShape(Capsule(style: .continuous))
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        let raw = (value.location.x - inset) / usable
-                        let clamped = min(max(raw, 0.08), 0.96)
-                        dragProgress = clamped
-                        let snapped = Self.nearest(clamped)
+                        guard maxOffset > 0 else { return }
+                        let touchOffset = value.location.x - horizontalPadding - (thumbDiameter / 2)
+                        let clampedOffset = min(max(touchOffset, 0), maxOffset)
+                        let normalizedProgress = clampedOffset / maxOffset
+                        dragProgress = normalizedProgress
+                        let snapped = Self.nearest(normalizedProgress)
                         if snapped != level {
                             level = snapped
                         }
                     }
                     .onEnded { value in
-                        let raw = (value.location.x - inset) / usable
-                        let snapped = Self.nearest(raw)
+                        guard maxOffset > 0 else {
+                            dragProgress = nil
+                            return
+                        }
+                        let touchOffset = value.location.x - horizontalPadding - (thumbDiameter / 2)
+                        let clampedOffset = min(max(touchOffset, 0), maxOffset)
+                        let normalizedProgress = clampedOffset / maxOffset
+                        let snapped = Self.nearest(normalizedProgress)
                         withAnimation(AppUI.snap) {
                             level = snapped
                             dragProgress = nil
                         }
                     }
             )
+            .animation(dragProgress == nil ? AppUI.snap : nil, value: currentOffset)
         }
         .frame(height: Self.trackHeight)
         .sensoryFeedback(.selection, trigger: level)
@@ -242,8 +262,9 @@ struct ReasoningEffortSlider: View {
             )
     }
 
-    private func activeStardustSegment(width: CGFloat) -> some View {
-        ZStack(alignment: .leading) {
+    private func activeStardustSegment(width: CGFloat, height: CGFloat, padding: CGFloat) -> some View {
+        let segmentWidth = max(width, height)
+        return ZStack(alignment: .leading) {
             Capsule(style: .continuous)
                 .fill(
                     LinearGradient(
@@ -263,26 +284,31 @@ struct ReasoningEffortSlider: View {
             )
             .clipShape(Capsule(style: .continuous))
         }
-        .frame(width: width, height: Self.trackHeight - 4)
-        .padding(.leading, 2)
+        .frame(width: segmentWidth, height: height)
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.7)
-                .padding(.leading, 2)
         )
+        .padding(.leading, padding)
         .shadow(color: accent.opacity(scheme == .dark ? 0.60 : 0.32), radius: 10, x: 0, y: 2)
     }
 
-    private func tickDotsLayer(inset: CGFloat, usable: CGFloat, thumbCenterX: CGFloat) -> some View {
-        let stops: [Double] = [0.12, 0.25, 0.38, 0.52, 0.66, 0.79, 0.92]
-        let majorStops: Set<Int> = [0, 2, 4, 6] // 对应 Light (0.12), High (0.38), X-High (0.66), Max/Ultra (0.92)
+    private func tickDotsLayer(
+        horizontalPadding: CGFloat,
+        maxOffset: CGFloat,
+        thumbDiameter: CGFloat,
+        thumbCenterX: CGFloat
+    ) -> some View {
+        let totalDots = 7
+        let stops: [Double] = (0..<totalDots).map { Double($0) / Double(totalDots - 1) }
+        let majorIndices: Set<Int> = [0, 2, 4, 6] // 对应 Light (0), High (2), X-High (4), Max/Ultra (6)
 
         return ZStack(alignment: .leading) {
             ForEach(Array(stops.enumerated()), id: \.offset) { index, stop in
-                let x = inset + usable * stop
-                let isCoveredByThumb = abs(x - thumbCenterX) < Self.thumbSize * 0.52
-                let isActive = x < thumbCenterX
-                let isMajor = majorStops.contains(index)
+                let x = horizontalPadding + (CGFloat(stop) * maxOffset) + (thumbDiameter / 2)
+                let isCoveredByThumb = abs(x - thumbCenterX) < thumbDiameter * 0.45
+                let isActive = x <= thumbCenterX
+                let isMajor = majorIndices.contains(index)
                 let dotSize: CGFloat = isMajor ? 5.2 : 4.0
 
                 Circle()
@@ -304,7 +330,7 @@ struct ReasoningEffortSlider: View {
     private var whiteThumb: some View {
         Circle()
             .fill(Color.white)
-            .frame(width: Self.thumbSize, height: Self.thumbSize)
+            .frame(width: Self.thumbDiameter, height: Self.thumbDiameter)
             .overlay(
                 Circle()
                     .strokeBorder(Color.white.opacity(0.95), lineWidth: 1)
