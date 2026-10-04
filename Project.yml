@@ -45,6 +45,8 @@ targets:
         NSCameraUsageDescription: 用于拍照提问和扫描文档，图片只在你的设备上处理。
         NSPhotoLibraryUsageDescription: 用于从相册选取图片提问。
         NSPhotoLibraryAddUsageDescription: 用于把生成的图片保存到相册。
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: true
         BGTaskSchedulerPermittedIdentifiers:

@@ -15,7 +15,7 @@ struct RootView: View {
             if !isReady {
                 AuroraBackground(intensity: 0.6, showsParticles: false)
             } else if settings.hasCompletedOnboarding && settings.hasUsableCredential {
-                MainChatView()
+                RootContainerView()
             } else {
                 OnboardingView()
             }

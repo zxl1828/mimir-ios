@@ -47,6 +47,7 @@ struct MainChatView: View {
     @State private var toast: String?
     @State private var previewImage: UIImage?
     @State private var showToolsDrawer = false
+    @State private var coordinator = TabNavigationCoordinator.shared
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -87,6 +88,25 @@ struct MainChatView: View {
         .onChange(of: inputFocused) { _, focused in
             if focused && showReasoningCard {
                 withAnimation(AppUI.snap) { showReasoningCard = false }
+            }
+        }
+        .onChange(of: coordinator.pendingPromptToChat) { _, newPrompt in
+            if let newPrompt {
+                chat?.inputText = newPrompt
+                coordinator.pendingPromptToChat = nil
+                inputFocused = true
+            }
+        }
+        .onChange(of: coordinator.shouldStartNewChat) { _, shouldStart in
+            if shouldStart {
+                newConversation()
+                coordinator.shouldStartNewChat = false
+            }
+        }
+        .onChange(of: coordinator.pendingOpenConversationID) { _, convoID in
+            if let convoID {
+                openSearchResult(conversationID: convoID, messageID: nil)
+                coordinator.pendingOpenConversationID = nil
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -538,7 +558,7 @@ struct MainChatView: View {
         }
         .padding(.horizontal, AppUI.hPadding)
         .padding(.top, 6)
-        .padding(.bottom, 8)
+        .padding(.bottom, inputFocused ? 8 : 74)
         .background(Color.clear)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
     }

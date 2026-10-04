@@ -135,9 +135,117 @@ enum AppUI {
             return Color.white.opacity(isHighlighted ? 0.82 : 0.70)
         }
     }
+
+    // MARK: - 新增全局设计系统规范 (Design Tokens)
+
+    /// 电光紫高亮色（#7C5CFC）。
+    static let electricViolet = Color(hex: "7C5CFC")
+    /// 极光淡紫（#A78BFA）。
+    static let auroraViolet = Color(hex: "A78BFA")
+
+    static func textTitle(scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(hex: "F3F0FB") : Color(hex: "1E1B2E")
+    }
+
+    static func textSubtitle(scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(hex: "A5A0B8") : Color(hex: "5D5870")
+    }
+
+    static func textCaption(scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(hex: "7E7A8E") : Color(hex: "9CA3AF")
+    }
+
+    /// 规范要求的浅紫至雪白平滑渐变背景（深色模式自适应为深紫夜渐变）。
+    static func ambientBackground(scheme: ColorScheme) -> LinearGradient {
+        if scheme == .dark {
+            return LinearGradient(
+                colors: [Color(hex: "120F1D"), Color(hex: "08070E")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            return LinearGradient(
+                colors: [Color(hex: "F4F1FA"), Color(hex: "E8E2F5")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
+    /// 规范软玻璃卡片 1pt 半透明浅白微光描边（Color.white.opacity(0.8) 渐变至 Color.purple.opacity(0.2)）。
+    static func softGlassCardBorder(scheme: ColorScheme) -> LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.white.opacity(scheme == .dark ? 0.45 : 0.80),
+                electricViolet.opacity(scheme == .dark ? 0.35 : 0.20)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
+
+/// 软玻璃拟态卡片修饰器（Soft Glassmorphism）。
+struct SoftGlassCardModifier: ViewModifier {
+    var cornerRadius: CGFloat = 20
+    @Environment(\.colorScheme) private var scheme
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white.opacity(0.65))
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(AppUI.softGlassCardBorder(scheme: scheme), lineWidth: 1)
+            }
+            .shadow(
+                color: AppUI.electricViolet.opacity(scheme == .dark ? 0.22 : 0.08),
+                radius: 16,
+                x: 0,
+                y: 8
+            )
+    }
+}
+
+extension View {
+    /// 应用全局软玻璃卡片材质规范。
+    func softGlassCard(cornerRadius: CGFloat = 20) -> some View {
+        modifier(SoftGlassCardModifier(cornerRadius: cornerRadius))
+    }
 }
 
 extension Color {
+    /// 16 进制颜色初始化器。
+    init(hex: String) {
+        let clean = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: clean).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch clean.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 128, 128, 128)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255.0,
+            green: Double(g) / 255.0,
+            blue: Double(b) / 255.0,
+            opacity: Double(a) / 255.0
+        )
+    }
+
     /// 浅色 / 深色两套取值的动态色。
     static func adaptive(light: UIColor, dark: UIColor) -> Color {
         Color(uiColor: UIColor { traits in
