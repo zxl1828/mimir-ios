@@ -220,6 +220,7 @@ extension View {
     }
 }
 
+extension Color {
     /// 浅色 / 深色两套取值的动态色。
     static func adaptive(light: UIColor, dark: UIColor) -> Color {
         Color(uiColor: UIColor { traits in
