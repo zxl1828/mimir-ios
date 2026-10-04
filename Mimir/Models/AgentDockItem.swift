@@ -112,7 +112,7 @@ extension AgentDockItem {
 
     /// 胶囊配色：优先使用自定义色，否则按名称哈希挑一个品牌色。
     var tintColor: Color {
-        if !accentHex.isEmpty, let parsed = Color(hex: accentHex) { return parsed }
+        if !accentHex.isEmpty { return Color(hex: accentHex) }
         let palette: [Color] = [
             AppColor.brandIndigo,
             AppColor.brandTeal,
@@ -126,11 +126,14 @@ extension AgentDockItem {
 
 extension Color {
 
-    /// 解析 `#RRGGBB` 形式的颜色。
-    init?(hex: String) {
+    /// 解析 `#RRGGBB` 形式的颜色（若解析失败则回退至系统默认灰色）。
+    init(hex: String) {
         var value = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if value.hasPrefix("#") { value.removeFirst() }
-        guard value.count == 6, let number = Int(value, radix: 16) else { return nil }
+        guard value.count == 6, let number = Int(value, radix: 16) else {
+            self = .gray
+            return
+        }
         let red = Double((number >> 16) & 0xFF) / 255
         let green = Double((number >> 8) & 0xFF) / 255
         let blue = Double(number & 0xFF) / 255
