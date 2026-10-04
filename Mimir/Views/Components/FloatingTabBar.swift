@@ -22,14 +22,7 @@ struct FloatingTabBar: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(height: 64)
-        .background {
-            Capsule(style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Capsule(style: .continuous)
-                        .fill(scheme == .dark ? Color(white: 0.10).opacity(0.85) : Color.white.opacity(0.82))
-                )
-        }
+        .liquidGlass(.regular.interactive(), in: .capsule)
         .overlay {
             Capsule(style: .continuous)
                 .strokeBorder(
@@ -43,6 +36,7 @@ struct FloatingTabBar: View {
                     ),
                     lineWidth: 1.1
                 )
+                .allowsHitTesting(false)
         }
         .shadow(
             color: AppUI.electricViolet.opacity(scheme == .dark ? 0.26 : 0.12),
@@ -93,10 +87,11 @@ struct FloatingTabBar: View {
             .background {
                 if isSelected {
                     Capsule(style: .continuous)
-                        .fill(AppUI.electricViolet.opacity(scheme == .dark ? 0.22 : 0.14))
+                        .fill(.clear)
+                        .liquidGlass(.regular.tint(AppUI.electricViolet.opacity(0.32)).interactive(), in: .capsule)
                         .overlay(
                             Capsule(style: .continuous)
-                                .strokeBorder(AppUI.electricViolet.opacity(0.35), lineWidth: 0.8)
+                                .strokeBorder(AppUI.electricViolet.opacity(0.45), lineWidth: 0.9)
                         )
                         .shadow(color: AppUI.electricViolet.opacity(0.35), radius: 8, y: 1)
                         .matchedGeometryEffect(id: "floating.tab.glow.pill", in: tabPillAnimation)

@@ -104,9 +104,15 @@ struct DashboardView: View {
                 showHelpGuide = true
             } label: {
                 Image(systemName: "questionmark.circle")
-                    .font(.system(size: 19, weight: .medium))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .frame(width: 34, height: 34)
+                    .liquidGlass(.clear.interactive(), in: .circle)
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                            .allowsHitTesting(false)
+                    }
             }
             .buttonStyle(PhysicalElasticCircleButtonStyle())
 
@@ -116,9 +122,15 @@ struct DashboardView: View {
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .frame(width: 34, height: 34)
+                    .liquidGlass(.clear.interactive(), in: .circle)
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                            .allowsHitTesting(false)
+                    }
             }
             .buttonStyle(PhysicalElasticCircleButtonStyle())
         }
@@ -508,7 +520,7 @@ struct DashboardView: View {
                     )
                 }
 
-                // 底部固定毛玻璃发光胶囊按钮：START NEW CHAT
+                // 底部固定官方液态玻璃发光胶囊按钮：START NEW CHAT
                 Button {
                     Haptics.impact(.medium)
                     coordinator.startNewChat()
@@ -523,27 +535,24 @@ struct DashboardView: View {
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background {
-                        Capsule(style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                Capsule(style: .continuous)
-                                    .fill(AppUI.electricViolet.opacity(scheme == .dark ? 0.20 : 0.12))
-                            )
-                    }
+                    .liquidGlass(
+                        .regular.tint(AppUI.electricViolet.opacity(0.40)).interactive(),
+                        in: .capsule
+                    )
                     .overlay {
                         Capsule(style: .continuous)
                             .strokeBorder(
                                 LinearGradient(
                                     colors: [
                                         Color.white.opacity(scheme == .dark ? 0.50 : 0.85),
-                                        AppUI.electricViolet.opacity(0.40)
+                                        AppUI.electricViolet.opacity(0.50)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
                                 lineWidth: 1.1
                             )
+                            .allowsHitTesting(false)
                     }
                     .shadow(color: AppUI.electricViolet.opacity(scheme == .dark ? 0.35 : 0.16), radius: 10, y: 3)
                 }

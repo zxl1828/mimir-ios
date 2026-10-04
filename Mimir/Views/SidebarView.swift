@@ -60,14 +60,8 @@ struct SidebarView: View {
 
             footer
         }
-        // 液态超薄材质 + 深浅色自适应底衬：抽屉打开时通透且保证文字高对比度
-        .background {
-            ZStack {
-                Rectangle().fill(.ultraThinMaterial)
-                Rectangle().fill(AppUI.glassTint(scheme: scheme))
-            }
-            .ignoresSafeArea()
-        }
+        .liquidGlass(.regular, in: .rect)
+        .ignoresSafeArea()
         .overlay(alignment: .trailing) {
             // 右边缘 1px 物理折射高光分界线
             Rectangle()
@@ -516,7 +510,7 @@ struct SidebarView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
         }
-        .background(.ultraThinMaterial)
+        .liquidGlass(.regular, in: .rect)
     }
 
     // MARK: - 复用件

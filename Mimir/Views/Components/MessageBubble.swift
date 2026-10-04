@@ -87,22 +87,7 @@ struct MessageBubble: View {
                     .textSelection(.enabled)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 11)
-                    .background {
-                        RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: scheme == .dark
-                                                ? [accent.opacity(0.42), AppUI.deepViolet.opacity(0.62)]
-                                                : [accent.opacity(0.95), AppUI.deepViolet.opacity(0.88)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                            )
-                    }
+                    .liquidGlass(.regular.tint(accent.opacity(scheme == .dark ? 0.65 : 0.90)).interactive(), in: .rect(cornerRadius: AppUI.bubbleRadius))
                     .overlay(
                         RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
                             .strokeBorder(

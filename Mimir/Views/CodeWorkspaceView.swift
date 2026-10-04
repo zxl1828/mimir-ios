@@ -256,6 +256,12 @@ struct CodeWorkspaceView: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(isLivePreviewMode ? AppUI.electricViolet : Color(hex: "34D399"))
                         .frame(width: 30, height: 30)
+                        .liquidGlass(isLivePreviewMode ? .regular.tint(AppUI.electricViolet.opacity(0.35)).interactive() : .clear.interactive(), in: .circle)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                                .allowsHitTesting(false)
+                        }
                 }
                 .buttonStyle(PhysicalElasticCircleButtonStyle())
 
@@ -269,6 +275,12 @@ struct CodeWorkspaceView: View {
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                         .frame(width: 30, height: 30)
+                        .liquidGlass(.clear.interactive(), in: .circle)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                                .allowsHitTesting(false)
+                        }
                 }
                 .buttonStyle(PhysicalElasticCircleButtonStyle())
 
@@ -281,6 +293,12 @@ struct CodeWorkspaceView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                         .frame(width: 30, height: 30)
+                        .liquidGlass(.clear.interactive(), in: .circle)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                                .allowsHitTesting(false)
+                        }
                 }
                 .buttonStyle(PhysicalElasticCircleButtonStyle())
 
@@ -293,6 +311,12 @@ struct CodeWorkspaceView: View {
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                         .frame(width: 30, height: 30)
+                        .liquidGlass(.clear.interactive(), in: .circle)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                                .allowsHitTesting(false)
+                        }
                 }
                 .buttonStyle(PhysicalElasticCircleButtonStyle())
             }
@@ -424,7 +448,12 @@ struct CodeWorkspaceView: View {
                             .foregroundStyle(Color.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Capsule().fill(AppUI.electricViolet))
+                            .liquidGlass(.regular.tint(AppUI.electricViolet.opacity(0.85)).interactive(), in: .capsule)
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.40), lineWidth: 0.9)
+                                    .allowsHitTesting(false)
+                            )
                         }
                         .buttonStyle(PhysicalElasticCapsuleButtonStyle())
 
@@ -437,8 +466,16 @@ struct CodeWorkspaceView: View {
                             Text("清空输出")
                                 .font(.system(size: 11))
                                 .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .liquidGlass(.clear.interactive(), in: .capsule)
+                                .overlay(
+                                    Capsule(style: .continuous)
+                                        .strokeBorder(Color.white.opacity(scheme == .dark ? 0.20 : 0.40), lineWidth: 0.8)
+                                        .allowsHitTesting(false)
+                                )
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
                     }
                     .padding(.horizontal, 4)
                 }
@@ -506,13 +543,30 @@ struct CodeWorkspaceView: View {
                 Button {
                     executeAIRefactor()
                 } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 28))
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(
                             aiPromptText.isEmpty
                                 ? AppUI.textCaption(scheme: scheme).opacity(0.4)
-                                : AppUI.electricViolet
+                                : Color.white
                         )
+                        .frame(width: 32, height: 32)
+                        .liquidGlass(
+                            aiPromptText.isEmpty
+                                ? .clear.interactive()
+                                : .regular.tint(AppUI.electricViolet.opacity(0.85)).interactive(),
+                            in: .circle
+                        )
+                        .overlay {
+                            Circle()
+                                .strokeBorder(
+                                    aiPromptText.isEmpty
+                                        ? Color.white.opacity(0.2)
+                                        : Color.white.opacity(0.45),
+                                    lineWidth: 0.9
+                                )
+                                .allowsHitTesting(false)
+                        }
                 }
                 .disabled(aiPromptText.isEmpty)
                 .buttonStyle(PhysicalElasticCircleButtonStyle())

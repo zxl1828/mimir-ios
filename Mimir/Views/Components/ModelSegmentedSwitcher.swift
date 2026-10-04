@@ -28,13 +28,11 @@ struct ModelSegmentedSwitcher: View {
             .padding(2)
         }
         .scrollClipDisabled()
-        .background(
-            Capsule(style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
+        .liquidGlass(.regular.interactive(), in: .capsule)
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                .allowsHitTesting(false)
         )
         .shadow(color: .black.opacity(scheme == .dark ? 0.35 : 0.08), radius: 8, y: 3)
         .contextMenu {
@@ -66,11 +64,12 @@ struct ModelSegmentedSwitcher: View {
                 .background {
                     if isSelected {
                         Capsule(style: .continuous)
-                            .fill(accent)
+                            .fill(.clear)
+                            .liquidGlass(.regular.tint(accent.opacity(0.85)).interactive(), in: .capsule)
                             .overlay(
                                 Capsule(style: .continuous)
                                     .strokeBorder(
-                                        AppUI.refractionEdge(accent, scheme: scheme),
+                                        Color.white.opacity(0.40),
                                         lineWidth: 1
                                     )
                             )

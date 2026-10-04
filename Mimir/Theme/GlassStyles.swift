@@ -35,6 +35,12 @@ extension View {
         self.liquidGlass(glass, in: .capsule)
     }
 
+    /// 圆形形态玻璃。
+    @ViewBuilder
+    func liquidGlassCircle(_ glass: Glass = .regular) -> some View {
+        self.liquidGlass(glass, in: .circle)
+    }
+
     /// 加一层极淡的描边，让玻璃边缘在浅色背景下依然清晰。
     func glassHairline(cornerRadius: CGFloat = AppSpacing.cardCorner, opacity: Double = 0.18) -> some View {
         self.overlay {
@@ -58,6 +64,150 @@ extension View {
                 .strokeBorder(Color.white.opacity(opacity), lineWidth: 0.8)
                 .allowsHitTesting(false)
         }
+    }
+}
+
+// MARK: - iOS 27 官方液态玻璃按键体系 (Official Liquid Glass Button Styles)
+
+/// 胶囊形态官方液态玻璃按钮样式（带 0.96 物理压缩与 Spring 超调）
+struct LiquidGlassCapsuleButtonStyle: ButtonStyle {
+    var tint: Color? = nil
+    var isHighlighted: Bool = false
+    var enableHaptic: Bool = true
+
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
+
+    func makeBody(configuration: Configuration) -> some View {
+        let activeTint = tint ?? accent
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .liquidGlass(
+                isHighlighted
+                    ? .regular.tint(activeTint.opacity(0.45)).interactive()
+                    : (tint != nil ? .regular.tint(activeTint.opacity(0.30)).interactive() : .regular.interactive()),
+                in: .capsule
+            )
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(
+                        isHighlighted
+                            ? activeTint.opacity(0.85)
+                            : Color.white.opacity(scheme == .dark ? 0.35 : 0.75),
+                        lineWidth: isHighlighted ? 1.2 : 0.9
+                    )
+            }
+            .shadow(
+                color: isHighlighted ? activeTint.opacity(scheme == .dark ? 0.45 : 0.20) : Color.black.opacity(scheme == .dark ? 0.25 : 0.05),
+                radius: isHighlighted ? 10 : 4,
+                y: 2
+            )
+            .animation(
+                configuration.isPressed
+                    ? .easeOut(duration: 0.10)
+                    : .spring(response: 0.30, dampingFraction: 0.58),
+                value: configuration.isPressed
+            )
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed && enableHaptic {
+                    Haptics.impact(.light)
+                }
+            }
+    }
+}
+
+/// 圆形官方液态玻璃按钮样式（带 0.94 物理压缩与 Spring 超调）
+struct LiquidGlassCircleButtonStyle: ButtonStyle {
+    var tint: Color? = nil
+    var isHighlighted: Bool = false
+    var enableHaptic: Bool = true
+
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
+
+    func makeBody(configuration: Configuration) -> some View {
+        let activeTint = tint ?? accent
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
+            .liquidGlass(
+                isHighlighted
+                    ? .regular.tint(activeTint.opacity(0.45)).interactive()
+                    : (tint != nil ? .regular.tint(activeTint.opacity(0.30)).interactive() : .regular.interactive()),
+                in: .circle
+            )
+            .overlay {
+                Circle()
+                    .strokeBorder(
+                        isHighlighted
+                            ? activeTint.opacity(0.85)
+                            : Color.white.opacity(scheme == .dark ? 0.35 : 0.75),
+                        lineWidth: isHighlighted ? 1.2 : 0.9
+                    )
+            }
+            .shadow(
+                color: isHighlighted ? activeTint.opacity(scheme == .dark ? 0.45 : 0.20) : Color.black.opacity(scheme == .dark ? 0.25 : 0.05),
+                radius: isHighlighted ? 10 : 4,
+                y: 2
+            )
+            .animation(
+                configuration.isPressed
+                    ? .easeOut(duration: 0.10)
+                    : .spring(response: 0.30, dampingFraction: 0.58),
+                value: configuration.isPressed
+            )
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed && enableHaptic {
+                    Haptics.impact(.light)
+                }
+            }
+    }
+}
+
+/// 矩形 / 卡片形态官方液态玻璃按钮样式
+struct LiquidGlassButtonStyle: ButtonStyle {
+    var cornerRadius: CGFloat = 16
+    var tint: Color? = nil
+    var isHighlighted: Bool = false
+    var enableHaptic: Bool = true
+
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
+
+    func makeBody(configuration: Configuration) -> some View {
+        let activeTint = tint ?? accent
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .liquidGlass(
+                isHighlighted
+                    ? .regular.tint(activeTint.opacity(0.45)).interactive()
+                    : (tint != nil ? .regular.tint(activeTint.opacity(0.30)).interactive() : .regular.interactive()),
+                in: .rect(cornerRadius: cornerRadius)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        isHighlighted
+                            ? activeTint.opacity(0.85)
+                            : Color.white.opacity(scheme == .dark ? 0.35 : 0.75),
+                        lineWidth: isHighlighted ? 1.2 : 0.9
+                    )
+            }
+            .shadow(
+                color: isHighlighted ? activeTint.opacity(scheme == .dark ? 0.45 : 0.20) : Color.black.opacity(scheme == .dark ? 0.25 : 0.05),
+                radius: isHighlighted ? 10 : 4,
+                y: 2
+            )
+            .animation(
+                configuration.isPressed
+                    ? .easeOut(duration: 0.10)
+                    : .spring(response: 0.30, dampingFraction: 0.58),
+                value: configuration.isPressed
+            )
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed && enableHaptic {
+                    Haptics.impact(.light)
+                }
+            }
     }
 }
 

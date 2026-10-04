@@ -185,24 +185,18 @@ enum AppUI {
     }
 }
 
-/// 软玻璃拟态卡片修饰器（Soft Glassmorphism）。
+/// 软玻璃拟态卡片修饰器（全原生 iOS 27 Liquid Glass）。
 struct SoftGlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 20
     @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
         content
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(scheme == .dark ? Color.white.opacity(0.06) : Color.white.opacity(0.65))
-                    )
-            }
+            .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(AppUI.softGlassCardBorder(scheme: scheme), lineWidth: 1)
+                    .allowsHitTesting(false)
             }
             .shadow(
                 color: AppUI.electricViolet.opacity(scheme == .dark ? 0.22 : 0.08),
@@ -329,7 +323,7 @@ struct SettingsRow: View {
     }
 }
 
-/// 顶栏圆形液态玻璃图标按钮（Codex 桌面端 Command Header 风格）。
+/// 顶栏圆形液态玻璃图标按钮（iOS 27 原生 Liquid Glass）。
 struct UIBarButton: View {
 
     let icon: String
@@ -349,14 +343,10 @@ struct UIBarButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(isHighlighted ? accent : AppUI.label)
                 .frame(width: 36, height: 36)
-                .background {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            Circle()
-                                .fill(isHighlighted ? accent.opacity(scheme == .dark ? 0.24 : 0.16) : AppUI.glassTint(scheme: scheme))
-                        )
-                }
+                .liquidGlass(
+                    isHighlighted ? .regular.tint(accent.opacity(0.40)).interactive() : .regular.interactive(),
+                    in: .circle
+                )
                 .overlay {
                     Circle()
                         .strokeBorder(
@@ -365,6 +355,7 @@ struct UIBarButton: View {
                                 : AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme)),
                             lineWidth: isHighlighted ? 1.2 : 0.9
                         )
+                        .allowsHitTesting(false)
                 }
                 .shadow(
                     color: isHighlighted ? accent.opacity(scheme == .dark ? 0.50 : 0.28) : .black.opacity(scheme == .dark ? 0.32 : 0.08),
@@ -378,7 +369,7 @@ struct UIBarButton: View {
     }
 }
 
-/// 输入框上方的快捷功能胶囊（液态玻璃风格）。
+/// 输入框上方的快捷功能胶囊（iOS 27 原生 Liquid Glass 风格）。
 struct UIQuickChip: View {
 
     let icon: String
@@ -408,22 +399,19 @@ struct UIQuickChip: View {
             .foregroundStyle(isSelected ? Color.white : AppUI.label)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
-            .background {
-                Capsule(style: .continuous)
-                    .fill(isSelected ? AnyShapeStyle(accent) : AnyShapeStyle(.ultraThinMaterial))
-                    .overlay(
-                        Capsule(style: .continuous)
-                            .fill(isSelected ? Color.clear : AppUI.glassTint(scheme: scheme))
-                    )
-            }
+            .liquidGlass(
+                isSelected ? .regular.tint(accent.opacity(0.85)).interactive() : .clear.interactive(),
+                in: .capsule
+            )
             .overlay(
                 Capsule(style: .continuous)
                     .strokeBorder(
                         isSelected
-                            ? AnyShapeStyle(Color.white.opacity(0.36))
+                            ? AnyShapeStyle(Color.white.opacity(0.45))
                             : AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme)),
                         lineWidth: 0.9
                     )
+                    .allowsHitTesting(false)
             )
             .shadow(
                 color: isSelected ? accent.opacity(scheme == .dark ? 0.45 : 0.25) : .black.opacity(scheme == .dark ? 0.20 : 0.04),
@@ -438,7 +426,7 @@ struct UIQuickChip: View {
 
 // MARK: - 液态玻璃修饰器
 
-/// Codex 桌面端风格的液态玻璃修饰器：超薄材质 + 自适应底衬 + 物理折射描边 + 悬浮辉光投影。
+/// iOS 27 官方液态玻璃修饰器：原生 glassEffect + 物理折射描边 + 悬浮辉光投影。
 struct LiquidGlassModifier: ViewModifier {
 
     @Environment(\.appAccent) private var accent
@@ -450,14 +438,12 @@ struct LiquidGlassModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(AppUI.glassTint(scheme: scheme, isHighlighted: isHighlighted))
-                    )
-            }
+            .liquidGlass(
+                isHighlighted
+                    ? .regular.tint(accent.opacity(0.35)).interactive()
+                    : .regular.interactive(),
+                in: .rect(cornerRadius: cornerRadius)
+            )
             // 外层折射倒角
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

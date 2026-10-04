@@ -138,7 +138,12 @@ struct FilesAssetsView: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .frame(width: 36, height: 36)
-                    .softGlassCard(cornerRadius: 12)
+                    .liquidGlass(.clear.interactive(), in: .rect(cornerRadius: 12))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                            .allowsHitTesting(false)
+                    }
             }
             .buttonStyle(PhysicalElasticButtonStyle())
         }
@@ -199,22 +204,19 @@ struct FilesAssetsView: View {
                             )
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .background {
-                                if isSelected {
-                                    Capsule(style: .continuous)
-                                        .fill(AppUI.electricViolet)
-                                        .shadow(color: AppUI.electricViolet.opacity(0.4), radius: 8, y: 2)
-                                } else {
-                                    Capsule(style: .continuous)
-                                        .fill(scheme == .dark ? Color.white.opacity(0.08) : Color.white.opacity(0.70))
-                                }
-                            }
+                            .liquidGlass(
+                                isSelected
+                                    ? .regular.tint(AppUI.electricViolet.opacity(0.85)).interactive()
+                                    : .clear.interactive(),
+                                in: .capsule
+                            )
                             .overlay(
                                 Capsule(style: .continuous)
                                     .strokeBorder(
                                         isSelected ? AppUI.electricViolet : Color.white.opacity(0.6),
                                         lineWidth: 0.8
                                     )
+                                    .allowsHitTesting(false)
                             )
                         }
                         .buttonStyle(PhysicalElasticCapsuleButtonStyle())
@@ -268,9 +270,14 @@ struct FilesAssetsView: View {
                     .foregroundStyle(AppUI.electricViolet)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(
+                    .liquidGlass(
+                        .regular.tint(AppUI.electricViolet.opacity(0.25)).interactive(),
+                        in: .capsule
+                    )
+                    .overlay(
                         Capsule(style: .continuous)
-                            .fill(AppUI.electricViolet.opacity(0.12))
+                            .strokeBorder(AppUI.electricViolet.opacity(0.35), lineWidth: 0.8)
+                            .allowsHitTesting(false)
                     )
             }
             .buttonStyle(PhysicalElasticCapsuleButtonStyle())
@@ -502,9 +509,11 @@ struct FilesAssetsView: View {
                                 )
                             )
                     }
+                    .liquidGlass(.regular.tint(AppUI.electricViolet.opacity(0.60)).interactive(), in: .circle)
                     .overlay {
                         Circle()
                             .strokeBorder(Color.white.opacity(0.65), lineWidth: 1.2)
+                            .allowsHitTesting(false)
                     }
                     .shadow(color: AppUI.electricViolet.opacity(0.55), radius: 12, y: 5)
                     .rotationEffect(.degrees(showFABMenu ? 90 : 0))
@@ -528,7 +537,12 @@ struct FilesAssetsView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .softGlassCard(cornerRadius: 18)
+            .liquidGlass(.regular.interactive(), in: .capsule)
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.white.opacity(scheme == .dark ? 0.35 : 0.70), lineWidth: 0.8)
+                    .allowsHitTesting(false)
+            }
             .shadow(color: Color.black.opacity(0.12), radius: 8, y: 3)
         }
         .buttonStyle(PhysicalElasticCapsuleButtonStyle())
@@ -567,10 +581,15 @@ struct FilesAssetsView: View {
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(AppUI.electricViolet)
+                .liquidGlass(
+                    .regular.tint(AppUI.electricViolet.opacity(0.85)).interactive(),
+                    in: .capsule
                 )
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.40), lineWidth: 0.9)
+                        .allowsHitTesting(false)
+                }
                 .shadow(color: AppUI.electricViolet.opacity(0.4), radius: 6, y: 2)
             }
             .buttonStyle(PhysicalElasticCapsuleButtonStyle())

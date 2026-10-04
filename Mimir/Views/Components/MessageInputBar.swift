@@ -77,13 +77,9 @@ struct MessageInputBar: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppUI.label)
                 .frame(width: 36, height: 36)
-                .background(
-                    Circle()
-                        .fill(
-                            scheme == .dark
-                                ? Color.white.opacity(showAttachMenu ? 0.16 : 0.08)
-                                : Color.black.opacity(showAttachMenu ? 0.10 : 0.05)
-                        )
+                .liquidGlass(
+                    showAttachMenu ? .regular.tint(accent.opacity(0.35)).interactive() : .clear.interactive(),
+                    in: .circle
                 )
                 .overlay(
                     Circle()
@@ -126,6 +122,7 @@ struct MessageInputBar: View {
                     Circle()
                         .fill(accent.opacity(0.18))
                         .frame(width: 36, height: 36)
+                        .liquidGlass(.clear.interactive(), in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(accent.opacity(0.6), lineWidth: 1)
@@ -143,9 +140,10 @@ struct MessageInputBar: View {
                             )
                         )
                         .frame(width: 36, height: 36)
+                        .liquidGlass(.regular.tint(accent.opacity(0.60)).interactive(), in: .circle)
                         .overlay(
                             Circle()
-                                .strokeBorder(Color.white.opacity(0.38), lineWidth: 0.9)
+                                .strokeBorder(Color.white.opacity(0.45), lineWidth: 0.9)
                         )
                         .shadow(color: accent.opacity(scheme == .dark ? 0.65 : 0.35), radius: 10, y: 2)
                     Image(systemName: "arrow.up")
@@ -164,6 +162,7 @@ struct MessageInputBar: View {
                             )
                         )
                         .frame(width: 36, height: 36)
+                        .liquidGlass(.regular.tint(accent.opacity(0.25)).interactive(), in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(accent.opacity(0.45), lineWidth: 0.9)

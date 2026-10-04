@@ -271,17 +271,11 @@ struct FluidRubberBandDrawer<Content: View>: View {
                         .frame(maxWidth: .infinity)
                 }
                 .frame(height: effectiveHeight)
-                .background {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                                .fill(AppUI.glassTint(scheme: scheme))
-                        )
-                }
+                .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: 28))
                 .overlay(
                     RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1.1)
+                        .allowsHitTesting(false)
                 )
                 .shadow(color: .black.opacity(scheme == .dark ? 0.55 : 0.12), radius: 24, y: -6)
                 .gesture(

@@ -279,11 +279,12 @@ struct MainChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .liquidGlass(.regular, in: .rect)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(AppUI.refractionEdge(accent, scheme: scheme))
                 .frame(height: 0.6)
+                .allowsHitTesting(false)
         }
     }
 
@@ -499,17 +500,11 @@ struct MainChatView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 24)
-        .background {
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(.ultraThinMaterial.opacity(0.35))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .fill(AppUI.glassTint(scheme: scheme).opacity(0.40))
-                )
-        }
+        .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: 30))
         .overlay {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                .allowsHitTesting(false)
         }
         .rotatingGlowBorder(cornerRadius: 30, lineWidth: 1.2, isAnimated: true, glowRadius: 36)
         // 空对话页只有这一张卡、不需要滚动，保留跟随触摸的倾斜作为趣味反馈。
@@ -947,14 +942,11 @@ struct MainChatView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(accent)
                     .frame(width: 44, height: 44)
-                    .background {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(Circle().fill(AppUI.glassTint(scheme: scheme)))
-                    }
+                    .liquidGlass(.regular.tint(accent.opacity(0.25)).interactive(), in: .circle)
                     .overlay {
                         Circle()
                             .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.9)
+                            .allowsHitTesting(false)
                     }
 
                 Text(title)
@@ -964,17 +956,11 @@ struct MainChatView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial.opacity(0.6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(AppUI.glassTint(scheme: scheme))
-                    )
-            }
+            .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: 16))
             .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
+                    .allowsHitTesting(false)
             }
         }
         .buttonStyle(PhysicalElasticButtonStyle(cornerRadius: 16))
