@@ -492,6 +492,8 @@ struct MainChatView: View {
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
         }
         .rotatingGlowBorder(cornerRadius: 30, lineWidth: 1.2, isAnimated: true, glowRadius: 36)
+        // 空对话页只有这一张卡、不需要滚动，保留跟随触摸的倾斜作为趣味反馈。
+        .interactiveTilt(maxAngle: 7.5, cornerRadius: 30)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
         .padding(.top, 24)
