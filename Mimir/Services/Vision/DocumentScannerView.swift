@@ -20,8 +20,7 @@ struct DocumentScannerView: UIViewControllerRepresentable {
         Coordinator(onFinish: onFinish, onCancel: onCancel)
     }
 
-    @MainActor
-    final class Coordinator: NSObject, VNDocumentCameraViewControllerDelegate {
+    final class Coordinator: NSObject, VNDocumentCameraViewControllerDelegate, @unchecked Sendable {
         private let onFinish: ([UIImage]) -> Void
         private let onCancel: () -> Void
 
@@ -30,7 +29,7 @@ struct DocumentScannerView: UIViewControllerRepresentable {
             self.onCancel = onCancel
         }
 
-        func documentCameraViewController(
+        nonisolated func documentCameraViewController(
             _ controller: VNDocumentCameraViewController,
             didFinishWith scan: VNDocumentCameraScan
         ) {
@@ -38,21 +37,27 @@ struct DocumentScannerView: UIViewControllerRepresentable {
             for index in 0..<scan.pageCount {
                 images.append(scan.imageOfPage(at: index))
             }
-            controller.dismiss(animated: true)
-            onFinish(images)
+            Task { @MainActor in
+                controller.dismiss(animated: true)
+                self.onFinish(images)
+            }
         }
 
-        func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
-            controller.dismiss(animated: true)
-            onCancel()
+        nonisolated func documentCameraViewControllerDidCancel(_ controller: VNDocumentCameraViewController) {
+            Task { @MainActor in
+                controller.dismiss(animated: true)
+                self.onCancel()
+            }
         }
 
-        func documentCameraViewController(
+        nonisolated func documentCameraViewController(
             _ controller: VNDocumentCameraViewController,
             didFailWithError error: Error
         ) {
-            controller.dismiss(animated: true)
-            onCancel()
+            Task { @MainActor in
+                controller.dismiss(animated: true)
+                self.onCancel()
+            }
         }
     }
 }
