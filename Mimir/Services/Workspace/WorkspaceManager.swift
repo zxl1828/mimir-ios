@@ -236,6 +236,15 @@ final class WorkspaceManager {
         return newItem
     }
 
+    func deleteFile(_ item: WorkspaceFileItem) {
+        if let url = item.url {
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            try? FileManager.default.removeItem(at: url)
+        }
+        allFiles.removeAll { $0.id == item.id }
+    }
+
     // MARK: - 书签持久化
 
     private func saveBookmark(_ data: Data, for url: URL) {

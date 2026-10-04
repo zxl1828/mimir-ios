@@ -604,13 +604,13 @@ struct GlassCardAction: Identifiable, Sendable {
     let title: String
     let icon: String
     let role: ButtonRole?
-    let action: @Sendable () -> Void
+    let action: @MainActor @Sendable () -> Void
 
     init(
         title: String,
         icon: String,
         role: ButtonRole? = nil,
-        action: @escaping @Sendable () -> Void
+        action: @escaping @MainActor @Sendable () -> Void
     ) {
         self.id = title
         self.title = title
