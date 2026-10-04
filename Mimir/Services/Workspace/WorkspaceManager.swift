@@ -121,7 +121,7 @@ final class WorkspaceManager {
 
         do {
             let bookmarkData = try url.bookmarkData(
-                options: .suitableForBookmarkFile,
+                options: [],
                 includingResourceValuesForKeys: nil,
                 relativeTo: nil
             )
@@ -250,7 +250,7 @@ final class WorkspaceManager {
             var isStale = false
             if let resolvedURL = try? URL(
                 resolvingBookmarkData: data,
-                options: .suitableForBookmarkFile,
+                options: [],
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             ) {

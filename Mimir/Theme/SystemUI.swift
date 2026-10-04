@@ -139,33 +139,33 @@ enum AppUI {
     // MARK: - 新增全局设计系统规范 (Design Tokens)
 
     /// 电光紫高亮色（#7C5CFC）。
-    static let electricViolet = Color(hex: "7C5CFC")
+    static let electricViolet = Color(red: 0.486, green: 0.361, blue: 0.988)
     /// 极光淡紫（#A78BFA）。
-    static let auroraViolet = Color(hex: "A78BFA")
+    static let auroraViolet = Color(red: 0.655, green: 0.545, blue: 0.980)
 
     static func textTitle(scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(hex: "F3F0FB") : Color(hex: "1E1B2E")
+        scheme == .dark ? Color(red: 0.95, green: 0.94, blue: 0.98) : Color(red: 0.12, green: 0.11, blue: 0.18)
     }
 
     static func textSubtitle(scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(hex: "A5A0B8") : Color(hex: "5D5870")
+        scheme == .dark ? Color(red: 0.65, green: 0.63, blue: 0.72) : Color(red: 0.36, green: 0.35, blue: 0.44)
     }
 
     static func textCaption(scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(hex: "7E7A8E") : Color(hex: "9CA3AF")
+        scheme == .dark ? Color(red: 0.49, green: 0.48, blue: 0.56) : Color(red: 0.61, green: 0.64, blue: 0.69)
     }
 
     /// 规范要求的浅紫至雪白平滑渐变背景（深色模式自适应为深紫夜渐变）。
     static func ambientBackground(scheme: ColorScheme) -> LinearGradient {
         if scheme == .dark {
             return LinearGradient(
-                colors: [Color(hex: "120F1D"), Color(hex: "08070E")],
+                colors: [Color(red: 0.07, green: 0.06, blue: 0.11), Color(red: 0.03, green: 0.03, blue: 0.05)],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else {
             return LinearGradient(
-                colors: [Color(hex: "F4F1FA"), Color(hex: "E8E2F5")],
+                colors: [Color(red: 0.957, green: 0.945, blue: 0.980), Color(red: 0.910, green: 0.886, blue: 0.961)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -219,32 +219,6 @@ extension View {
         modifier(SoftGlassCardModifier(cornerRadius: cornerRadius))
     }
 }
-
-extension Color {
-    /// 16 进制颜色初始化器。
-    init(hex: String) {
-        let clean = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: clean).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch clean.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:
-            (a, r, g, b) = (255, 128, 128, 128)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255.0,
-            green: Double(g) / 255.0,
-            blue: Double(b) / 255.0,
-            opacity: Double(a) / 255.0
-        )
-    }
 
     /// 浅色 / 深色两套取值的动态色。
     static func adaptive(light: UIColor, dark: UIColor) -> Color {

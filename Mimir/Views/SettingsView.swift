@@ -6,8 +6,13 @@ import UIKit
 /// 根页只用 4 个分组呈现，具体参数分别下钻到各自子页，保证首屏干净。
 struct SettingsView: View {
 
-    let chat: ChatViewModel
-    let list: ConversationListViewModel
+    var chat: ChatViewModel? = nil
+    var list: ConversationListViewModel
+
+    init(chat: ChatViewModel? = nil, list: ConversationListViewModel) {
+        self.chat = chat
+        self.list = list
+    }
 
     @Environment(AppSettings.self) private var settings
     @Environment(\.dismiss) private var dismiss

@@ -58,9 +58,7 @@ struct DashboardView: View {
                 .ignoresSafeArea()
         }
         .sheet(isPresented: $showSettings) {
-            NavigationStack {
-                SettingsView()
-            }
+            SettingsView(list: ConversationListViewModel(modelContext: modelContext, settings: settings))
         }
         .sheet(isPresented: $showHelpGuide) {
             helpGuideSheet
@@ -71,7 +69,7 @@ struct DashboardView: View {
 
     private var topHeaderRow: some View {
         HStack(spacing: 10) {
-            MimirMascot(mood: .calm, size: 30)
+            MimirMascot(size: 30, mood: .calm)
 
             Text("Mimir")
                 .font(.system(size: 24, weight: .bold, design: .rounded))

@@ -58,6 +58,11 @@ final class TabNavigationCoordinator {
         switchToTab(.assistant)
     }
 
+    func navigateToAssistant(withPrompt prompt: String) {
+        pendingPromptToChat = prompt
+        switchToTab(.assistant)
+    }
+
     func openConversation(id: UUID) {
         pendingOpenConversationID = id
         switchToTab(.assistant)
