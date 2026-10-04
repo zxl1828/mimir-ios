@@ -595,3 +595,193 @@ extension View {
         buttonStyle(PhysicalElasticButtonStyle(scale: scale, cornerRadius: cornerRadius))
     }
 }
+
+// MARK: - 8. 真实卡片交互与暗色磨砂玻璃操作蒙版 (Interactive Glass Card & Dark Glass Action Overlay)
+
+/// 卡片浮动操作按钮定义。
+public struct GlassCardAction: Identifiable, Sendable {
+    public let id: String
+    public let title: String
+    public let icon: String
+    public let role: ButtonRole?
+    public let action: @Sendable () -> Void
+
+    public init(
+        title: String,
+        icon: String,
+        role: ButtonRole? = nil,
+        action: @escaping @Sendable () -> Void
+    ) {
+        self.id = title
+        self.title = title
+        self.icon = icon
+        self.role = role
+        self.action = action
+    }
+}
+
+/// 交互式磨砂卡片修饰器：
+/// - 按压时触发 scaleEffect(0.96) 物理弹性压缩与触感反馈；
+/// - 长按或触发时弹起黑色磨砂玻璃操作蒙版（Color.black.opacity(0.35) + 极细紫白折射微光高亮描边）；
+/// - 展示操作图标按钮，点击后平滑收起或点击外部收起。
+public struct GlassCardInteractiveModifier: ViewModifier {
+
+    var cornerRadius: CGFloat
+    var actions: [GlassCardAction]
+    var onPrimaryTap: (() -> Void)?
+
+    @State private var isPressed: Bool = false
+    @State private var showActionOverlay: Bool = false
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
+
+    public init(
+        cornerRadius: CGFloat = AppUI.cardRadius,
+        actions: [GlassCardAction] = [],
+        onPrimaryTap: (() -> Void)? = nil
+    ) {
+        self.cornerRadius = cornerRadius
+        self.actions = actions
+        self.onPrimaryTap = onPrimaryTap
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .animation(.spring(response: 0.28, dampingFraction: 0.70), value: isPressed)
+            .overlay {
+                if showActionOverlay && !actions.isEmpty {
+                    darkActionOverlay
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.92)),
+                                removal: .opacity.combined(with: .scale(scale: 0.95))
+                            )
+                        )
+                }
+            }
+            .onLongPressGesture(minimumDuration: 0.42, pressing: { pressing in
+                if pressing != isPressed {
+                    isPressed = pressing
+                    if pressing {
+                        Haptics.impact(.light)
+                    }
+                }
+            }) {
+                Haptics.impact(.medium)
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                    showActionOverlay.toggle()
+                }
+            }
+            .simultaneousGesture(
+                TapGesture().onEnded {
+                    if showActionOverlay {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                            showActionOverlay = false
+                        }
+                    } else if let onPrimaryTap {
+                        Haptics.impact(.light)
+                        onPrimaryTap()
+                    }
+                }
+            )
+    }
+
+    private var darkActionOverlay: some View {
+        ZStack {
+            // 黑色半透明液态磨砂玻璃底
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.black.opacity(0.48))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    Color.white.opacity(0.70),
+                                    AppUI.electricViolet.opacity(0.85),
+                                    Color.white.opacity(0.25)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.2
+                        )
+                }
+                .shadow(color: AppUI.electricViolet.opacity(0.35), radius: 12)
+
+            // 操作图标按钮列表
+            HStack(spacing: 12) {
+                ForEach(actions) { item in
+                    Button {
+                        Haptics.impact(.medium)
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                            showActionOverlay = false
+                        }
+                        item.action()
+                    } label: {
+                        VStack(spacing: 4) {
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        item.role == .destructive
+                                            ? Color.red.opacity(0.28)
+                                            : Color.white.opacity(0.18)
+                                    )
+                                    .frame(width: 38, height: 38)
+                                    .overlay {
+                                        Circle()
+                                            .strokeBorder(
+                                                item.role == .destructive
+                                                    ? Color.red.opacity(0.60)
+                                                    : Color.white.opacity(0.40),
+                                                lineWidth: 0.8
+                                            )
+                                    }
+
+                                Image(systemName: item.icon)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(
+                                        item.role == .destructive
+                                            ? Color.red
+                                            : Color.white
+                                    )
+                            }
+
+                            Text(item.title)
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundStyle(Color.white.opacity(0.92))
+                                .lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.90))
+                }
+            }
+            .padding(.horizontal, 10)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .onTapGesture {
+            withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                showActionOverlay = false
+            }
+        }
+    }
+}
+
+extension View {
+    /// 为卡片添加 0.96 物理弹性按压触感与长按弹出的深色磨砂玻璃操作蒙版。
+    public func interactiveGlassCard(
+        cornerRadius: CGFloat = AppUI.cardRadius,
+        actions: [GlassCardAction] = [],
+        onPrimaryTap: (() -> Void)? = nil
+    ) -> some View {
+        modifier(
+            GlassCardInteractiveModifier(
+                cornerRadius: cornerRadius,
+                actions: actions,
+                onPrimaryTap: onPrimaryTap
+            )
+        )
+    }
+}
+

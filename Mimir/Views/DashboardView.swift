@@ -13,10 +13,25 @@ struct DashboardView: View {
 
     @Query(sort: \Conversation.updatedAt, order: .reverse)
     private var conversations: [Conversation]
+    @Query(sort: \AgentDockItem.sortIndex)
+    private var agents: [AgentDockItem]
+    @Query(sort: \Skill.sortIndex)
+    private var skills: [Skill]
+    @Query
+    private var mcpConfigs: [MCPServerConfig]
 
     @State private var showSettings = false
     @State private var showHelpGuide = false
+    @State private var showAgentManager = false
+    @State private var showSkillManager = false
+    @State private var showMCPServers = false
+    @State private var showScheduledTasks = false
+    @State private var showGlobalSearch = false
+    @State private var showMemoryBrowser = false
+    @State private var showDataFlow = false
     @State private var previewArtwork = false
+    @State private var renamingConversation: Conversation?
+    @State private var renameText = ""
 
     private var coordinator: TabNavigationCoordinator {
         TabNavigationCoordinator.shared
@@ -33,21 +48,17 @@ struct DashboardView: View {
                 quickToolsRow
                     .staggeredSlideEntrance(index: 1)
 
-                // 3. 数据与指标监控（DATA & METRICS >）
-                dataAndMetricsSection
+                // 3. 四大核心业务工作区（智能体中心、技能工具箱、定时任务与项目、知识与记忆检索）
+                coreWorkspaceCardsSection
                     .staggeredSlideEntrance(index: 2)
 
-                // 4. 项目状态与代码微缩预览（PROJECT STATUS >）
-                projectStatusSection
+                // 4. 进行中的会话与任务流（CURRENT CONVERSATIONS）
+                currentConversationsSection
                     .staggeredSlideEntrance(index: 3)
 
-                // 5. 进行中的会话与任务流（CURRENT CONVERSATIONS）
-                currentConversationsSection
-                    .staggeredSlideEntrance(index: 4)
-
-                // 6. 底部星穹神树精选多模态资产微展台
+                // 5. 底部星穹神树精选多模态资产微展台
                 artworkShowcaseCard
-                    .staggeredSlideEntrance(index: 5)
+                    .staggeredSlideEntrance(index: 4)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -62,6 +73,43 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showHelpGuide) {
             helpGuideSheet
+        }
+        .sheet(isPresented: $showAgentManager) {
+            AgentManagerView()
+        }
+        .sheet(isPresented: $showSkillManager) {
+            SkillManagerView()
+        }
+        .sheet(isPresented: $showMCPServers) {
+            MCPServersView()
+        }
+        .sheet(isPresented: $showScheduledTasks) {
+            ScheduledTasksView()
+        }
+        .sheet(isPresented: $showGlobalSearch) {
+            GlobalSearchView { conversationID, _ in
+                coordinator.openConversation(id: conversationID)
+            }
+        }
+        .sheet(isPresented: $showMemoryBrowser) {
+            MemoryBrowserView()
+        }
+        .sheet(isPresented: $showDataFlow) {
+            DataFlowPanelView()
+        }
+        .alert("重命名对话", isPresented: Binding(
+            get: { renamingConversation != nil },
+            set: { if !$0 { renamingConversation = nil } }
+        )) {
+            TextField("对话名称", text: $renameText)
+            Button("取消", role: .cancel) { renamingConversation = nil }
+            Button("保存") {
+                if let convo = renamingConversation {
+                    convo.title = renameText
+                    try? modelContext.save()
+                }
+                renamingConversation = nil
+            }
         }
     }
 
@@ -237,238 +285,331 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - 3. 数据与指标监控 (Data & Metrics)
+    // MARK: - 3. 四大核心业务工作区 (4 大核心功能卡片)
 
-    private var dataAndMetricsSection: some View {
-        VStack(spacing: 10) {
-            sectionHeader(title: "DATA & METRICS", destinationTab: .files)
+    private var coreWorkspaceCardsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("WORKSPACE CAPABILITIES")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                    .padding(.horizontal, 4)
+                Spacer()
+                Text("长按展开操作蒙版")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+            }
 
-            HStack(spacing: 12) {
-                // 左卡片：Castor Chats
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Castor Chats")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.white)
-                        Spacer()
-                        Text("Pro, Ratio")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color(hex: "9CA3AF"))
-                    }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                // 卡片 1: 智能体中心 (Agents & Models)
+                agentCenterCard
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        metricRow(label: "S: Chats", value: "#a# 11", tag: "Low", tagColor: Color(hex: "34D399"))
-                        metricRow(label: "Depts analysis", value: "#a# 12", tag: "High", tagColor: Color(hex: "F472B6"))
-                        metricRow(label: "Deptc points", value: "#a2 9", tag: "Medium", tagColor: Color(hex: "FBBF24"))
-                        metricRow(label: "Moicar chats", value: "#a3 3", tag: "Upch", tagColor: Color(hex: "A78BFA"))
-                    }
-                    .padding(.vertical, 2)
+                // 卡片 2: 技能工具箱 (Skills & Tools)
+                skillsToolboxCard
 
-                    Spacer(minLength: 4)
+                // 卡片 3: 定时任务与项目 (Tasks & Projects)
+                scheduledTasksCard
 
-                    // 底部 3 根微型紫蓝进度条
-                    HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(LinearGradient(colors: [Color(hex: "7C5CFC"), Color(hex: "A78BFA")], startPoint: .bottom, endPoint: .top))
-                            .frame(width: 8, height: 16)
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(LinearGradient(colors: [Color(hex: "7C5CFC"), Color(hex: "38BDF8")], startPoint: .bottom, endPoint: .top))
-                            .frame(width: 8, height: 22)
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(LinearGradient(colors: [Color(hex: "7C5CFC"), Color(hex: "F472B6")], startPoint: .bottom, endPoint: .top))
-                            .frame(width: 8, height: 12)
-
-                        Spacer()
-                        Text("High/Low token ratio")
-                            .font(.system(size: 8.5))
-                            .foregroundStyle(Color.white.opacity(0.55))
-                    }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, minHeight: 146)
-                .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(hex: "1F1B2C").opacity(scheme == .dark ? 0.90 : 0.88))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.18), radius: 10, y: 4)
-                .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
-
-                // 右卡片：Export Trend 柱状图
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Export Trend")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.white)
-
-                    HStack(alignment: .bottom, spacing: 4) {
-                        // Y 轴刻度
-                        VStack(alignment: .leading) {
-                            Text("100").font(.system(size: 8))
-                            Spacer()
-                            Text("40").font(.system(size: 8))
-                            Spacer()
-                            Text("20").font(.system(size: 8))
-                            Spacer()
-                            Text("0").font(.system(size: 8))
-                        }
-                        .foregroundStyle(Color.white.opacity(0.45))
-                        .frame(height: 72)
-
-                        Spacer()
-
-                        // 10 根渐变走势柱
-                        let barHeights: [CGFloat] = [18, 32, 44, 26, 68, 22, 52, 40, 58, 64]
-                        HStack(alignment: .bottom, spacing: 4.5) {
-                            ForEach(0..<10, id: \.self) { idx in
-                                Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [
-                                                Color(hex: "7C5CFC"),
-                                                Color(hex: "38BDF8")
-                                            ],
-                                            startPoint: .bottom,
-                                            endPoint: .top
-                                        )
-                                    )
-                                    .frame(width: 5.5, height: barHeights[idx])
-                                    .shadow(color: Color(hex: "7C5CFC").opacity(0.35), radius: 3, y: 0)
-                            }
-                        }
-                        .frame(height: 72, alignment: .bottom)
-                    }
-
-                    // X 轴时间刻度
-                    HStack {
-                        Spacer()
-                        Text("01  12  03  44  56  67  78  89  10e 10t")
-                            .font(.system(size: 7.5, design: .monospaced))
-                            .foregroundStyle(Color.white.opacity(0.40))
-                    }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, minHeight: 146)
-                .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(hex: "1F1B2C").opacity(scheme == .dark ? 0.90 : 0.88))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.18), radius: 10, y: 4)
-                .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
+                // 卡片 4: 知识与记忆检索 (Memory & Context)
+                memoryContextCard
             }
         }
     }
 
-    private func metricRow(label: String, value: String, tag: String, tagColor: Color) -> some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 9.5))
-                .foregroundStyle(Color.white.opacity(0.70))
-                .lineLimit(1)
-            Spacer()
-            Text(value)
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.90))
-            Text("// \(tag)")
-                .font(.system(size: 8.5, weight: .semibold))
-                .foregroundStyle(tagColor)
+    // MARK: - 3.1 智能体中心卡片
+
+    private var agentCenterCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AppUI.electricViolet.opacity(0.18))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "cpu")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppUI.electricViolet)
+                }
+
+                Spacer()
+
+                Text("\(max(agents.count, 1)) 智能体")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(AppUI.electricViolet)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(AppUI.electricViolet.opacity(0.12)))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("智能体中心")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                Text("Agents & Models")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+            }
+
+            Spacer(minLength: 2)
+
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color(hex: "34D399"))
+                    .frame(width: 6, height: 6)
+                Text(ModelCatalog.cardLabel(for: settings.credential.modelID))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                    .lineLimit(1)
+            }
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .softGlassCard(cornerRadius: 18)
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(AppUI.electricViolet.opacity(0.32), lineWidth: 1.1)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: AppUI.electricViolet.opacity(0.12), radius: 10, y: 4)
+        .interactiveGlassCard(
+            cornerRadius: 18,
+            actions: [
+                GlassCardAction(title: "智能体管理", icon: "slider.horizontal.3") {
+                    showAgentManager = true
+                },
+                GlassCardAction(title: "快速对话", icon: "bubble.left.and.bubble.right") {
+                    coordinator.switchToTab(.assistant)
+                },
+                GlassCardAction(title: "模型配置", icon: "gearshape") {
+                    showSettings = true
+                }
+            ],
+            onPrimaryTap: {
+                showAgentManager = true
+            }
+        )
+        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
     }
 
-    // MARK: - 4. 项目状态与代码微缩预览 (Project Status)
+    // MARK: - 3.2 技能工具箱卡片
 
-    private var projectStatusSection: some View {
-        VStack(spacing: 10) {
-            sectionHeader(title: "PROJECT STATUS", destinationTab: .code)
-
-            HStack(spacing: 12) {
-                // 左卡片：Objective 折线图
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Objective")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.white)
-
-                    HStack(alignment: .bottom) {
-                        VStack(alignment: .leading) {
-                            Text("100").font(.system(size: 8))
-                            Spacer()
-                            Text("50").font(.system(size: 8))
-                            Spacer()
-                            Text("0").font(.system(size: 8))
-                        }
-                        .foregroundStyle(Color.white.opacity(0.45))
-                        .frame(height: 56)
-
-                        Spacer()
-
-                        // 贝塞尔发光平滑折线
-                        ObjectiveLineChart()
-                            .frame(height: 60)
-                    }
+    private var skillsToolboxCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "38BDF8").opacity(0.18))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "wrench.and.screwdriver")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "38BDF8"))
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, minHeight: 122)
-                .background {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color(hex: "1F1B2C").opacity(scheme == .dark ? 0.90 : 0.88))
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-                }
-                .shadow(color: Color.black.opacity(0.18), radius: 10, y: 4)
-                .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
 
-                // 右卡片：语法高亮代码微缩
-                Button {
+                Spacer()
+
+                Text("\(skills.count) 技能")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "38BDF8"))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(hex: "38BDF8").opacity(0.12)))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("技能工具箱")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                Text("Skills & MCP")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+            }
+
+            Spacer(minLength: 2)
+
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color(hex: "38BDF8"))
+                    .frame(width: 6, height: 6)
+                Text("\(mcpConfigs.count) 个 MCP 协议挂载")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                    .lineLimit(1)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .softGlassCard(cornerRadius: 18)
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color(hex: "38BDF8").opacity(0.32), lineWidth: 1.1)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: Color(hex: "38BDF8").opacity(0.12), radius: 10, y: 4)
+        .interactiveGlassCard(
+            cornerRadius: 18,
+            actions: [
+                GlassCardAction(title: "技能配置", icon: "slider.horizontal.3") {
+                    showSkillManager = true
+                },
+                GlassCardAction(title: "MCP 服务", icon: "network") {
+                    showMCPServers = true
+                },
+                GlassCardAction(title: "新建技能", icon: "plus.circle") {
+                    showSkillManager = true
+                }
+            ],
+            onPrimaryTap: {
+                showSkillManager = true
+            }
+        )
+        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
+    }
+
+    // MARK: - 3.3 定时任务与项目卡片
+
+    private var scheduledTasksCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "34D399").opacity(0.18))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "clock.badge.checkmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "34D399"))
+                }
+
+                Spacer()
+
+                Text("调度中")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "34D399"))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(hex: "34D399").opacity(0.12)))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("定时任务与项目")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                Text("Tasks & Projects")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+            }
+
+            Spacer(minLength: 2)
+
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color(hex: "34D399"))
+                    .frame(width: 6, height: 6)
+                Text("后台自动化流程活跃")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                    .lineLimit(1)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .softGlassCard(cornerRadius: 18)
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color(hex: "34D399").opacity(0.32), lineWidth: 1.1)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: Color(hex: "34D399").opacity(0.12), radius: 10, y: 4)
+        .interactiveGlassCard(
+            cornerRadius: 18,
+            actions: [
+                GlassCardAction(title: "任务调度", icon: "clock.arrow.circlepath") {
+                    showScheduledTasks = true
+                },
+                GlassCardAction(title: "代码工坊", icon: "chevron.left.forwardslash.chevron.right") {
                     coordinator.switchToTab(.code)
-                } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("export inputRnfent = AIEElement {")
-                            .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color(hex: "38BDF8"))
-                        Text("  wait(element) {")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Color(hex: "F472B6"))
-                        Text("    dra.GeooInclose('makter');")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Color(hex: "34D399"))
-                        Text("    false: 'relapse/teo',")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Color(hex: "A78BFA"))
-                        Text("    essee: 'dearnights.event.prom'")
-                            .font(.system(size: 8.5, design: .monospaced))
-                            .foregroundStyle(Color(hex: "FBBF24"))
-                        Text("  }")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Color(hex: "F472B6"))
-                        Text("}")
-                            .font(.system(size: 9.5, design: .monospaced))
-                            .foregroundStyle(Color(hex: "38BDF8"))
-                    }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minHeight: 122)
-                    .background {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(Color(hex: "171424").opacity(scheme == .dark ? 0.95 : 0.90))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(AppUI.electricViolet.opacity(0.35), lineWidth: 1)
-                    }
-                    .shadow(color: Color.black.opacity(0.20), radius: 10, y: 4)
+                },
+                GlassCardAction(title: "工作区目录", icon: "folder") {
+                    coordinator.switchToTab(.files)
                 }
-                .buttonStyle(PhysicalElasticButtonStyle())
-                .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
+            ],
+            onPrimaryTap: {
+                showScheduledTasks = true
+            }
+        )
+        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
+    }
+
+    // MARK: - 3.4 知识与记忆检索卡片
+
+    private var memoryContextCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "F472B6").opacity(0.18))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "F472B6"))
+                }
+
+                Spacer()
+
+                Text("\(MemoryStore.shared.factsCount) 记忆")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "F472B6"))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(hex: "F472B6").opacity(0.12)))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("知识与记忆检索")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                Text("Memory & Search")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+            }
+
+            Spacer(minLength: 2)
+
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(Color(hex: "F472B6"))
+                    .frame(width: 6, height: 6)
+                Text("全域语义索引支持")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                    .lineLimit(1)
             }
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
+        .softGlassCard(cornerRadius: 18)
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color(hex: "F472B6").opacity(0.32), lineWidth: 1.1)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: Color(hex: "F472B6").opacity(0.12), radius: 10, y: 4)
+        .interactiveGlassCard(
+            cornerRadius: 18,
+            actions: [
+                GlassCardAction(title: "全域搜索", icon: "magnifyingglass") {
+                    showGlobalSearch = true
+                },
+                GlassCardAction(title: "记忆看板", icon: "brain") {
+                    showMemoryBrowser = true
+                },
+                GlassCardAction(title: "数据流向", icon: "point.3.connected.trianglepath.dotted") {
+                    showDataFlow = true
+                }
+            ],
+            onPrimaryTap: {
+                showGlobalSearch = true
+            }
+        )
+        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
     }
 
     // MARK: - 5. 进行中的会话与任务流 (Current Conversations)
@@ -481,17 +622,10 @@ struct DashboardView: View {
                 .padding(.horizontal, 4)
 
             VStack(spacing: 12) {
-                // 如果本地有真实会话，优先展示前 3 条；否则展示精美预设会话
+                // 如果本地有真实会话，展示真实会话；否则展示精美预设会话
                 if !conversations.isEmpty {
-                    ForEach(Array(conversations.prefix(3))) { convo in
-                        conversationRow(
-                            title: convo.title.isEmpty ? "新对话" : convo.title,
-                            subtitle: (convo.lastMessage?.text.isEmpty == false ? convo.lastMessage?.text : nil) ?? "点击继续进行多轮深度推理…",
-                            time: convo.updatedAt.formatted(.relative(presentation: .named)),
-                            onTap: {
-                                coordinator.openConversation(id: convo.id)
-                            }
-                        )
+                    ForEach(Array(conversations.prefix(4))) { convo in
+                        realConversationRow(convo)
                     }
                 } else {
                     conversationRow(
@@ -563,6 +697,52 @@ struct DashboardView: View {
             .softGlassCard(cornerRadius: 22)
             .interactiveTilt(maxAngle: 4.5, cornerRadius: 22)
         }
+    }
+
+    private func realConversationRow(_ convo: Conversation) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(convo.title.isEmpty ? "新对话" : convo.title)
+                    .font(.system(size: 14.5, weight: .bold))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                    .lineLimit(1)
+
+                Text((convo.lastMessage?.text.isEmpty == false ? convo.lastMessage?.text : nil) ?? "点击继续进行多轮深度推理…")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text(convo.updatedAt.formatted(.relative(presentation: .named)))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                .padding(.top, 1)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 6)
+        .contentShape(Rectangle())
+        .interactiveGlassCard(
+            cornerRadius: 12,
+            actions: [
+                GlassCardAction(title: "打开对话", icon: "bubble.left.and.bubble.right") {
+                    coordinator.openConversation(id: convo.id)
+                },
+                GlassCardAction(title: "重命名", icon: "pencil") {
+                    renamingConversation = convo
+                    renameText = convo.title
+                },
+                GlassCardAction(title: "删除", icon: "trash", role: .destructive) {
+                    Haptics.impact(.medium)
+                    modelContext.delete(convo)
+                    try? modelContext.save()
+                }
+            ],
+            onPrimaryTap: {
+                coordinator.openConversation(id: convo.id)
+            }
+        )
     }
 
     private func conversationRow(title: String, subtitle: String, time: String, onTap: @escaping () -> Void) -> some View {
@@ -700,70 +880,6 @@ struct DashboardView: View {
     }
 }
 
-/// 贝塞尔发光平滑折线图 (Objective Curve)
-private struct ObjectiveLineChart: View {
-    var body: some View {
-        GeometryReader { proxy in
-            let w = proxy.size.width
-            let h = proxy.size.height
-
-            // 关键点：(0.0, 0.7), (0.25, 0.55), (0.45, 0.70), (0.65, 0.20), (0.85, 0.35), (1.0, 0.25)
-            let pts: [CGPoint] = [
-                CGPoint(x: 0, y: h * 0.75),
-                CGPoint(x: w * 0.22, y: h * 0.60),
-                CGPoint(x: w * 0.42, y: h * 0.72),
-                CGPoint(x: w * 0.65, y: h * 0.18),
-                CGPoint(x: w * 0.85, y: h * 0.38),
-                CGPoint(x: w, y: h * 0.22)
-            ]
-
-            ZStack {
-                // 渐变填充阴影
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: h))
-                    path.addLine(to: pts[0])
-                    for i in 1..<pts.count {
-                        let prev = pts[i - 1]
-                        let curr = pts[i]
-                        let mid = CGPoint(x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2)
-                        path.addQuadCurve(to: mid, control: prev)
-                        path.addLine(to: curr)
-                    }
-                    path.addLine(to: CGPoint(x: w, y: h))
-                    path.closeSubpath()
-                }
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: "7C5CFC").opacity(0.38), Color.clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-
-                // 发光折线
-                Path { path in
-                    path.move(to: pts[0])
-                    for i in 1..<pts.count {
-                        let prev = pts[i - 1]
-                        let curr = pts[i]
-                        let mid = CGPoint(x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2)
-                        path.addQuadCurve(to: mid, control: prev)
-                        path.addLine(to: curr)
-                    }
-                }
-                .stroke(
-                    LinearGradient(
-                        colors: [Color(hex: "7C5CFC"), Color(hex: "38BDF8")],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 2.2
-                )
-                .shadow(color: Color(hex: "7C5CFC").opacity(0.75), radius: 4, y: 1)
-            }
-        }
-    }
-}
 
 /// 底部星穹神树艺术图绘制组件
 private struct CosmicTreeArtworkView: View {

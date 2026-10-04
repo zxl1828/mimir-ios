@@ -18,8 +18,7 @@ struct MainChatView: View {
     @State private var skills: [Skill] = []
     @State private var mcpConfigs: [MCPServerConfig] = []
 
-    @State private var sidebarOpen = false
-    @State private var dragOffset: CGFloat = 0
+    @State private var isKeyboardVisible = false
     @State private var showReasoningCard = false
     @State private var showSettings = false
     @State private var showVoiceMode = false
@@ -51,39 +50,15 @@ struct MainChatView: View {
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        GeometryReader { proxy in
-            let sidebarWidth = min(proxy.size.width * 0.8, 320)
-
-            ZStack(alignment: .leading) {
-                mainColumn
-                    .offset(x: sidebarOpen ? 20 + max(dragOffset, 0) : max(dragOffset, 0))
-                    .animation(AppAnimation.sidebar, value: sidebarOpen)
-
-                if sidebarOpen || dragOffset > 0 {
-                    Color.black
-                        .opacity(0.35 * dimProgress(sidebarWidth: sidebarWidth))
-                        .ignoresSafeArea()
-                        .animation(AppAnimation.sidebar, value: sidebarOpen)
-                        .onTapGesture { closeSidebar() }
-                        .zIndex(1)
-                }
-
-                if sidebarOpen || dragOffset > 0 {
-                    sidebar(width: sidebarWidth)
-                        .frame(width: sidebarWidth)
-                        .ignoresSafeArea(edges: [.top, .bottom, .leading])
-                        .offset(x: sidebarOpen ? max(dragOffset, 0) : -(sidebarWidth - max(dragOffset, 0)))
-                        .animation(AppAnimation.sidebar, value: sidebarOpen)
-                        // 关闭动画期间不要再拦截主界面的手势。
-                        .allowsHitTesting(sidebarOpen)
-                        .zIndex(2)
-                }
+        mainColumn
+            .background(AppBackgroundView(background: settings.background))
+            .task { await bootstrap() }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                isKeyboardVisible = true
             }
-            .contentShape(Rectangle())
-            .simultaneousGesture(edgeDragGesture(sidebarWidth: sidebarWidth))
-        }
-        .background(AppBackgroundView(background: settings.background))
-        .task { await bootstrap() }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isKeyboardVisible = false
+            }
         .onChange(of: photoItem) { _, newValue in loadPickedPhoto(newValue) }
         .onChange(of: inputFocused) { _, focused in
             if focused && showReasoningCard {
@@ -228,11 +203,11 @@ struct MainChatView: View {
     /// 顶栏（Command Header）：左汉堡、中间模型命令胶囊滑块、右侧思考脉冲圆钮与新建对话。
     private var topBar: some View {
         HStack(spacing: 8) {
-            UIBarButton(icon: "line.3.horizontal", label: "打开侧边栏") {
+            UIBarButton(icon: "line.3.horizontal", label: "全局设置与中心") {
                 if showReasoningCard {
                     withAnimation(AppUI.snap) { showReasoningCard = false }
                 }
-                openSidebar()
+                showSettings = true
             }
             .contextMenu {
                 Button {
@@ -296,12 +271,6 @@ struct MainChatView: View {
         ModelCatalog.options(for: settings.credential, customModels: settings.customModels)
     }
 
-    /// 面板贴到屏幕顶边后，内容要自己避开灵动岛 / 状态栏。
-    private var sidebarTopInset: CGFloat {
-        let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene
-        let window = scene?.windows.first(where: { $0.isKeyWindow }) ?? scene?.windows.first
-        return window?.safeAreaInsets.top ?? 20
-    }
 
     private func selectModel(_ modelID: String) {
         Haptics.selectionChanged()
@@ -348,7 +317,7 @@ struct MainChatView: View {
                     }
 
                     Color.clear
-                        .frame(height: 1)
+                        .frame(height: 20)
                         .id(Self.bottomAnchor)
                 }
                 .padding(.vertical, 16)
@@ -385,7 +354,6 @@ struct MainChatView: View {
                 }
             }
         }
-        .overlay(alignment: .bottom) { floatingPanels }
     }
 
     /// 输入框上方的浮层：思考强度浮动卡片、MCP 工具进度、技能选择器与意图推荐。
@@ -450,7 +418,7 @@ struct MainChatView: View {
                 }
             }
         }
-        .padding(.bottom, 10)
+        .padding(.bottom, 2)
         .animation(AppUI.snap, value: showReasoningCard)
     }
 
@@ -517,6 +485,8 @@ struct MainChatView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 8) {
+            floatingPanels
+
             if let quoted = chat?.quotedMessage {
                 quotedBar(quoted)
             }
@@ -553,8 +523,20 @@ struct MainChatView: View {
         }
         .padding(.horizontal, AppUI.hPadding)
         .padding(.top, 6)
-        .padding(.bottom, inputFocused ? 8 : 74)
-        .background(Color.clear)
+        .padding(.bottom, (inputFocused || isKeyboardVisible) ? 8 : 78)
+        .background {
+            LinearGradient(
+                colors: [
+                    Color.clear,
+                    (scheme == .dark ? Color.black : Color.white).opacity(0.82),
+                    (scheme == .dark ? Color.black : Color.white).opacity(0.96)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+            .allowsHitTesting(false)
+        }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
     }
 
@@ -658,101 +640,6 @@ struct MainChatView: View {
         .padding(.horizontal, 2)
     }
 
-    // MARK: - 侧边栏
-
-    private func sidebar(width: CGFloat) -> some View {
-        SidebarView(
-            list: list,
-            agents: agents,
-            skills: skills,
-            currentConversationID: chat?.conversation?.id,
-            topInset: sidebarTopInset,
-            onSelectConversation: { conversation in
-                chat?.attach(to: conversation)
-                list?.markUsed(conversation)
-                closeSidebar()
-            },
-            onNewConversation: {
-                newConversation()
-                closeSidebar()
-            },
-            onOpenSettings: {
-                closeSidebar()
-                showSettings = true
-            },
-            onOpenMemory: {
-                closeSidebar()
-                showMemoryBrowser = true
-            },
-            onOpenDataFlow: {
-                closeSidebar()
-                showDataFlow = true
-            },
-            onOpenMCP: {
-                closeSidebar()
-                showMCPServers = true
-            },
-            onSearchAll: {
-                closeSidebar()
-                showGlobalSearch = true
-            },
-            onExportConversation: { conversation in
-                closeSidebar()
-                exportTarget = conversation
-            },
-            onSelectAgent: { agent in
-                chat?.activeAgent = agent
-                settings.selectedAgentName = agent?.name ?? ""
-                closeSidebar()
-            },
-            onSelectSkill: { skill in
-                chat?.activeSkill = skill
-                closeSidebar()
-            },
-            onPickPhoto: {
-                closeSidebar()
-                showPhotoPicker = true
-            },
-            onOpenScheduledTasks: {
-                closeSidebar()
-                showScheduledTasks = true
-            }
-        )
-        .frame(width: width)
-    }
-
-    private func dimProgress(sidebarWidth: CGFloat) -> Double {
-        if sidebarOpen { return 1 }
-        return min(max(Double(dragOffset / max(sidebarWidth, 1)), 0), 1)
-    }
-
-    private func edgeDragGesture(sidebarWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { value in
-                guard !sidebarOpen else { return }
-                let startX = value.startLocation.x
-                guard startX < 24 else { return }
-                dragOffset = min(max(value.translation.width, 0), sidebarWidth)
-            }
-            .onEnded { value in
-                guard !sidebarOpen else { return }
-                let shouldOpen = value.translation.width > sidebarWidth * 0.35
-                withAnimation(AppAnimation.sidebar) {
-                    dragOffset = 0
-                }
-                if shouldOpen { openSidebar() }
-            }
-    }
-
-    private func openSidebar() {
-        Haptics.impact(.light)
-        list?.refresh()
-        withAnimation(AppAnimation.sidebar) { sidebarOpen = true }
-    }
-
-    private func closeSidebar() {
-        withAnimation(AppAnimation.sidebar) { sidebarOpen = false }
-    }
 
     // MARK: - 数据
 

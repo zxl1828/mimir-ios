@@ -23,9 +23,6 @@ struct CodeWorkspaceView: View {
     @State private var isExecuting = false
     @State private var showToast = false
     @State private var toastMessage = ""
-    @State private var aiPromptText = ""
-    @State private var showReasoningCard = false
-    @State private var thinkingMode: ThinkingMode = .ultra
     @State private var isFullScreenEditor = false
 
     private var coordinator: TabNavigationCoordinator {
@@ -72,10 +69,6 @@ struct CodeWorkspaceView: View {
                     // 3. 底部执行输出控制台 (Execution & Output Console)
                     consoleSection
                         .staggeredSlideEntrance(index: 2)
-
-                    // 4. AI 上下文重构输入区（带模型思考程度胶囊与输入条）
-                    aiRefactorInputBar
-                        .staggeredSlideEntrance(index: 3)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -460,6 +453,27 @@ struct CodeWorkspaceView: View {
                         Spacer()
 
                         Button {
+                            Haptics.impact(.medium)
+                            coordinator.navigateToAssistant(withPrompt: "针对代码文件 \(fileName)（\(selectedLanguage.rawValue)）进行代码审查与优化建议：\n```\(selectedLanguage.rawValue)\n\(currentCode)\n```")
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "sparkles")
+                                Text("在助手重构")
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .liquidGlass(.regular.tint(AppUI.auroraViolet.opacity(0.85)).interactive(), in: .capsule)
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.40), lineWidth: 0.9)
+                                    .allowsHitTesting(false)
+                            )
+                        }
+                        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+
+                        Button {
                             consoleLogs.removeAll()
                             consoleLogs.append(ConsoleLogEntry(message: "[Console Cleared]"))
                         } label: {
@@ -473,7 +487,7 @@ struct CodeWorkspaceView: View {
                                     Capsule(style: .continuous)
                                         .strokeBorder(Color.white.opacity(scheme == .dark ? 0.20 : 0.40), lineWidth: 0.8)
                                         .allowsHitTesting(false)
-                                )
+                                 )
                         }
                         .buttonStyle(PhysicalElasticCapsuleButtonStyle())
                     }
@@ -503,88 +517,6 @@ struct CodeWorkspaceView: View {
                 consoleLogs.append(ConsoleLogEntry(message: "✓ Process finished with exit code 0."))
             }
         }
-    }
-
-    // MARK: - 4. AI 追问与重构输入区
-
-    private var aiRefactorInputBar: some View {
-        VStack(spacing: 8) {
-            // 思考状态胶囊（点击可展开 ReasoningEffortCard）
-            HStack {
-                ReasoningStatusChip(
-                    modelID: "deepseek-reasoner",
-                    level: thinkingMode,
-                    isExpanded: showReasoningCard
-                ) {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                        showReasoningCard.toggle()
-                    }
-                }
-                Spacer()
-            }
-
-            if showReasoningCard {
-                ReasoningEffortSlider(level: $thinkingMode)
-                    .padding(12)
-                    .softGlassCard(cornerRadius: 18)
-                    .transition(.scale(scale: 0.92, anchor: .top).combined(with: .opacity))
-            }
-
-            // 输入条
-            HStack(spacing: 8) {
-                TextField("在当前代码上下文中追问或重构...", text: $aiPromptText)
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                    .submitLabel(.send)
-                    .onSubmit {
-                        executeAIRefactor()
-                    }
-
-                Button {
-                    executeAIRefactor()
-                } label: {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(
-                            aiPromptText.isEmpty
-                                ? AppUI.textCaption(scheme: scheme).opacity(0.4)
-                                : Color.white
-                        )
-                        .frame(width: 32, height: 32)
-                        .liquidGlass(
-                            aiPromptText.isEmpty
-                                ? .clear.interactive()
-                                : .regular.tint(AppUI.electricViolet.opacity(0.85)).interactive(),
-                            in: .circle
-                        )
-                        .overlay {
-                            Circle()
-                                .strokeBorder(
-                                    aiPromptText.isEmpty
-                                        ? Color.white.opacity(0.2)
-                                        : Color.white.opacity(0.45),
-                                    lineWidth: 0.9
-                                )
-                                .allowsHitTesting(false)
-                        }
-                }
-                .disabled(aiPromptText.isEmpty)
-                .buttonStyle(PhysicalElasticCircleButtonStyle())
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .softGlassCard(cornerRadius: 18)
-        }
-    }
-
-    private func executeAIRefactor() {
-        guard !aiPromptText.isEmpty else {
-            coordinator.navigateToAssistant(withPrompt: "请帮我重构以下 \(fileName) 代码：\n```\(selectedLanguage.rawValue)\n\(currentCode)\n```")
-            return
-        }
-        let prompt = "基于文件 \(fileName)（思考档位 \(thinkingMode.heroTitle)），要求如下：\n\(aiPromptText)\n\n代码正文：\n```\(selectedLanguage.rawValue)\n\(currentCode)\n```"
-        aiPromptText = ""
-        coordinator.navigateToAssistant(withPrompt: prompt)
     }
 
     private func triggerToast(_ msg: String) {
