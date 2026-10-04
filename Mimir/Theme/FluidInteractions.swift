@@ -699,7 +699,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
                             LinearGradient(
                                 colors: [
                                     Color.white.opacity(0.70),
-                                    AppUI.electricViolet.opacity(0.85),
+                                    accent.opacity(0.85),
                                     Color.white.opacity(0.25)
                                 ],
                                 startPoint: .topLeading,
@@ -708,7 +708,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
                             lineWidth: 1.2
                         )
                 }
-                .shadow(color: AppUI.electricViolet.opacity(0.35), radius: 12)
+                .shadow(color: accent.opacity(0.35), radius: 12)
 
             // 操作图标按钮列表
             HStack(spacing: 12) {

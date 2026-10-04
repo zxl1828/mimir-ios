@@ -191,6 +191,18 @@ struct MainChatView: View {
     private var mainColumn: some View {
         VStack(spacing: 0) {
             topBar
+
+            MimirDynamicIslandView(
+                onSendPrompt: { prompt in
+                    chat?.inputText = prompt
+                    chat?.send()
+                },
+                activeModelName: ModelCatalog.cardLabel(for: currentModelID)
+            )
+            .padding(.top, 6)
+            .padding(.bottom, 4)
+            .zIndex(15)
+
             messageList
         }
         .background(Color.clear)
@@ -322,6 +334,7 @@ struct MainChatView: View {
                 }
                 .padding(.vertical, 16)
             }
+            .softEdgeFadeMask(topFade: 20, bottomFade: 50)
             .contentShape(Rectangle())
             .simultaneousGesture(
                 TapGesture().onEnded {
@@ -449,6 +462,9 @@ struct MainChatView: View {
     /// 空对话页：全息玻璃球与双轨环绕的赛博猫头鹰（1:1 复刻参考图 2 右屏）。
     private var emptyState: some View {
         VStack(spacing: 16) {
+            agendaAndWeatherCapsule
+                .padding(.bottom, 2)
+
             MimirMascot(size: 260, mood: .calm)
                 .padding(.bottom, 6)
 
@@ -481,6 +497,39 @@ struct MainChatView: View {
         .padding(.horizontal, 16)
         .padding(.top, 24)
         .padding(.bottom, 36)
+    }
+
+    /// 今日概览（Agenda & Weather）折射小胶囊（复刻参考图微胶囊折射）
+    private var agendaAndWeatherCapsule: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sun.max.fill")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(Color.orange)
+
+            Text("今天 晴 · 24°C")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(AppUI.label)
+
+            Circle()
+                .fill(AppUI.separator)
+                .frame(width: 3.5, height: 3.5)
+
+            Image(systemName: "calendar")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(accent)
+
+            Text("日程已同步")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppUI.label2)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .liquidGlass(.regular.interactive(), in: .capsule)
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.9)
+        )
+        .shadow(color: accent.opacity(scheme == .dark ? 0.20 : 0.08), radius: 8, y: 2)
     }
 
     private var bottomBar: some View {

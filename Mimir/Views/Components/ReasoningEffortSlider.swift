@@ -258,9 +258,9 @@ struct ReasoningEffortSlider: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            AppUI.stardustElectric,
-                            AppUI.stardustGlow,
-                            accent
+                            accent.opacity(0.85),
+                            accent,
+                            accent.opacity(0.65)
                         ],
                         startPoint: .leading,
                         endPoint: .trailing
@@ -269,7 +269,8 @@ struct ReasoningEffortSlider: View {
 
             // 星座连线 + 微型星尘粒子纹理
             StardustTrackCanvas(
-                intensity: level == .light ? 0.45 : (level == .thinking ? 0.68 : (level == .expert ? 0.88 : 1.0))
+                intensity: level == .light ? 0.45 : (level == .thinking ? 0.68 : (level == .expert ? 0.88 : 1.0)),
+                accent: accent
             )
             .clipShape(Capsule(style: .continuous))
         }
@@ -335,6 +336,7 @@ struct ReasoningEffortSlider: View {
 private struct StardustTrackCanvas: View {
 
     var intensity: Double = 1.0
+    var accent: Color = .purple
 
     var body: some View {
         Canvas { context, size in

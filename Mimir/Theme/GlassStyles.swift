@@ -314,3 +314,96 @@ struct AuroraBackground: View {
         .allowsHitTesting(false)
     }
 }
+
+// MARK: - 可读性防护与边缘渐隐 (Readability Scrim & Soft Masking)
+
+/// 双层防干扰衬底（Scrim Layer）：在 Liquid Glass 材质与文字之间内嵌自适应半透明微衬底，杜绝流动光斑干扰正文。
+struct GlassContentScrimModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+
+    var cornerRadius: CGFloat = 16
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(scheme == .dark ? Color.black.opacity(0.40) : Color.white.opacity(0.50))
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
+/// 边缘柔和渐隐遮罩（Soft Edge Fade-Out Mask）：
+/// 在主要 ScrollView 视口上下使用渐变遮罩，顶部平滑淡入，底部靠近控制栏平滑渐隐至透明，消除内容生硬截断。
+struct SoftEdgeFadeMaskModifier: ViewModifier {
+    var topFade: CGFloat = 20
+    var bottomFade: CGFloat = 50
+
+    func body(content: Content) -> some View {
+        content
+            .mask(
+                VStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [.clear, .black],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: max(topFade, 1))
+
+                    Rectangle().fill(.black)
+
+                    LinearGradient(
+                        colors: [.black, .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: max(bottomFade, 1))
+                }
+            )
+    }
+}
+
+/// 流体边缘焦散高光与环境折射修饰器（Fluid Caustics Sheen）
+struct FluidCausticsSheenModifier: ViewModifier {
+    var cornerRadius: CGFloat = 16
+    @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(scheme == .dark ? 0.50 : 0.85),
+                                accent.opacity(scheme == .dark ? 0.35 : 0.20),
+                                Color.white.opacity(scheme == .dark ? 0.15 : 0.35)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.0
+                    )
+                    .allowsHitTesting(false)
+            }
+    }
+}
+
+extension View {
+    /// 在玻璃卡片上叠加自适应防眩光微衬底（浅色叠加 0.5 白底，深色叠加 0.4 黑底）。
+    func glassContentScrim(cornerRadius: CGFloat = 16) -> some View {
+        modifier(GlassContentScrimModifier(cornerRadius: cornerRadius))
+    }
+
+    /// 为滚动视口上下边缘添加柔和淡入淡出遮罩（默认顶部 20pt，底部 50pt）。
+    func softEdgeFadeMask(topFade: CGFloat = 20, bottomFade: CGFloat = 50) -> some View {
+        modifier(SoftEdgeFadeMaskModifier(topFade: topFade, bottomFade: bottomFade))
+    }
+
+    /// 为液态玻璃组件添加流体焦散边缘与双向折射描边。
+    func fluidCausticsSheen(cornerRadius: CGFloat = 16) -> some View {
+        modifier(FluidCausticsSheenModifier(cornerRadius: cornerRadius))
+    }
+}
+

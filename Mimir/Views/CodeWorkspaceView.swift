@@ -83,7 +83,7 @@ struct CodeWorkspaceView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(Capsule().fill(Color.black.opacity(0.85)))
-                    .overlay(Capsule().strokeBorder(AppUI.electricViolet, lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(accent, lineWidth: 1))
                     .shadow(radius: 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .padding(.bottom, 120)
@@ -196,7 +196,7 @@ struct CodeWorkspaceView: View {
                     LinearGradient(
                         colors: [
                             Color.white.opacity(scheme == .dark ? 0.45 : 0.85),
-                            AppUI.electricViolet.opacity(0.35)
+                            accent.opacity(0.35)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -216,7 +216,7 @@ struct CodeWorkspaceView: View {
             HStack(spacing: 6) {
                 Image(systemName: "chevron.left.forwardslash.chevron.right")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(AppUI.electricViolet)
+                    .foregroundStyle(accent)
 
                 Text(fileName)
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
@@ -247,9 +247,9 @@ struct CodeWorkspaceView: View {
                 } label: {
                     Image(systemName: isLivePreviewMode ? "doc.plaintext" : "play.fill")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(isLivePreviewMode ? AppUI.electricViolet : Color(hex: "34D399"))
+                        .foregroundStyle(isLivePreviewMode ? accent : Color(hex: "34D399"))
                         .frame(width: 30, height: 30)
-                        .liquidGlass(isLivePreviewMode ? .regular.tint(AppUI.electricViolet.opacity(0.35)).interactive() : .clear.interactive(), in: .circle)
+                        .liquidGlass(isLivePreviewMode ? .regular.tint(accent.opacity(0.35)).interactive() : .clear.interactive(), in: .circle)
                         .overlay {
                             Circle()
                                 .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
@@ -357,7 +357,7 @@ struct CodeWorkspaceView: View {
         if trimmed.hasPrefix("//") || trimmed.hasPrefix("#") || trimmed.hasPrefix("/*") {
             color = Color(hex: "9CA3AF") // 注释灰
         } else if trimmed.hasPrefix("import ") || trimmed.hasPrefix("export ") || trimmed.hasPrefix("public ") || trimmed.hasPrefix("final ") || trimmed.hasPrefix("func ") || trimmed.hasPrefix("def ") || trimmed.hasPrefix("class ") || trimmed.hasPrefix("struct ") {
-            color = AppUI.electricViolet // 关键字紫
+            color = accent // 关键字动态高亮
         } else if trimmed.contains("return ") || trimmed.contains("await ") || trimmed.contains("try ") || trimmed.contains("const ") || trimmed.contains("let ") || trimmed.contains("var ") {
             color = Color(hex: "38BDF8") // 控制流与声明蓝
         } else if trimmed.contains("\"") || trimmed.contains("'") {
@@ -383,7 +383,7 @@ struct CodeWorkspaceView: View {
                 HStack {
                     Image(systemName: "terminal")
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(AppUI.electricViolet)
+                        .foregroundStyle(accent)
                     Text("Execution & Output Console")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
@@ -441,7 +441,7 @@ struct CodeWorkspaceView: View {
                             .foregroundStyle(Color.white)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .liquidGlass(.regular.tint(AppUI.electricViolet.opacity(0.85)).interactive(), in: .capsule)
+                            .liquidGlass(.regular.tint(accent.opacity(0.85)).interactive(), in: .capsule)
                             .overlay(
                                 Capsule(style: .continuous)
                                     .strokeBorder(Color.white.opacity(0.40), lineWidth: 0.9)

@@ -45,6 +45,18 @@ targets:
         NSCameraUsageDescription: 用于拍照提问和扫描文档，图片只在你的设备上处理。
         NSPhotoLibraryUsageDescription: 用于从相册选取图片提问。
         NSPhotoLibraryAddUsageDescription: 用于把生成的图片保存到相册。
+        NSCalendarsUsageDescription: 用于读取当天日程、创建你说要加的日程。
+        NSCalendarsFullAccessUsageDescription: 用于读取当天日程、创建你说要加的日程。
+        NSRemindersUsageDescription: 用于把你说的事项写进系统「提醒事项」。
+        NSRemindersFullAccessUsageDescription: 用于把你说的事项写进系统「提醒事项」。
+        NSContactsUsageDescription: 用于按姓名或号码检索通讯录，方便一键拨号；通讯录内容只在本机使用。
+        NSLocationWhenInUseUsageDescription: 用于获取当前城市天气与就近地点检索，位置不上传。
+        NSAppleMusicUsageDescription: 用于在 Apple Music 中检索与播放曲目。
+        NSWeatherKitUsageDescription: 用于获取当前天气，作为对话的环境上下文。
+        CFBundleURLTypes:
+          - CFBundleURLName: com.zxl.mimir.auth
+            CFBundleURLSchemes:
+              - mimir-auth
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         NSSupportsLiveActivities: true

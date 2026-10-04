@@ -172,12 +172,12 @@ enum AppUI {
         }
     }
 
-    /// 规范软玻璃卡片 1pt 半透明浅白微光描边（Color.white.opacity(0.8) 渐变至 Color.purple.opacity(0.2)）。
-    static func softGlassCardBorder(scheme: ColorScheme) -> LinearGradient {
+    /// 规范软玻璃卡片 1pt 半透明浅白微光描边（迎光面半透明白，背光面主题色微散射）。
+    static func softGlassCardBorder(accent: Color = brandPurple, scheme: ColorScheme) -> LinearGradient {
         LinearGradient(
             colors: [
                 Color.white.opacity(scheme == .dark ? 0.45 : 0.80),
-                electricViolet.opacity(scheme == .dark ? 0.35 : 0.20)
+                accent.opacity(scheme == .dark ? 0.35 : 0.20)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -189,17 +189,18 @@ enum AppUI {
 struct SoftGlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 20
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
 
     func body(content: Content) -> some View {
         content
             .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(AppUI.softGlassCardBorder(scheme: scheme), lineWidth: 1)
+                    .strokeBorder(AppUI.softGlassCardBorder(accent: accent, scheme: scheme), lineWidth: 1)
                     .allowsHitTesting(false)
             }
             .shadow(
-                color: AppUI.electricViolet.opacity(scheme == .dark ? 0.22 : 0.08),
+                color: accent.opacity(scheme == .dark ? 0.22 : 0.08),
                 radius: 16,
                 x: 0,
                 y: 8

@@ -21,14 +21,28 @@ struct RootView: View {
             }
         }
         .environment(settings)
+        .environment(ThemeManager.shared)
+        .environment(\.themeManager, ThemeManager.shared)
         .environment(\.appAccent, settings.accent.color)
         .environment(\.appBackground, settings.background)
         .preferredColorScheme(settings.appearance.colorScheme)
         .tint(settings.accent.color)
         .task {
+            ThemeManager.shared.accent = settings.accent
+            ThemeManager.shared.appearance = settings.appearance
+            ThemeManager.shared.background = settings.background
             StartupCoordinator.seedIfNeeded(context: modelContext)
             StartupCoordinator.refreshScheduledTasks(context: modelContext)
             isReady = true
+        }
+        .onChange(of: settings.accent) { _, newAccent in
+            ThemeManager.shared.accent = newAccent
+        }
+        .onChange(of: settings.appearance) { _, newApp in
+            ThemeManager.shared.appearance = newApp
+        }
+        .onChange(of: settings.background) { _, newBg in
+            ThemeManager.shared.background = newBg
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {

@@ -35,7 +35,7 @@ struct RootContainerView: View {
                     .allowsHitTesting(coordinator.selectedTab == .files)
                     .zIndex(coordinator.selectedTab == .files ? 2 : 1)
 
-                CodeWorkspaceView()
+                CodeWorkspaceCLIView()
                     .opacity(coordinator.selectedTab == .code ? 1 : 0)
                     .allowsHitTesting(coordinator.selectedTab == .code)
                     .zIndex(coordinator.selectedTab == .code ? 2 : 1)

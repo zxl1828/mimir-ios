@@ -66,6 +66,7 @@ struct DashboardView: View {
             .padding(.top, 12)
             .padding(.bottom, 96) // 留足底部悬浮 TabBar 的空间
         }
+        .softEdgeFadeMask(topFade: 16, bottomFade: 40)
         .background {
             AppUI.ambientBackground(scheme: scheme)
                 .ignoresSafeArea()
@@ -146,7 +147,7 @@ struct DashboardView: View {
                     Circle()
                         .strokeBorder(Color.white.opacity(0.8), lineWidth: 1.2)
                 }
-                .shadow(color: AppUI.electricViolet.opacity(0.3), radius: 6)
+                .shadow(color: accent.opacity(0.3), radius: 6)
 
             // 帮助按钮
             Button {
@@ -199,12 +200,12 @@ struct DashboardView: View {
                     HStack(spacing: 6) {
                         Text("AI")
                             .font(.system(size: 10.5, weight: .bold))
-                            .foregroundStyle(AppUI.electricViolet)
+                            .foregroundStyle(accent)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(
                                 Capsule(style: .continuous)
-                                    .fill(AppUI.electricViolet.opacity(0.14))
+                                    .fill(accent.opacity(0.14))
                             )
 
                         Text("Image Gen")
@@ -235,9 +236,9 @@ struct DashboardView: View {
                 .softGlassCard(cornerRadius: 18)
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(AppUI.electricViolet.opacity(0.35), lineWidth: 1.2)
+                        .strokeBorder(accent.opacity(0.35), lineWidth: 1.2)
                 )
-                .shadow(color: AppUI.electricViolet.opacity(0.18), radius: 10, y: 4)
+                .shadow(color: accent.opacity(0.18), radius: 10, y: 4)
             }
             .buttonStyle(PhysicalElasticButtonStyle())
             .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
@@ -325,21 +326,21 @@ struct DashboardView: View {
             HStack {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(AppUI.electricViolet.opacity(0.18))
+                        .fill(accent.opacity(0.18))
                         .frame(width: 32, height: 32)
                     Image(systemName: "cpu")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(AppUI.electricViolet)
+                        .foregroundStyle(accent)
                 }
 
                 Spacer()
 
                 Text("\(max(agents.count, 1)) 智能体")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(AppUI.electricViolet)
+                    .foregroundStyle(accent)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(AppUI.electricViolet.opacity(0.12)))
+                    .background(Capsule().fill(accent.opacity(0.12)))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -368,10 +369,10 @@ struct DashboardView: View {
         .softGlassCard(cornerRadius: 18)
         .overlay {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(AppUI.electricViolet.opacity(0.32), lineWidth: 1.1)
+                .strokeBorder(accent.opacity(0.32), lineWidth: 1.1)
                 .allowsHitTesting(false)
         }
-        .shadow(color: AppUI.electricViolet.opacity(0.12), radius: 10, y: 4)
+        .shadow(color: accent.opacity(0.12), radius: 10, y: 4)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -672,7 +673,7 @@ struct DashboardView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .liquidGlass(
-                        .regular.tint(AppUI.electricViolet.opacity(0.40)).interactive(),
+                        .regular.tint(accent.opacity(0.40)).interactive(),
                         in: .capsule
                     )
                     .overlay {
@@ -681,7 +682,7 @@ struct DashboardView: View {
                                 LinearGradient(
                                     colors: [
                                         Color.white.opacity(scheme == .dark ? 0.50 : 0.85),
-                                        AppUI.electricViolet.opacity(0.50)
+                                        accent.opacity(0.50)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -690,7 +691,7 @@ struct DashboardView: View {
                             )
                             .allowsHitTesting(false)
                     }
-                    .shadow(color: AppUI.electricViolet.opacity(scheme == .dark ? 0.35 : 0.16), radius: 10, y: 3)
+                    .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.16), radius: 10, y: 3)
                 }
                 .buttonStyle(PhysicalElasticCapsuleButtonStyle())
                 .padding(.top, 4)
@@ -830,9 +831,9 @@ struct DashboardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(AppUI.electricViolet.opacity(0.40), lineWidth: 1.2)
+                    .strokeBorder(accent.opacity(0.40), lineWidth: 1.2)
             }
-            .shadow(color: AppUI.electricViolet.opacity(0.28), radius: 14, y: 6)
+            .shadow(color: accent.opacity(0.28), radius: 14, y: 6)
         }
         .buttonStyle(PhysicalElasticButtonStyle())
         .interactiveTilt(maxAngle: 5.0, cornerRadius: 22)

@@ -57,6 +57,7 @@ struct FilesAssetsView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 110) // 避让底部悬浮 TabBar 与 FAB
             }
+            .softEdgeFadeMask(topFade: 16, bottomFade: 40)
 
             // 5. 右下角悬浮玻璃圆球 + 操作按钮 (FAB)
             fabMenuButton
@@ -206,14 +207,14 @@ struct FilesAssetsView: View {
                             .padding(.vertical, 7)
                             .liquidGlass(
                                 isSelected
-                                    ? .regular.tint(AppUI.electricViolet.opacity(0.85)).interactive()
+                                    ? .regular.tint(accent.opacity(0.85)).interactive()
                                     : .clear.interactive(),
                                 in: .capsule
                             )
                             .overlay(
                                 Capsule(style: .continuous)
                                     .strokeBorder(
-                                        isSelected ? AppUI.electricViolet : Color.white.opacity(0.6),
+                                        isSelected ? accent : Color.white.opacity(0.6),
                                         lineWidth: 0.8
                                     )
                                     .allowsHitTesting(false)
@@ -233,11 +234,11 @@ struct FilesAssetsView: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(AppUI.electricViolet.opacity(0.16))
+                    .fill(accent.opacity(0.16))
                     .frame(width: 40, height: 40)
                 Image(systemName: "folder.badge.gearshape")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(AppUI.electricViolet)
+                    .foregroundStyle(accent)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -267,16 +268,16 @@ struct FilesAssetsView: View {
             } label: {
                 Text(workspace.activeWorkspaceURL == nil ? "选择目录" : "重新选择")
                     .font(.system(size: 11.5, weight: .bold))
-                    .foregroundStyle(AppUI.electricViolet)
+                    .foregroundStyle(accent)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .liquidGlass(
-                        .regular.tint(AppUI.electricViolet.opacity(0.25)).interactive(),
+                        .regular.tint(accent.opacity(0.25)).interactive(),
                         in: .capsule
                     )
                     .overlay(
                         Capsule(style: .continuous)
-                            .strokeBorder(AppUI.electricViolet.opacity(0.35), lineWidth: 0.8)
+                            .strokeBorder(accent.opacity(0.35), lineWidth: 0.8)
                             .allowsHitTesting(false)
                     )
             }
@@ -370,13 +371,27 @@ struct FilesAssetsView: View {
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(AppUI.electricViolet, lineWidth: 1.8)
-                        .shadow(color: AppUI.electricViolet.opacity(0.4), radius: 6)
+                        .strokeBorder(accent, lineWidth: 1.8)
+                        .shadow(color: accent.opacity(0.4), radius: 6)
                 }
             }
         }
         .buttonStyle(PhysicalElasticButtonStyle())
         .interactiveTilt(maxAngle: 5.5, cornerRadius: 16)
+        .interactiveGlassCard(
+            cornerRadius: 16,
+            actions: [
+                GlassCardAction(title: "挂载上下文", icon: "arrowshape.turn.up.right") {
+                    coordinator.attachFileToChat(item)
+                },
+                GlassCardAction(title: "快速预览", icon: "eye") {
+                    previewFileItem = item
+                },
+                GlassCardAction(title: "删除文件", icon: "trash", role: .destructive) {
+                    workspace.deleteFile(item)
+                }
+            ]
+        )
         .contextMenu {
             Button {
                 coordinator.attachFileToChat(item)
@@ -442,7 +457,7 @@ struct FilesAssetsView: View {
 
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "chevron.right")
                             .font(.system(size: 14))
-                            .foregroundStyle(isSelected ? AppUI.electricViolet : AppUI.textCaption(scheme: scheme))
+                            .foregroundStyle(isSelected ? accent : AppUI.textCaption(scheme: scheme))
                     }
                     .padding(12)
                     .softGlassCard(cornerRadius: 14)
@@ -503,19 +518,19 @@ struct FilesAssetsView: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [AppUI.auroraViolet, AppUI.electricViolet],
+                                    colors: [accent.opacity(0.85), accent],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
                     }
-                    .liquidGlass(.regular.tint(AppUI.electricViolet.opacity(0.60)).interactive(), in: .circle)
+                    .liquidGlass(.regular.tint(accent.opacity(0.60)).interactive(), in: .circle)
                     .overlay {
                         Circle()
                             .strokeBorder(Color.white.opacity(0.65), lineWidth: 1.2)
                             .allowsHitTesting(false)
                     }
-                    .shadow(color: AppUI.electricViolet.opacity(0.55), radius: 12, y: 5)
+                    .shadow(color: accent.opacity(0.55), radius: 12, y: 5)
                     .rotationEffect(.degrees(showFABMenu ? 90 : 0))
             }
             .buttonStyle(PhysicalElasticCircleButtonStyle())
@@ -533,7 +548,7 @@ struct FilesAssetsView: View {
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(AppUI.electricViolet)
+                    .foregroundStyle(accent)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
@@ -554,7 +569,7 @@ struct FilesAssetsView: View {
         HStack(spacing: 12) {
             Image(systemName: item.systemIcon)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(AppUI.electricViolet)
+                .foregroundStyle(accent)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("已选定：\(item.name)")
@@ -582,7 +597,7 @@ struct FilesAssetsView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .liquidGlass(
-                    .regular.tint(AppUI.electricViolet.opacity(0.85)).interactive(),
+                    .regular.tint(accent.opacity(0.85)).interactive(),
                     in: .capsule
                 )
                 .overlay {
@@ -590,7 +605,7 @@ struct FilesAssetsView: View {
                         .strokeBorder(Color.white.opacity(0.40), lineWidth: 0.9)
                         .allowsHitTesting(false)
                 }
-                .shadow(color: AppUI.electricViolet.opacity(0.4), radius: 6, y: 2)
+                .shadow(color: accent.opacity(0.4), radius: 6, y: 2)
             }
             .buttonStyle(PhysicalElasticCapsuleButtonStyle())
         }
@@ -605,7 +620,7 @@ struct FilesAssetsView: View {
 
     private func categoryColor(for cat: WorkspaceFileItem.AssetCategory) -> Color {
         switch cat {
-        case .all: return AppUI.electricViolet
+        case .all: return accent
         case .document: return Color(hex: "38BDF8")
         case .code: return Color(hex: "7C5CFC")
         case .media: return Color(hex: "F472B6")
