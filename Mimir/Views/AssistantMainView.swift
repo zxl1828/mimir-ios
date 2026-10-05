@@ -65,9 +65,23 @@ public struct AssistantMainView: View {
             topStatusBarAmbientGlow
                 .zIndex(20)
 
-            // 2. 主列布局
+            // 2. 顶部可变模糊遮罩：110pt 内让内容柔和淡出，不再硬撞状态栏
+            topBlurScrim
+                .zIndex(19)
+
+            // 3. 主列布局（顶部 6% 做 alpha 渐隐，配合上面的模糊层）
             mainColumn
                 .background(AppBackgroundView(background: settings.background))
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0.0),
+                            .init(color: .black, location: 0.055)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
         }
         .task { await bootstrap() }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -428,6 +442,30 @@ public struct AssistantMainView: View {
     // MARK: - 5. 锁定不滚动自适应全屏视口（Non-Scrollable Locked Viewport & Adaptive Layout）
 
     /// 天气 / 日程详情面板（胶囊的流体展开态）。
+    /// 顶部可变模糊遮罩（110pt）。
+    ///
+    /// 用 `.ultraThinMaterial` 做渐进模糊，再以**纯 alpha 蒙版**（断点只有 `.clear` 与 `.black`）
+    /// 向下淡出——不带任何颜色叠加，因此不会产生脏灰块。
+    /// 遮罩 `allowsHitTesting(false)`，完全不影响顶栏按钮的点击。
+    private var topBlurScrim: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .frame(height: 110)
+            .mask(
+                LinearGradient(
+                    stops: [
+                        .init(color: .black, location: 0.0),
+                        .init(color: .black, location: 0.52),
+                        .init(color: .clear, location: 1.0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+    }
+
     private var ambientDetailPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(weatherSummaryText, systemImage: "cloud.sun.fill")

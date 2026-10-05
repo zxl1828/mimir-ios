@@ -25,6 +25,9 @@ struct MessageBubble: View {
     /// 单条消息的朗读引擎（懒加载，只在这条气泡里用）。
     @State private var speaker: SystemSpeechEngine?
     @State private var isSpeaking = false
+    /// 工具调用遥测（内存态，用于卡片底部的审计胶囊）
+    @State private var telemetry = ToolCallTelemetry.shared
+    @State private var showTelemetrySheet = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -42,6 +45,9 @@ struct MessageBubble: View {
             insertion: .move(edge: .bottom).combined(with: .opacity),
             removal: .opacity
         ))
+        .sheet(isPresented: $showTelemetrySheet) {
+            ToolCallInspectorSheet(messageID: message.id)
+        }
     }
 
     @ViewBuilder
@@ -181,6 +187,8 @@ struct MessageBubble: View {
                 versionSwitcher
             }
 
+            telemetryCapsule(for: message.id)
+
             metaRow(isUser: false)
         }
         .padding(.horizontal, 14)
@@ -199,6 +207,41 @@ struct MessageBubble: View {
     }
 
     /// 悬浮微光液态朗读按钮：用系统原生 `AVSpeechSynthesizer` 念这条回复。
+    // MARK: - 工具调用遥测胶囊
+
+    /// 卡片底部的遥测胶囊：`工具调用 · N 次 | 本机数据访问 · M 次`，点击打开审计面板。
+    /// 只有真的有记录时才出现，不给普通回复增加噪音。
+    @ViewBuilder
+    private func telemetryCapsule(for messageID: UUID) -> some View {
+        let counts = telemetry.counts(for: messageID)
+        if counts.tools > 0 || counts.accesses > 0 {
+            Button {
+                Haptics.impact(.light)
+                showTelemetrySheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "wrench.and.screwdriver.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("工具调用 · " + String(counts.tools) + "次")
+                    Text("|")
+                        .foregroundStyle(AppUI.label3)
+                    Text("本机数据访问 · " + String(counts.accesses) + "次")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(AppUI.label3)
+                }
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .liquidGlass(cornerRadius: 13, glowIntensity: 0.35)
+                .contentShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("查看工具调用与数据访问详情")
+        }
+    }
+
     private var speakButton: some View {
         Button {
             toggleSpeech()
@@ -488,5 +531,125 @@ struct MessageBubble: View {
         } label: {
             Label("删除", systemImage: "trash")
         }
+    }
+}
+
+// MARK: - 工具调用审计面板
+
+/// 点击遥测胶囊后的审计面板：列出这次回答执行过的工具与本机数据访问。
+private struct ToolCallInspectorSheet: View {
+
+    let messageID: UUID
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.appAccent) private var accent
+    @State private var telemetry = ToolCallTelemetry.shared
+
+    private var invocations: [ToolCallTelemetry.ToolInvocation] {
+        telemetry.invocations(for: messageID)
+    }
+
+    private var accesses: [ToolCallTelemetry.LocalDataAccess] {
+        telemetry.accesses(for: messageID)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    if invocations.isEmpty {
+                        Text("这次回答没有调用工具。")
+                            .font(AppUI.footnote)
+                            .foregroundStyle(AppUI.label2)
+                    }
+                    ForEach(invocations) { item in
+                        toolRow(item)
+                    }
+                } header: {
+                    Text("执行的工具")
+                }
+
+                Section {
+                    if accesses.isEmpty {
+                        Text("这次回答没有读取本机数据。")
+                            .font(AppUI.footnote)
+                            .foregroundStyle(AppUI.label2)
+                    }
+                    ForEach(accesses) { item in
+                        accessRow(item)
+                    }
+                } header: {
+                    Text("本机数据访问")
+                } footer: {
+                    Text("记录只保留在本机内存中，退出 App 即清空，不会上传。")
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("工具调用审计")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func toolRow(_ item: ToolCallTelemetry.ToolInvocation) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: item.succeeded == false ? "xmark.circle.fill" : "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(item.succeeded == false ? Color.red : Color.green)
+                Text(item.name)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                Text(item.statusText)
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label3)
+                if let duration = item.duration {
+                    Text(String(format: "%.2fs", duration))
+                        .font(AppUI.caption)
+                        .foregroundStyle(AppUI.label3)
+                        .monospacedDigit()
+                }
+            }
+            Text(item.startedAt, format: .dateTime.hour().minute().second())
+                .font(AppUI.caption)
+                .foregroundStyle(AppUI.label3)
+            if !item.argumentsSummary.isEmpty {
+                Text("参数：" + item.argumentsSummary)
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label2)
+                    .lineLimit(3)
+            }
+            if !item.resultSummary.isEmpty {
+                Text("结果：" + item.resultSummary)
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label3)
+                    .lineLimit(3)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func accessRow(_ item: ToolCallTelemetry.LocalDataAccess) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 12))
+                .foregroundStyle(accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.framework)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(item.detail)
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label2)
+                Text(item.occurredAt, format: .dateTime.hour().minute().second())
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label3)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }

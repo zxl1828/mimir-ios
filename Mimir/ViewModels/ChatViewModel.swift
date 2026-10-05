@@ -532,6 +532,12 @@ final class ChatViewModel {
 
                 for call in pendingToolCalls {
                     let toolText: String
+                    // 遥测：这次工具调用（含本机数据访问）都记一条，供卡片底部的审计面板展示
+                    let telemetryID = ToolCallTelemetry.shared.beginTool(
+                        name: call.name,
+                        argumentsJSON: call.argumentsJSON,
+                        messageID: assistant.id
+                    )
                     if SystemToolRegistry.isLocalTool(call.name) {
                         toolText = await SystemToolRegistry.invoke(
                             name: call.name,
@@ -552,6 +558,18 @@ final class ChatViewModel {
                             serverName: preferred?.name ?? "MCP"
                         )
                         toolText = result.isError ? "工具返回错误：\(result.text)" : result.text
+                    }
+                    ToolCallTelemetry.shared.finishTool(
+                        id: telemetryID,
+                        succeeded: !toolText.hasPrefix("工具返回错误"),
+                        result: toolText
+                    )
+                    if let access = ToolCallTelemetry.localAccess(for: call.name) {
+                        ToolCallTelemetry.shared.recordAccess(
+                            framework: access.framework,
+                            detail: access.detail,
+                            messageID: assistant.id
+                        )
                     }
                     workingMessages.append(
                         LLMChatMessage(
