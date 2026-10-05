@@ -295,15 +295,16 @@ struct CodeWorkspaceCLIView: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 12) {
-                        ForEach(chatMessages) { msg in
+                        ForEach(Array(chatMessages.enumerated()), id: \.element.id) { index, msg in
                             cliMessageBubble(msg)
+                                .staggerCascade(index: index)
                         }
                         Color.clear.frame(height: 10).id("chat.bottom")
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
                 }
-                .softEdgeFadeMask(topFade: 12, bottomFade: 24)
+                .correctedSoftFadeMask(topFade: 12, bottomFade: 24)
                 .onChange(of: chatMessages.count) { _, _ in
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
                         proxy.scrollTo("chat.bottom", anchor: .bottom)

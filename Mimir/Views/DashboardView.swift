@@ -44,29 +44,29 @@ struct DashboardView: View {
             VStack(spacing: 18) {
                 // 1. 顶部导航行（Header Bar）
                 topHeaderRow
-                    .staggeredSlideEntrance(index: 0)
+                    .staggerCascade(index: 0)
 
                 // 2. 顶部快捷指令行（Quick Tools Grid）
                 quickToolsRow
-                    .staggeredSlideEntrance(index: 1)
+                    .staggerCascade(index: 1)
 
                 // 3. 四大核心业务工作区（智能体中心、技能工具箱、定时任务与项目、知识与记忆检索）
                 coreWorkspaceCardsSection
-                    .staggeredSlideEntrance(index: 2)
+                    .staggerCascade(index: 2)
 
                 // 4. 进行中的会话与任务流（CURRENT CONVERSATIONS）
                 currentConversationsSection
-                    .staggeredSlideEntrance(index: 3)
+                    .staggerCascade(index: 3)
 
                 // 5. 底部星穹神树精选多模态资产微展台
                 artworkShowcaseCard
-                    .staggeredSlideEntrance(index: 4)
+                    .staggerCascade(index: 4)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 96) // 留足底部悬浮 TabBar 的空间
         }
-        .softEdgeFadeMask(topFade: 16, bottomFade: 40)
+        .correctedSoftFadeMask(topFade: 16, bottomFade: 40)
         .background {
             AppUI.ambientBackground(scheme: scheme)
                 .ignoresSafeArea()
@@ -233,14 +233,9 @@ struct DashboardView: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .softGlassCard(cornerRadius: 18)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(accent.opacity(0.35), lineWidth: 1.2)
-                )
-                .shadow(color: accent.opacity(0.18), radius: 10, y: 4)
+                .correctedLiquidGlassCard(cornerRadius: 18)
             }
-            .buttonStyle(PhysicalElasticButtonStyle())
+            .buttonStyle(PressScaleOvershootButtonStyle(cornerRadius: 18))
             .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
 
             // 卡片 2: Library
@@ -259,9 +254,9 @@ struct DashboardView: View {
                 }
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
-                .softGlassCard(cornerRadius: 18)
+                .correctedLiquidGlassCard(cornerRadius: 18)
             }
-            .buttonStyle(PhysicalElasticButtonStyle())
+            .buttonStyle(PressScaleOvershootButtonStyle(cornerRadius: 18))
             .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
 
             // 卡片 3: My Projects
@@ -281,9 +276,9 @@ struct DashboardView: View {
                 }
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
-                .softGlassCard(cornerRadius: 18)
+                .correctedLiquidGlassCard(cornerRadius: 18)
             }
-            .buttonStyle(PhysicalElasticButtonStyle())
+            .buttonStyle(PressScaleOvershootButtonStyle(cornerRadius: 18))
             .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
         }
     }
@@ -366,13 +361,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .softGlassCard(cornerRadius: 18)
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(accent.opacity(0.32), lineWidth: 1.1)
-                .allowsHitTesting(false)
-        }
-        .shadow(color: accent.opacity(0.12), radius: 10, y: 4)
+        .correctedLiquidGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -440,13 +429,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .softGlassCard(cornerRadius: 18)
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color(hex: "38BDF8").opacity(0.32), lineWidth: 1.1)
-                .allowsHitTesting(false)
-        }
-        .shadow(color: Color(hex: "38BDF8").opacity(0.12), radius: 10, y: 4)
+        .correctedLiquidGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -514,13 +497,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .softGlassCard(cornerRadius: 18)
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color(hex: "34D399").opacity(0.32), lineWidth: 1.1)
-                .allowsHitTesting(false)
-        }
-        .shadow(color: Color(hex: "34D399").opacity(0.12), radius: 10, y: 4)
+        .correctedLiquidGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -588,13 +565,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .softGlassCard(cornerRadius: 18)
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(Color(hex: "F472B6").opacity(0.32), lineWidth: 1.1)
-                .allowsHitTesting(false)
-        }
-        .shadow(color: Color(hex: "F472B6").opacity(0.12), radius: 10, y: 4)
+        .correctedLiquidGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -627,8 +598,9 @@ struct DashboardView: View {
             VStack(spacing: 12) {
                 // 如果本地有真实会话，展示真实会话；否则展示精美预设会话
                 if !conversations.isEmpty {
-                    ForEach(Array(conversations.prefix(4))) { convo in
+                    ForEach(Array(conversations.prefix(4).enumerated()), id: \.element.id) { index, convo in
                         realConversationRow(convo)
+                            .staggerCascade(index: index)
                     }
                 } else {
                     conversationRow(
@@ -639,6 +611,8 @@ struct DashboardView: View {
                             coordinator.navigateToAssistant(withPrompt: "继续推进太空轨道力学推导：")
                         }
                     )
+                    .staggerCascade(index: 0)
+
                     conversationRow(
                         title: "The Future of AI in Healthcare",
                         subtitle: "Analyzing current trends and automated clinical trials...",
@@ -647,6 +621,8 @@ struct DashboardView: View {
                             coordinator.navigateToAssistant(withPrompt: "回顾医疗 AI 预测分析：")
                         }
                     )
+                    .staggerCascade(index: 1)
+
                     conversationRow(
                         title: "Creative Copy for Marketing",
                         subtitle: "Generating slogans for the new liquid glass product line...",
@@ -655,6 +631,7 @@ struct DashboardView: View {
                             coordinator.navigateToAssistant(withPrompt: "撰写液态玻璃主题创意文案：")
                         }
                     )
+                    .staggerCascade(index: 2)
                 }
 
                 // 底部固定官方液态玻璃发光胶囊按钮：START NEW CHAT
@@ -693,11 +670,11 @@ struct DashboardView: View {
                     }
                     .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.16), radius: 10, y: 3)
                 }
-                .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+                .pressScaleOvershootCapsule(scale: 0.96)
                 .padding(.top, 4)
             }
             .padding(16)
-            .softGlassCard(cornerRadius: 22)
+            .correctedLiquidGlassCard(cornerRadius: 22)
             .interactiveTilt(maxAngle: 4.5, cornerRadius: 22)
         }
     }

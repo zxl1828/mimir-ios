@@ -31,33 +31,33 @@ struct FilesAssetsView: View {
                 VStack(spacing: 16) {
                     // 1. 顶部标题与视图模式切换
                     headerBar
-                        .staggeredSlideEntrance(index: 0)
+                        .staggerCascade(index: 0)
 
                     // 2. 搜索框与分类过滤药丸
                     searchAndFilterSection
-                        .staggeredSlideEntrance(index: 1)
+                        .staggerCascade(index: 1)
 
                     // 3. 本地文件夹挂载状态横幅（Security-Scoped Workspace Banner）
                     workspaceMountBanner
-                        .staggeredSlideEntrance(index: 2)
+                        .staggerCascade(index: 2)
 
                     // 4. 文件资产展示区（网格或列表）
                     if workspace.filteredFiles.isEmpty {
                         emptyStateCard
-                            .staggeredSlideEntrance(index: 3)
+                            .staggerCascade(index: 3)
                     } else if isGridView {
                         assetGridSection
-                            .staggeredSlideEntrance(index: 3)
+                            .staggerCascade(index: 3)
                     } else {
                         assetListSection
-                            .staggeredSlideEntrance(index: 3)
+                            .staggerCascade(index: 3)
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 110) // 避让底部悬浮 TabBar 与 FAB
             }
-            .softEdgeFadeMask(topFade: 16, bottomFade: 40)
+            .correctedSoftFadeMask(topFade: 16, bottomFade: 40)
 
             // 5. 右下角悬浮玻璃圆球 + 操作按钮 (FAB)
             fabMenuButton

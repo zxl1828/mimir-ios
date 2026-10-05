@@ -486,7 +486,7 @@ struct ReasoningStatusChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+        .pressScaleOvershootCapsule(scale: 0.96)
         .accessibilityLabel("思考强度与模型：\(ModelCatalog.cardLabel(for: modelID)) \(level.heroTitle)")
     }
 }

@@ -365,7 +365,7 @@ struct UIBarButton: View {
                 )
                 .contentShape(Circle())
         }
-        .buttonStyle(PhysicalElasticCircleButtonStyle())
+        .pressScaleOvershootCircle(scale: 0.94)
         .accessibilityLabel(label)
     }
 }
@@ -421,7 +421,7 @@ struct UIQuickChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+        .pressScaleOvershootCapsule(scale: 0.96)
     }
 }
 
