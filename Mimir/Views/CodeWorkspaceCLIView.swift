@@ -18,6 +18,11 @@ struct CodeWorkspaceCLIView: View {
     @State private var isKeyboardVisible: Bool = false
     @FocusState private var isInputFocused: Bool
 
+    /// 代码桥接：实时显示电脑端 AI 正在编辑的源码文件
+    @State private var bridge = CodeBridgeClient.shared
+    @State private var showBridgeConfig = false
+    @State private var bridgeDraft = ""
+
     struct CLILogLine: Identifiable, Sendable {
         let id = UUID()
         let text: String
@@ -48,9 +53,12 @@ struct CodeWorkspaceCLIView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 6)
 
+            // 实时代码视图（桥接电脑端 AI 正在编辑的文件）
+            codeViewerSection
+
             // 上半部：VS Code CLI 终端视窗
             terminalWindowSection
-                .frame(maxHeight: 260)
+                .frame(maxHeight: 200)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
 
@@ -65,6 +73,19 @@ struct CodeWorkspaceCLIView: View {
             if terminalLogs.isEmpty {
                 bootstrapCLI()
             }
+            bridge.startAutoSync()
+        }
+        .onDisappear {
+            bridge.stopAutoSync()
+        }
+        .alert("代码桥接地址", isPresented: $showBridgeConfig) {
+            TextField("http://192.168.1.10:8849", text: $bridgeDraft)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("取消", role: .cancel) {}
+            Button("保存") { bridge.updateEndpoint(bridgeDraft) }
+        } message: {
+            Text("在电脑上运行 python tools/code_server.py，把它显示的局域网地址填在这里，即可实时看到 AI 正在编辑的代码。")
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
@@ -79,6 +100,128 @@ struct CodeWorkspaceCLIView: View {
     }
 
     // MARK: - 1. 顶部工作区标头
+
+    // MARK: - 实时代码视图（桥接 AI 正在编辑的文件）
+
+    private var codeViewerSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            codeViewerHeader
+            Divider().overlay(accent.opacity(0.25))
+            codeViewerBody
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    scheme == .dark
+                        ? Color(hex: "120D1D").opacity(0.85)
+                        : Color.white.opacity(0.85)
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(accent.opacity(0.30), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    private var codeViewerHeader: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "doc.text.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(accent)
+
+            Text(bridge.snapshot?.path ?? "实时代码")
+                .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                .lineLimit(1)
+                .truncationMode(.head)
+
+            Spacer(minLength: 6)
+
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(bridge.isConnected ? Color(hex: "34C759") : AppUI.textCaption(scheme: scheme))
+                    .frame(width: 6, height: 6)
+                Text(syncLabel)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                    .monospacedDigit()
+            }
+
+            Button {
+                bridgeDraft = bridge.endpoint
+                showBridgeConfig = true
+            } label: {
+                Image(systemName: "link")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("设置代码桥接地址")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var syncLabel: String {
+        guard bridge.hasEndpoint else { return "未连接" }
+        guard bridge.isConnected else { return "断开" }
+        guard let snapshot = bridge.snapshot else { return "等待文件…" }
+        return "\(snapshot.lines) 行"
+    }
+
+    @ViewBuilder
+    private var codeViewerBody: some View {
+        if let snapshot = bridge.snapshot {
+            let lines = snapshot.content.components(separatedBy: "\n")
+            ScrollView([.horizontal, .vertical]) {
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .trailing, spacing: 0) {
+                        ForEach(0..<max(lines.count, 1), id: \.self) { index in
+                            Text("\(index + 1)")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(AppUI.textCaption(scheme: scheme).opacity(0.6))
+                                .frame(height: 16)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                            Text(line.isEmpty ? " " : line)
+                                .font(.system(size: 11.5, design: .monospaced))
+                                .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                                .frame(height: 16, alignment: .leading)
+                        }
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+            }
+            .frame(maxHeight: 200)
+            // 只有 mtime 真变化才过渡，避免 AI 高频写盘导致画面跳动
+            .animation(.easeInOut(duration: 0.18), value: snapshot.mtime)
+            // 切换到下一个文件时整体重置（含滚动位置）
+            .id(snapshot.path)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(bridge.hasEndpoint ? "等待桥接响应…" : "未连接代码桥接")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                Text(
+                    bridge.hasEndpoint
+                        ? (bridge.lastError ?? "正在轮询电脑端的文件变化")
+                        : "在电脑上运行 tools/code_server.py，再点右上角链接图标填入它显示的地址"
+                )
+                .font(.system(size: 11))
+                .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 14)
+        }
+    }
 
     private var cliHeaderBar: some View {
         HStack {

@@ -58,7 +58,6 @@ struct DashboardView: View {
                     .staggerCascade(index: 3)
 
                 // 5. 底部星穹神树精选多模态资产微展台
-                artworkShowcaseCard
                     .staggerCascade(index: 4)
             }
             .padding(.horizontal, 16)
@@ -754,66 +753,6 @@ struct DashboardView: View {
 
     // MARK: - 6. 底部精选多模态资产展示卡片 (Artwork Showcase)
 
-    private var artworkShowcaseCard: some View {
-        Button {
-            coordinator.switchToTab(.files)
-        } label: {
-            ZStack(alignment: .bottomLeading) {
-                // 模拟参考图下方的星穹神树生成图
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: "0B0916"),
-                                Color(hex: "1F143B"),
-                                Color(hex: "0E1A33")
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(height: 140)
-                    .overlay {
-                        // 星云微光与树状微粒视觉
-                        CosmicTreeArtworkView()
-                    }
-                    .clipped()
-
-                // 底部半透明浮层
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("星穹神树 · 8K 多模态生成")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color.white)
-                        Text("提示词：Bioluminescent cosmic sacred tree, nebula stars...")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(Color.white.opacity(0.70))
-                            .lineLimit(1)
-                    }
-                    Spacer()
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(AppUI.auroraViolet)
-                }
-                .padding(14)
-                .background {
-                    LinearGradient(
-                        colors: [Color.clear, Color(hex: "120D1D").opacity(0.85)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(accent.opacity(0.40), lineWidth: 1.2)
-            }
-            .shadow(color: accent.opacity(0.28), radius: 14, y: 6)
-        }
-        .buttonStyle(PhysicalElasticButtonStyle())
-        .interactiveTilt(maxAngle: 5.0, cornerRadius: 22)
-    }
 
     // MARK: - 通用辅助组件
 
@@ -861,43 +800,3 @@ struct DashboardView: View {
 
 
 /// 底部星穹神树艺术图绘制组件
-private struct CosmicTreeArtworkView: View {
-    var body: some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
-            let center = CGPoint(x: w / 2, y: h * 0.6)
-
-            // 发光神树主干
-            var trunk = Path()
-            trunk.move(to: CGPoint(x: center.x - 12, y: h))
-            trunk.addQuadCurve(to: CGPoint(x: center.x, y: h * 0.45), control: CGPoint(x: center.x - 6, y: h * 0.7))
-            trunk.addQuadCurve(to: CGPoint(x: center.x + 12, y: h), control: CGPoint(x: center.x + 6, y: h * 0.7))
-            context.fill(trunk, with: .color(Color(hex: "A78BFA").opacity(0.8)))
-
-            // 树冠星云光晕
-            context.fill(
-                Path(ellipseIn: CGRect(x: center.x - 70, y: h * 0.15, width: 140, height: 80)),
-                with: .radialGradient(
-                    Gradient(colors: [Color(hex: "7C5CFC").opacity(0.7), Color.clear]),
-                    center: CGPoint(x: center.x, y: h * 0.35),
-                    startRadius: 5,
-                    endRadius: 75
-                )
-            )
-
-            // 散布枝杈与星光微粒
-            for i in 0..<36 {
-                let angle = Double(i) * (Double.pi * 2 / 36)
-                let r = 25.0 + Double((i * 17) % 45)
-                let px = center.x + CGFloat(cos(angle) * r)
-                let py = (h * 0.35) + CGFloat(sin(angle) * r * 0.6)
-                let dotSize = CGFloat((i % 3) + 2)
-                context.fill(
-                    Path(ellipseIn: CGRect(x: px, y: py, width: dotSize, height: dotSize)),
-                    with: .color(Color.white.opacity(0.85))
-                )
-            }
-        }
-    }
-}
