@@ -31,7 +31,7 @@ struct FloatingTabBar: View {
                         : Color.white.opacity(0.42)
                 )
         }
-        .liquidGlass(.regular.interactive(), in: .capsule)
+        .liquidGlass(.regular, in: .capsule)
         .overlay {
             Capsule(style: .continuous)
                 .strokeBorder(
@@ -97,7 +97,7 @@ struct FloatingTabBar: View {
                 if isSelected {
                     Capsule(style: .continuous)
                         .fill(.clear)
-                        .liquidGlass(.regular.tint(accent.opacity(0.32)).interactive(), in: .capsule)
+                        .liquidGlass(.regular.tint(accent.opacity(0.32)), in: .capsule)
                         .overlay(
                             Capsule(style: .continuous)
                                 .strokeBorder(accent.opacity(0.50), lineWidth: 1.0)

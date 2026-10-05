@@ -76,7 +76,7 @@ struct ReasoningEffortCard: View {
         .padding(.top, 16)
         .padding(.bottom, 18)
         .frame(maxWidth: 296)
-        .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: 22))
+        .liquidGlass(.regular, in: .rect(cornerRadius: 22))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1.1)
@@ -467,7 +467,7 @@ struct ReasoningStatusChip: View {
             .padding(.trailing, 7)
             .padding(.vertical, 6)
             .liquidGlass(
-                .regular.tint(accent.opacity(isExpanded ? 0.35 : 0.15)).interactive(),
+                .regular.tint(accent.opacity(isExpanded ? 0.35 : 0.15)),
                 in: .capsule
             )
             .overlay(

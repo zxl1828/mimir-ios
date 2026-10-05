@@ -53,7 +53,7 @@ struct VoiceOrb: View {
     private var orbBody: some View {
         Circle()
             .fill(.clear)
-            .liquidGlass(.regular.tint(tint.opacity(0.45)).interactive(), in: .circle)
+            .liquidGlass(.regular.tint(tint.opacity(0.45)), in: .circle)
             .frame(width: diameter, height: diameter)
             .overlay {
                 Circle()

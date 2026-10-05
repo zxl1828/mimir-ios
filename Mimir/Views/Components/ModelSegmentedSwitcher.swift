@@ -28,7 +28,7 @@ struct ModelSegmentedSwitcher: View {
             .padding(2)
         }
         .scrollClipDisabled()
-        .liquidGlass(.regular.interactive(), in: .capsule)
+        .liquidGlass(.regular, in: .capsule)
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
@@ -65,7 +65,7 @@ struct ModelSegmentedSwitcher: View {
                     if isSelected {
                         Capsule(style: .continuous)
                             .fill(.clear)
-                            .liquidGlass(.regular.tint(accent.opacity(0.85)).interactive(), in: .capsule)
+                            .liquidGlass(.regular.tint(accent.opacity(0.85)), in: .capsule)
                             .overlay(
                                 Capsule(style: .continuous)
                                     .strokeBorder(

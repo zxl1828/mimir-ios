@@ -72,7 +72,7 @@ public struct CorrectedLiquidGlassCardModifier: ViewModifier {
                     )
             }
             .liquidGlass(
-                interactive ? .regular.interactive() : .regular,
+                interactive ? .regular.tint(accent.opacity(0.18)) : .regular,
                 in: .rect(cornerRadius: cornerRadius)
             )
             .overlay {
@@ -148,7 +148,7 @@ public struct FloatingWeatherAgendaCapsule: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
-            .liquidGlass(.regular.interactive(), in: .capsule)
+            .liquidGlass(.regular, in: .capsule)
             .overlay(
                 Capsule(style: .continuous)
                     .strokeBorder(

@@ -139,7 +139,7 @@ struct FilesAssetsView: View {
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .frame(width: 36, height: 36)
-                    .liquidGlass(.clear.interactive(), in: .rect(cornerRadius: 12))
+                    .liquidGlass(.clear, in: .rect(cornerRadius: 12))
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
@@ -207,8 +207,8 @@ struct FilesAssetsView: View {
                             .padding(.vertical, 7)
                             .liquidGlass(
                                 isSelected
-                                    ? .regular.tint(accent.opacity(0.85)).interactive()
-                                    : .clear.interactive(),
+                                    ? .regular.tint(accent.opacity(0.85))
+                                    : .clear,
                                 in: .capsule
                             )
                             .overlay(
@@ -272,7 +272,7 @@ struct FilesAssetsView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .liquidGlass(
-                        .regular.tint(accent.opacity(0.25)).interactive(),
+                        .regular.tint(accent.opacity(0.25)),
                         in: .capsule
                     )
                     .overlay(
@@ -524,7 +524,7 @@ struct FilesAssetsView: View {
                                 )
                             )
                     }
-                    .liquidGlass(.regular.tint(accent.opacity(0.60)).interactive(), in: .circle)
+                    .liquidGlass(.regular.tint(accent.opacity(0.60)), in: .circle)
                     .overlay {
                         Circle()
                             .strokeBorder(Color.white.opacity(0.65), lineWidth: 1.2)
@@ -552,7 +552,7 @@ struct FilesAssetsView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .liquidGlass(.regular.interactive(), in: .capsule)
+            .liquidGlass(.regular, in: .capsule)
             .overlay {
                 Capsule(style: .continuous)
                     .strokeBorder(Color.white.opacity(scheme == .dark ? 0.35 : 0.70), lineWidth: 0.8)
@@ -597,7 +597,7 @@ struct FilesAssetsView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .liquidGlass(
-                    .regular.tint(accent.opacity(0.85)).interactive(),
+                    .regular.tint(accent.opacity(0.85)),
                     in: .capsule
                 )
                 .overlay {

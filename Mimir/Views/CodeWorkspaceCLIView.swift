@@ -552,7 +552,7 @@ struct CodeWorkspaceCLIView: View {
                         } else {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 .fill(.clear)
-                                .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: 16))
+                                .liquidGlass(.regular, in: .rect(cornerRadius: 16))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                                         .strokeBorder(accent.opacity(0.35), lineWidth: 0.9)
@@ -585,7 +585,7 @@ struct CodeWorkspaceCLIView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .liquidGlass(.regular.interactive(), in: .capsule)
+            .liquidGlass(.regular, in: .capsule)
             .overlay(
                 Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 0.8)
             )
@@ -624,7 +624,7 @@ struct CodeWorkspaceCLIView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 44)
-        .liquidGlass(.regular.interactive(), in: .capsule)
+        .liquidGlass(.regular, in: .capsule)
         .overlay(
             Capsule().strokeBorder(accent.opacity(0.40), lineWidth: 1.0)
         )

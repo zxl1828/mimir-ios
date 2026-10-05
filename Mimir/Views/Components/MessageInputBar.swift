@@ -78,7 +78,7 @@ struct MessageInputBar: View {
                 .foregroundStyle(AppUI.label)
                 .frame(width: 36, height: 36)
                 .liquidGlass(
-                    showAttachMenu ? .regular.tint(accent.opacity(0.35)).interactive() : .clear.interactive(),
+                    showAttachMenu ? .regular.tint(accent.opacity(0.35)) : .clear,
                     in: .circle
                 )
                 .overlay(
@@ -122,7 +122,7 @@ struct MessageInputBar: View {
                     Circle()
                         .fill(accent.opacity(0.18))
                         .frame(width: 36, height: 36)
-                        .liquidGlass(.clear.interactive(), in: .circle)
+                        .liquidGlass(.clear, in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(accent.opacity(0.6), lineWidth: 1)
@@ -140,7 +140,7 @@ struct MessageInputBar: View {
                             )
                         )
                         .frame(width: 36, height: 36)
-                        .liquidGlass(.regular.tint(accent.opacity(0.60)).interactive(), in: .circle)
+                        .liquidGlass(.regular.tint(accent.opacity(0.60)), in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(Color.white.opacity(0.45), lineWidth: 0.9)
@@ -162,7 +162,7 @@ struct MessageInputBar: View {
                             )
                         )
                         .frame(width: 36, height: 36)
-                        .liquidGlass(.regular.tint(accent.opacity(0.25)).interactive(), in: .circle)
+                        .liquidGlass(.regular.tint(accent.opacity(0.25)), in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(accent.opacity(0.45), lineWidth: 0.9)

@@ -156,7 +156,7 @@ struct DashboardView: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .frame(width: 34, height: 34)
-                    .liquidGlass(.clear.interactive(), in: .circle)
+                    .liquidGlass(.clear, in: .circle)
                     .overlay {
                         Circle()
                             .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
@@ -174,7 +174,7 @@ struct DashboardView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .frame(width: 34, height: 34)
-                    .liquidGlass(.clear.interactive(), in: .circle)
+                    .liquidGlass(.clear, in: .circle)
                     .overlay {
                         Circle()
                             .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
@@ -648,7 +648,7 @@ struct DashboardView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .liquidGlass(
-                        .regular.tint(accent.opacity(0.40)).interactive(),
+                        .regular.tint(accent.opacity(0.40)),
                         in: .capsule
                     )
                     .overlay {

@@ -215,7 +215,7 @@ struct SoftGlassCardModifier: ViewModifier {
                             : Color.white.opacity(0.85)
                     )
             }
-            .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+            .liquidGlass(.regular, in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(AppUI.softGlassCardBorder(accent: accent, scheme: scheme), lineWidth: 1)
@@ -432,8 +432,11 @@ struct UIBarButton: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(isHighlighted ? accent : AppUI.label)
                 .frame(width: 36, height: 36)
+                // 注意：不要用  —— iOS 26 的交互式玻璃在按压时会整体加深，
+                // 在浅色模式下就是用户看到的那层"黑蒙版"。按压反馈改由下面自绘的
+                // 主题色高亮 + 缩放提供。
                 .liquidGlass(
-                    isHighlighted ? .regular.tint(accent.opacity(0.40)).interactive() : .regular.interactive(),
+                    isHighlighted ? .regular.tint(accent.opacity(0.40)) : .regular,
                     in: .circle
                 )
                 .overlay {
@@ -489,7 +492,7 @@ struct UIQuickChip: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .liquidGlass(
-                isSelected ? .regular.tint(accent.opacity(0.85)).interactive() : .clear.interactive(),
+                isSelected ? .regular.tint(accent.opacity(0.85)) : .clear,
                 in: .capsule
             )
             .overlay(
@@ -538,8 +541,8 @@ struct LiquidGlassModifier: ViewModifier {
             }
             .liquidGlass(
                 isHighlighted
-                    ? .regular.tint(accent.opacity(0.35)).interactive()
-                    : .regular.interactive(),
+                    ? .regular.tint(accent.opacity(0.35))
+                    : .regular,
                 in: .rect(cornerRadius: cornerRadius)
             )
             // 外层折射倒角
