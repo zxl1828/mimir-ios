@@ -40,6 +40,7 @@ targets:
         UIRequiredDeviceCapabilities:
           - arm64
         LSApplicationCategoryType: public.app-category.productivity
+        LSRequiresIPhoneOS: true
         NSMicrophoneUsageDescription: 语音对话需要访问麦克风，音频仅在本机处理，不会上传。
         NSSpeechRecognitionUsageDescription: 用于把你说的话在本机转成文字，识别完全离线完成。
         NSCameraUsageDescription: 用于拍照提问和扫描文档，图片只在你的设备上处理。
