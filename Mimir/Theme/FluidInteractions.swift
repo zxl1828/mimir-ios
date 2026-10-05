@@ -7,13 +7,13 @@ import UIKit
 /// Stage 1: 内部材质与表面高光流光 (Specular Sheen Overlay - RadialGradient 严格基于容器尺寸)
 /// Stage 2: 强硬圆角裁剪 (.clipShape + .contentShape)，死死锁定所有内部渐变与反射层，100% 杜绝溢出
 /// Stage 3: 外部环境阴影 (.shadow) -> 栅格化合成组 (.compositingGroup()) -> 3D 透视倾斜与弹性微缩
-public struct TiltGlareCardModifier: ViewModifier {
+struct TiltGlareCardModifier: ViewModifier {
 
-    public var maxAngle: CGFloat
-    public var cornerRadius: CGFloat
-    public var showsSpecularSheen: Bool
-    public var hasAmbientBacklight: Bool
-    public var scaleOnPress: CGFloat
+    var maxAngle: CGFloat
+    var cornerRadius: CGFloat
+    var showsSpecularSheen: Bool
+    var hasAmbientBacklight: Bool
+    var scaleOnPress: CGFloat
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
@@ -24,7 +24,7 @@ public struct TiltGlareCardModifier: ViewModifier {
     @State private var isTouching: Bool = false
     @State private var viewSize: CGSize = .zero
 
-    public init(
+    init(
         maxAngle: CGFloat = 7.0,
         cornerRadius: CGFloat = AppUI.cardRadius,
         showsSpecularSheen: Bool = true,
@@ -38,7 +38,7 @@ public struct TiltGlareCardModifier: ViewModifier {
         self.scaleOnPress = scaleOnPress
     }
 
-    public func body(content: Content) -> some View {
+    func body(content: Content) -> some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !hasAmbientBacklight)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             let breath = hasAmbientBacklight ? (0.5 + 0.5 * sin(time * (2 * .pi / 3.0))) : 0.5
@@ -138,11 +138,11 @@ public struct TiltGlareCardModifier: ViewModifier {
     }
 }
 
-public typealias InteractivePerspectiveTiltModifier = TiltGlareCardModifier
+typealias InteractivePerspectiveTiltModifier = TiltGlareCardModifier
 
 extension View {
     /// 遵循三阶段规范的 3D 透视倾斜与流光卡片修饰器（防溢出裁切 + 合成栅格化 + 呼吸背光）。
-    public func tiltGlareCard(
+    func tiltGlareCard(
         maxAngle: CGFloat = 7.0,
         cornerRadius: CGFloat = AppUI.cardRadius,
         showsSpecularSheen: Bool = true,
@@ -161,7 +161,7 @@ extension View {
     }
 
     /// 为卡片添加跟随触摸的 3D 透视倾斜与镜像反射流光，松手带 spring 阻尼回正。
-    public func interactiveTilt(
+    func interactiveTilt(
         maxAngle: CGFloat = 7.0,
         cornerRadius: CGFloat = AppUI.cardRadius,
         showsSpecularSheen: Bool = true,
