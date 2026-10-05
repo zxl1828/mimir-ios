@@ -788,39 +788,42 @@ public struct AssistantMainView: View {
     }
 
     private func quote(_ message: ChatMessage) {
-        withAnimation(AppUI.snap) {
-            chat?.quotedMessage = message
-        }
+        chat?.quotedMessage = message
+        isFieldFocused = true
     }
 
     private func newConversation() {
-        Haptics.impact(.medium)
-        chat?.newConversation()
-        showToast("已开启新对话")
+        guard let list, let chat else { return }
+        let conversation = list.createConversation()
+        chat.attach(to: conversation)
+        isFieldFocused = true
+        showToast("已新建对话")
     }
 
     private func commitTitle() {
-        let trimmed = titleDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            chat?.conversation?.title = trimmed
-            try? modelContext.save()
-        }
+        guard let conversation = chat?.conversation else { return }
+        list?.rename(conversation, to: titleDraft)
         editingTitle = false
     }
 
     private var branchDeletionHint: String {
-        "将从该消息处生成新的回答版本，支持点击翻页在不同回复之间切换。"
+        guard let target = branchTarget,
+              let ordered = chat?.conversation?.orderedMessages,
+              let index = ordered.firstIndex(where: { $0.id == target.id }) else {
+            return "这条消息会被重新生成，旧版本保留，可随时切换对比。"
+        }
+        let trailing = ordered.count - index - 1
+        if trailing <= 0 {
+            return "这条消息会保留旧版本，生成一个新的回答，之后可以左右切换对比。"
+        }
+        return "这条消息之后的 \(trailing) 条消息会收进分支（不会丢失），切回旧版本时可以原样恢复。"
     }
 
-    private func showToast(_ message: String) {
-        withAnimation(AppUI.snap) {
-            toast = message
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            withAnimation(AppUI.snap) {
-                if toast == message { toast = nil }
-            }
+    private func showToast(_ text: String) {
+        toast = text
+        Task {
+            try? await Task.sleep(for: .seconds(1.8))
+            if toast == text { toast = nil }
         }
     }
 
@@ -844,10 +847,9 @@ public struct AssistantMainView: View {
     }
 
     private func appendImage(_ image: UIImage) {
-        if let compressed = image.jpegData(compressionQuality: 0.8) {
-            let item = ChatAttachment(type: .image, data: compressed, filename: "image_\(Date().timeIntervalSince1970).jpg")
-            chat?.attachedImages.append(item)
-        }
+        guard let data = image.jpegData(compressionQuality: 0.85) else { return }
+        chat?.attachedImages.append(data)
+        Haptics.impact(.light)
     }
 
     private func loadPickedPhoto(_ item: PhotosPickerItem?) {
@@ -855,35 +857,53 @@ public struct AssistantMainView: View {
         Task {
             if let data = try? await item.loadTransferable(type: Data.self) {
                 await MainActor.run {
-                    let attachment = ChatAttachment(type: .image, data: data, filename: "photo.jpg")
-                    chat?.attachedImages.append(attachment)
-                    photoItem = nil
+                    chat?.attachedImages.append(data)
                 }
             }
+            photoItem = nil
         }
     }
 
     private func openSearchResult(conversationID: UUID, messageID: UUID?) {
-        list?.selectConversation(with: conversationID)
-        if let selected = list?.selectedConversation {
-            chat?.loadConversation(selected)
-        }
+        guard let list, let chat else { return }
+        guard let conversation = list.conversations.first(where: { $0.id == conversationID }) else { return }
+        chat.attach(to: conversation)
+        list.markUsed(conversation)
         if let messageID {
             pendingScrollTarget = messageID
         }
     }
 
     private func bootstrap() async {
-        if chat == nil {
-            let listVM = ConversationListViewModel(modelContext: modelContext, settings: settings)
-            self.list = listVM
-            self.chat = ChatViewModel(modelContext: modelContext, settings: settings, conversation: listVM.selectedConversation)
+        guard chat == nil else { return }
+        let chatViewModel = ChatViewModel(modelContext: modelContext, settings: settings)
+        let listViewModel = ConversationListViewModel(modelContext: modelContext, settings: settings)
+        listViewModel.refresh()
+
+        agents = (try? modelContext.fetch(
+            FetchDescriptor<AgentDockItem>(sortBy: [SortDescriptor(\AgentDockItem.sortIndex)])
+        )) ?? []
+        skills = (try? modelContext.fetch(
+            FetchDescriptor<Skill>(sortBy: [SortDescriptor(\Skill.sortIndex)])
+        )) ?? []
+
+        chat = chatViewModel
+        list = listViewModel
+        chatViewModel.skills = skills
+        mcpConfigs = (try? modelContext.fetch(FetchDescriptor<MCPServerConfig>())) ?? []
+        chatViewModel.mcpConfigs = mcpConfigs
+        MemoryStore.shared.warmUp(context: modelContext)
+
+        Task {
+            await MCPClientManager.shared.reconnectAll(configs: mcpConfigs)
         }
-        let agentDescriptor = FetchDescriptor<AgentDockItem>(sortBy: [SortDescriptor(\.sortIndex)])
-        self.agents = (try? modelContext.fetch(agentDescriptor)) ?? []
-        let skillDescriptor = FetchDescriptor<Skill>(sortBy: [SortDescriptor(\.sortIndex)])
-        self.skills = (try? modelContext.fetch(skillDescriptor)) ?? []
-        let mcpDescriptor = FetchDescriptor<MCPServerConfig>()
-        self.mcpConfigs = (try? modelContext.fetch(mcpDescriptor)) ?? []
+
+        if let last = listViewModel.conversations.first {
+            chatViewModel.attach(to: last)
+        } else {
+            let fresh = listViewModel.createConversation()
+            chatViewModel.attach(to: fresh)
+        }
+        listViewModel.applyRetentionPolicy()
     }
 }
