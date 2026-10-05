@@ -165,7 +165,7 @@ private final class AmbientCaptureSessionCoordinator: NSObject, AVCaptureVideoDa
             toBitmap: &bitmap,
             rowBytes: 4,
             bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-            format: kCIFormatRGBA8,
+            format: CIFormat.RGBA8,
             colorSpace: CGColorSpaceCreateDeviceRGB()
         )
 
@@ -215,7 +215,7 @@ public final class CameraLiveAmbientEngine {
     }
 
     private let coordinator = AmbientCaptureSessionCoordinator()
-    private var lifecycleObservers: [NSObjectProtocol] = []
+    private nonisolated(unsafe) var lifecycleObservers: [NSObjectProtocol] = []
 
     private init() {
         coordinator.temporalSmoothing = temporalSmoothing
