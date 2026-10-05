@@ -31,7 +31,6 @@ struct DashboardView: View {
     @State private var showGlobalSearch = false
     @State private var showMemoryBrowser = false
     @State private var showDataFlow = false
-    @State private var previewArtwork = false
     @State private var renamingConversation: Conversation?
     @State private var renameText = ""
 

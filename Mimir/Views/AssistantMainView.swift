@@ -31,16 +31,12 @@ public struct AssistantMainView: View {
     @State private var showVoiceMode = false
     @State private var showScheduledTasks = false
     @State private var showMemoryBrowser = false
-    @State private var showDataFlow = false
-    @State private var showAgentManager = false
     @State private var showMCPServers = false
     @State private var editingTitle = false
     @State private var titleDraft = ""
     @State private var editingMessage: ChatMessage?
     @State private var editingText = ""
     @State private var branchTarget: ChatMessage?
-    @State private var showGlobalSearch = false
-    @State private var exportTarget: Conversation?
     @State private var pendingScrollTarget: UUID?
     @State private var highlightedMessageID: UUID?
     @State private var lastScrollAt: Date = .distantPast
@@ -56,6 +52,10 @@ public struct AssistantMainView: View {
 
     @State private var coordinator = TabNavigationCoordinator.shared
     @FocusState private var isFieldFocused: Bool
+
+    /// 环境摘要文案（接入实时天气 / 日程数据源前的统一出口，避免散落魔法字符串）。
+    private let weatherSummaryText = "今天 晴 · 24°C"
+    private let agendaSummaryText = "日程已同步"
 
     public init() {}
 
@@ -128,22 +128,8 @@ public struct AssistantMainView: View {
         .sheet(isPresented: $showMemoryBrowser) {
             MemoryBrowserView()
         }
-        .sheet(isPresented: $showDataFlow) {
-            DataFlowPanelView()
-        }
-        .sheet(isPresented: $showAgentManager) {
-            AgentManagerView()
-        }
         .sheet(isPresented: $showMCPServers) {
             MCPServersView()
-        }
-        .sheet(isPresented: $showGlobalSearch) {
-            GlobalSearchView { conversationID, messageID in
-                openSearchResult(conversationID: conversationID, messageID: messageID)
-            }
-        }
-        .sheet(item: $exportTarget) { conversation in
-            ExportConversationSheet(conversation: conversation)
         }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(
@@ -416,18 +402,51 @@ public struct AssistantMainView: View {
 
     // MARK: - 5. 空对话页：悬浮微胶囊 + 中央全息大卡片（Conic 旋转流光与呼吸背光）
 
+    /// 天气 / 日程详情面板（胶囊的流体展开态）。
+    private var ambientDetailPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(weatherSummaryText, systemImage: "cloud.sun.fill")
+                .font(AppUI.subheadline)
+                .foregroundStyle(AppUI.label)
+
+            Label(agendaSummaryText, systemImage: "calendar")
+                .font(AppUI.subheadline)
+                .foregroundStyle(AppUI.label)
+
+            Button {
+                withAnimation(.interpolatingSpring(stiffness: 280, damping: 24)) {
+                    showWeatherDetail = false
+                }
+            } label: {
+                Text("收起")
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label2)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .correctedLiquidGlassCard(cornerRadius: 18)
+        .accessibilityElement(children: .contain)
+    }
+
     private var emptyStateMascotCard: some View {
         VStack(spacing: 12) {
-            // 悬浮天气与日程胶囊（精准悬浮于中央大卡片上方 10pt，采用纯净 Liquid Glass 质感）
-            FloatingWeatherAgendaCapsule(
-                weatherText: "今天 晴 · 24°C",
-                agendaText: "日程已同步",
-                onTap: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.80)) {
-                        showWeatherDetail.toggle()
+            // 悬浮天气与日程胶囊：点击后由 FluidMorphContainer 流体变形为详情面板
+            // （第 2 项物理动效：interpolatingSpring 驱动尺寸与圆角连续变形）
+            FluidMorphContainer(isExpanded: $showWeatherDetail) {
+                FloatingWeatherAgendaCapsule(
+                    weatherText: weatherSummaryText,
+                    agendaText: agendaSummaryText,
+                    onTap: {
+                        withAnimation(.interpolatingSpring(stiffness: 280, damping: 24)) {
+                            showWeatherDetail = true
+                        }
                     }
-                }
-            )
+                )
+            } expanded: {
+                ambientDetailPanel
+            }
             .padding(.bottom, 2)
 
             // 中央全息大卡片

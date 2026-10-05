@@ -589,13 +589,6 @@ struct PhysicalElasticCircleButtonStyle: ButtonStyle {
     }
 }
 
-extension View {
-    /// 为任意可点按元素应用物理弹性压缩与释放 overshoot。
-    func fluidElasticButton(cornerRadius: CGFloat = 16, scale: CGFloat = 0.96) -> some View {
-        buttonStyle(PhysicalElasticButtonStyle(scale: scale, cornerRadius: cornerRadius))
-    }
-}
-
 // MARK: - 8. 真实卡片交互与暗色磨砂玻璃操作蒙版 (Interactive Glass Card & Dark Glass Action Overlay)
 
 /// 卡片浮动操作按钮定义。
