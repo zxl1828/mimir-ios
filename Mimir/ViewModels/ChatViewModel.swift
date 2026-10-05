@@ -459,6 +459,9 @@ final class ChatViewModel {
             guard let self else { return }
             // 逐 token 写回 SwiftData 模型会让整棵会话视图每帧重绘，这里统一节流到 50ms。
             var lastFlush = Date()
+            // Spark：流式文本推送灵动岛的独立节流（Live Activity 更新有频率预算，
+            // 与画面刷新用的 50ms 节流分开，这里 1.5 秒一次就够"打字机"观感）
+            var lastSparkPush = Date.distantPast
             func flushStreamingText(force: Bool = false) {
                 let now = Date()
                 guard force || now.timeIntervalSince(lastFlush) >= 0.05 else { return }
@@ -469,6 +472,10 @@ final class ChatViewModel {
                 }
                 if assistant.thinkingText != reasoning {
                     assistant.thinkingText = reasoning
+                }
+                if !accumulated.isEmpty, now.timeIntervalSince(lastSparkPush) >= 1.5 {
+                    lastSparkPush = now
+                    MimirSparkManager.shared.pushResponse(accumulated, isGenerating: true)
                 }
             }
             var workingMessages = await self.buildPayloadWithImages(
@@ -585,6 +592,14 @@ final class ChatViewModel {
             // 正常结束 / 出错 / 被中断三条出口都从这里落地，保证最后几个字符不丢。
             flushStreamingText(force: true)
             assistant.isStreaming = false
+            // Spark：把最终回复推到常驻灵动岛，3 秒后自动折叠回待命态
+            if !accumulated.isEmpty {
+                MimirSparkManager.shared.pushResponse(accumulated, isGenerating: false)
+                Task {
+                    try? await Task.sleep(for: .seconds(3))
+                    MimirSparkManager.shared.collapse()
+                }
+            }
             if accumulated.isEmpty {
                 assistant.discardEmptyVersion()
             } else {

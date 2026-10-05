@@ -34,6 +34,8 @@ struct RootView: View {
             StartupCoordinator.seedIfNeeded(context: modelContext)
             StartupCoordinator.refreshScheduledTasks(context: modelContext)
             isReady = true
+            // Gemini Spark：启动即拉起常驻灵动岛（已存在则复用，不会重复请求）
+            await MimirSparkManager.shared.bootstrap()
         }
         .onChange(of: settings.accent) { _, newAccent in
             ThemeManager.shared.accent = newAccent
@@ -47,7 +49,17 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
                 StartupCoordinator.performMaintenance(context: modelContext, settings: settings)
+            } else if newPhase == .active {
+                // 回到前台：常驻活动若被系统回收就重建
+                Task { await MimirSparkManager.shared.resumeIfNeeded() }
             }
+        }
+        // 点按灵动岛的输入入口 → 回到助手页并聚焦输入框
+        .onOpenURL { url in
+            guard url.scheme == "mimir" else { return }
+            let coordinator = TabNavigationCoordinator.shared
+            coordinator.selectedTab = .assistant
+            coordinator.pendingPromptToChat = ""
         }
     }
 }
