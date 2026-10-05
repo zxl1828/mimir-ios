@@ -64,18 +64,94 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
-      - name: Package unsigned IPA
+      - name: Sign and package canonical IPA
         shell: bash
         run: |
           set -euo pipefail
           APP_PATH="$(find Build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)"
-          echo "App: $APP_PATH"
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "Error: No .app bundle found in Build/Build/Products/Release-iphoneos"
+            exit 1
+          fi
+          echo "==> Located App Bundle: $APP_PATH"
           du -sh "$APP_PATH"
-          rm -rf Payload
-          mkdir -p Payload
-          cp -R "$APP_PATH" Payload/
-          zip -qry Mimir-unsigned.ipa Payload
-          ls -lh Mimir-unsigned.ipa
+
+          echo "==> Step 1: Validating Info.plist..."
+          plutil -lint "${APP_PATH}/Info.plist"
+          if [ -f "${APP_PATH}/PlugIns/MimirWidgets.appex/Info.plist" ]; then
+            plutil -lint "${APP_PATH}/PlugIns/MimirWidgets.appex/Info.plist"
+          fi
+          plutil -p "${APP_PATH}/Info.plist" | grep -E '"CFBundle(PackageType|Executable|SupportedPlatforms)"'
+
+          echo "==> Step 2: Applying ad-hoc codesign to embedded components and main bundle..."
+          # Sign embedded extensions first (inside-out)
+          if [ -d "${APP_PATH}/PlugIns" ]; then
+            find "${APP_PATH}/PlugIns" -name "*.appex" | while read -r appex; do
+              echo "Signing extension: $appex"
+              codesign --force --sign - --timestamp=none "$appex"
+            done
+          fi
+
+          # Sign embedded frameworks if present
+          if [ -d "${APP_PATH}/Frameworks" ]; then
+            find "${APP_PATH}/Frameworks" -name "*.dylib" -o -name "*.framework" | while read -r fw; do
+              echo "Signing framework: $fw"
+              codesign --force --sign - --timestamp=none "$fw"
+            done
+          fi
+
+          # Sign main app bundle
+          echo "Signing main app bundle: ${APP_PATH}"
+          codesign --force --sign - --timestamp=none "${APP_PATH}"
+
+          echo "==> Verifying signature integrity..."
+          codesign -v --deep --strict "${APP_PATH}"
+          codesign -d --verbose=4 "${APP_PATH}" 2>&1 | head -n 25
+
+          echo "==> Step 3: Staging canonical Payload structure..."
+          WORK_DIR="$(mktemp -d)"
+          PAYLOAD_DIR="${WORK_DIR}/Payload"
+          mkdir -p "${PAYLOAD_DIR}"
+
+          # Copy .app bundle into Payload/
+          cp -R "${APP_PATH}" "${PAYLOAD_DIR}/"
+
+          # Clean macOS metadata artifacts that can corrupt strict IPA unpackers
+          find "${WORK_DIR}" -name ".DS_Store" -delete
+          find "${WORK_DIR}" -name "__MACOSX" -exec rm -rf {} + 2>/dev/null || true
+
+          echo "==> Step 4: Compressing IPA with preserved symlinks (-y)..."
+          OUTPUT_IPA="${GITHUB_WORKSPACE}/Mimir-unsigned.ipa"
+          rm -f "${OUTPUT_IPA}"
+
+          (
+            cd "${WORK_DIR}"
+            zip -r -y -q "${OUTPUT_IPA}" Payload
+          )
+          rm -rf "${WORK_DIR}"
+
+          echo "==> Step 5: Validating internal IPA structure..."
+          ls -lh "${OUTPUT_IPA}"
+
+          # Verify Payload is the sole root directory
+          NON_PAYLOAD=$(unzip -l "${OUTPUT_IPA}" | awk '{print $4}' | grep -v '^Payload/' | grep -v '^$' | grep -v '^Name' | grep -v '^-' || true)
+          if [ -n "$NON_PAYLOAD" ]; then
+            echo "Error: Found non-Payload root entries in archive:"
+            echo "$NON_PAYLOAD"
+            exit 1
+          fi
+
+          # Verify critical entries inside archive
+          unzip -l "${OUTPUT_IPA}" | grep "Payload/Mimir.app/Info.plist"
+          unzip -l "${OUTPUT_IPA}" | grep "Payload/Mimir.app/Mimir"
+          unzip -l "${OUTPUT_IPA}" | grep "Payload/Mimir.app/_CodeSignature/CodeResources"
+          if [ -d "${APP_PATH}/PlugIns/MimirWidgets.appex" ]; then
+            unzip -l "${OUTPUT_IPA}" | grep "Payload/Mimir.app/PlugIns/MimirWidgets.appex/Info.plist"
+            unzip -l "${OUTPUT_IPA}" | grep "Payload/Mimir.app/PlugIns/MimirWidgets.appex/_CodeSignature/CodeResources"
+          fi
+
+          echo "==> IPA structure verified successfully! Archive preview:"
+          unzip -l "${OUTPUT_IPA}" | head -n 30
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
