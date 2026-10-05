@@ -1,18 +1,19 @@
 import SwiftUI
 import UIKit
 
-// MARK: - 1. 跟随触摸位置的 3D 透视倾斜与镜像反射流光 (Interactive 3D Perspective Tilt & Specular Sheen)
+// MARK: - 1. 遵循三阶段规范的 3D 透视倾斜与镜像反射流光 (Interactive 3D Perspective Tilt & Specular Sheen)
 
-/// 跟随触摸手势的 3D 物理透视倾斜修饰器。
-///
-/// 拖拽时根据手指相对于容器中心的相对偏移计算俯仰角（Pitch）与偏航角（Roll），
-/// 同时在表面叠加跟随手指移动的径向高光反射流光（Specular Sheen）；
-/// 松手时通过高阻尼 Spring 动画自然平滑回正。
-struct InteractivePerspectiveTiltModifier: ViewModifier {
+/// 遵循严格三阶段渲染管线的 3D 物理透视倾斜与流光卡片修饰器：
+/// Stage 1: 内部材质与表面高光流光 (Specular Sheen Overlay - RadialGradient 严格基于容器尺寸)
+/// Stage 2: 强硬圆角裁剪 (.clipShape + .contentShape)，死死锁定所有内部渐变与反射层，100% 杜绝溢出
+/// Stage 3: 外部环境阴影 (.shadow) -> 栅格化合成组 (.compositingGroup()) -> 3D 透视倾斜与弹性微缩
+public struct TiltGlareCardModifier: ViewModifier {
 
-    var maxAngle: CGFloat = 7.0
-    var cornerRadius: CGFloat = AppUI.cardRadius
-    var showsSpecularSheen: Bool = true
+    public var maxAngle: CGFloat
+    public var cornerRadius: CGFloat
+    public var showsSpecularSheen: Bool
+    public var hasAmbientBacklight: Bool
+    public var scaleOnPress: CGFloat
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
@@ -20,90 +21,158 @@ struct InteractivePerspectiveTiltModifier: ViewModifier {
     @State private var pitch: CGFloat = 0  // 绕 X 轴旋转 (-1...1)
     @State private var roll: CGFloat = 0   // 绕 Y 轴旋转 (-1...1)
     @State private var touchPoint: CGPoint = .zero
-    @State private var isTouching = false
+    @State private var isTouching: Bool = false
     @State private var viewSize: CGSize = .zero
 
-    func body(content: Content) -> some View {
-        content
-            .overlay {
-                if showsSpecularSheen && isTouching && viewSize.width > 0 && viewSize.height > 0 {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    Color.white.opacity(scheme == .dark ? 0.28 : 0.42),
-                                    accent.opacity(scheme == .dark ? 0.16 : 0.22),
-                                    Color.clear
-                                ],
-                                center: UnitPoint(
-                                    x: min(max(touchPoint.x / viewSize.width, 0), 1),
-                                    y: min(max(touchPoint.y / viewSize.height, 0), 1)
-                                ),
-                                startRadius: 2,
-                                endRadius: max(viewSize.width, viewSize.height) * 0.72
+    public init(
+        maxAngle: CGFloat = 7.0,
+        cornerRadius: CGFloat = AppUI.cardRadius,
+        showsSpecularSheen: Bool = true,
+        hasAmbientBacklight: Bool = false,
+        scaleOnPress: CGFloat = 0.975
+    ) {
+        self.maxAngle = maxAngle
+        self.cornerRadius = cornerRadius
+        self.showsSpecularSheen = showsSpecularSheen
+        self.hasAmbientBacklight = hasAmbientBacklight
+        self.scaleOnPress = scaleOnPress
+    }
+
+    public func body(content: Content) -> some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !hasAmbientBacklight)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let breath = hasAmbientBacklight ? (0.5 + 0.5 * sin(time * (2 * .pi / 3.0))) : 0.5
+
+            // ======== 第一阶段：内部内容与材质渲染 (Internal Content & Sheen) ========
+            content
+                .overlay {
+                    if showsSpecularSheen && isTouching && viewSize.width > 0 && viewSize.height > 0 {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color.white.opacity(scheme == .dark ? 0.35 : 0.45),
+                                        accent.opacity(scheme == .dark ? 0.20 : 0.25),
+                                        Color.clear
+                                    ],
+                                    center: UnitPoint(
+                                        x: min(max(touchPoint.x / viewSize.width, 0), 1),
+                                        y: min(max(touchPoint.y / viewSize.height, 0), 1)
+                                    ),
+                                    startRadius: 2,
+                                    endRadius: max(viewSize.width, viewSize.height) * 0.72
+                                )
                             )
-                        )
-                        .blendMode(scheme == .dark ? .plusLighter : .overlay)
-                        .allowsHitTesting(false)
-                }
-            }
-            .background {
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { viewSize = proxy.size }
-                        .onChange(of: proxy.size) { _, newSize in viewSize = newSize }
-                }
-            }
-            .rotation3DEffect(
-                .degrees(-Double(pitch * maxAngle)),
-                axis: (x: 1.0, y: 0.0, z: 0.0),
-                perspective: 0.55
-            )
-            .rotation3DEffect(
-                .degrees(Double(roll * maxAngle)),
-                axis: (x: 0.0, y: 1.0, z: 0.0),
-                perspective: 0.55
-            )
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        guard viewSize.width > 0, viewSize.height > 0 else { return }
-                        let x = value.location.x
-                        let y = value.location.y
-                        touchPoint = value.location
-                        let halfW = viewSize.width / 2
-                        let halfH = viewSize.height / 2
-                        let r = min(max((x - halfW) / halfW, -1.0), 1.0)
-                        let p = min(max((y - halfH) / halfH, -1.0), 1.0)
-                        isTouching = true
-                        withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.86)) {
-                            roll = r
-                            pitch = p
-                        }
+                            .blendMode(scheme == .dark ? .plusLighter : .overlay)
+                            .allowsHitTesting(false)
                     }
-                    .onEnded { _ in
-                        withAnimation(.spring(response: 0.44, dampingFraction: 0.66)) {
-                            pitch = 0
-                            roll = 0
-                            isTouching = false
-                        }
+                }
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear
+                            .onAppear { viewSize = proxy.size }
+                            .onChange(of: proxy.size) { _, newSize in viewSize = newSize }
                     }
-            )
+                }
+
+                // ======== 第二阶段：强硬圆角裁剪 (Hard Rounded Boundary Clipping - 关键) ========
+                // 死死锁在圆角矩形内，杜绝任何渐变/高光/反光溢出边缘
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+
+                // ======== 第三阶段：外部 3D 变换与环境阴影 (External Transform & Ambient Glow) ========
+                // 1. 外部环境阴影 / 呼吸背光（基于已圆角裁剪的 Alpha 轮廓自然投射，绝无方形硬边）
+                .shadow(
+                    color: hasAmbientBacklight
+                        ? accent.opacity(scheme == .dark ? (0.32 + 0.28 * breath) : (0.22 + 0.22 * breath))
+                        : (scheme == .dark ? Color.black.opacity(0.35) : accent.opacity(0.12)),
+                    radius: hasAmbientBacklight ? (24.0 + 14.0 * breath) : (isTouching ? 18 : 12),
+                    x: 0,
+                    y: isTouching ? 10 : 6
+                )
+                // 2. 栅格化合成组：强制将裁剪好的圆角卡片渲染为平整复合纹理图层，彻底避免 3D 透视变换时子图层发生视差错位或 CALayer 矩形底纹脱色
+                .compositingGroup()
+                // 3. 触控物理按压微形变反馈
+                .scaleEffect(isTouching ? scaleOnPress : 1.0)
+                // 4. 3D 透视与手势旋转
+                .rotation3DEffect(
+                    .degrees(-Double(pitch * maxAngle)),
+                    axis: (x: 1.0, y: 0.0, z: 0.0),
+                    perspective: 0.50
+                )
+                .rotation3DEffect(
+                    .degrees(Double(roll * maxAngle)),
+                    axis: (x: 0.0, y: 1.0, z: 0.0),
+                    perspective: 0.50
+                )
+                // 5. 交互手势
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            guard viewSize.width > 0, viewSize.height > 0 else { return }
+                            let x = value.location.x
+                            let y = value.location.y
+                            touchPoint = value.location
+                            let halfW = viewSize.width / 2
+                            let halfH = viewSize.height / 2
+                            let r = min(max((x - halfW) / halfW, -1.0), 1.0)
+                            let p = min(max((y - halfH) / halfH, -1.0), 1.0)
+                            if !isTouching {
+                                Haptics.impact(.light)
+                            }
+                            isTouching = true
+                            withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.86)) {
+                                roll = r
+                                pitch = p
+                            }
+                        }
+                        .onEnded { _ in
+                            withAnimation(.spring(response: 0.44, dampingFraction: 0.66)) {
+                                pitch = 0
+                                roll = 0
+                                isTouching = false
+                            }
+                        }
+                )
+        }
     }
 }
 
+public typealias InteractivePerspectiveTiltModifier = TiltGlareCardModifier
+
 extension View {
-    /// 为卡片添加跟随触摸的 3D 透视倾斜与镜像反射流光，松手带 spring 阻尼回正。
-    func interactiveTilt(
+    /// 遵循三阶段规范的 3D 透视倾斜与流光卡片修饰器（防溢出裁切 + 合成栅格化 + 呼吸背光）。
+    public func tiltGlareCard(
         maxAngle: CGFloat = 7.0,
         cornerRadius: CGFloat = AppUI.cardRadius,
-        showsSpecularSheen: Bool = true
+        showsSpecularSheen: Bool = true,
+        hasAmbientBacklight: Bool = false,
+        scaleOnPress: CGFloat = 0.975
     ) -> some View {
         modifier(
-            InteractivePerspectiveTiltModifier(
+            TiltGlareCardModifier(
                 maxAngle: maxAngle,
                 cornerRadius: cornerRadius,
-                showsSpecularSheen: showsSpecularSheen
+                showsSpecularSheen: showsSpecularSheen,
+                hasAmbientBacklight: hasAmbientBacklight,
+                scaleOnPress: scaleOnPress
+            )
+        )
+    }
+
+    /// 为卡片添加跟随触摸的 3D 透视倾斜与镜像反射流光，松手带 spring 阻尼回正。
+    public func interactiveTilt(
+        maxAngle: CGFloat = 7.0,
+        cornerRadius: CGFloat = AppUI.cardRadius,
+        showsSpecularSheen: Bool = true,
+        hasAmbientBacklight: Bool = false
+    ) -> some View {
+        modifier(
+            TiltGlareCardModifier(
+                maxAngle: maxAngle,
+                cornerRadius: cornerRadius,
+                showsSpecularSheen: showsSpecularSheen,
+                hasAmbientBacklight: hasAmbientBacklight
             )
         )
     }
@@ -324,9 +393,10 @@ struct FluidRubberBandDrawer<Content: View>: View {
     }
 }
 
-// MARK: - 5. 旋转渐变描边与呼吸弥散背光 (Rotating Gradient Border with Breathing Ambient Backlight)
+// MARK: - 5. 旋转渐变折射描边 (Rotating Gradient Border)
 
-/// 为大型卡片窗口提供 360° 平滑慢速旋转的渐变折射描边，以及底部带高斯模糊的动态呼吸弥散背光。
+/// 为大型卡片窗口提供 360° 平滑慢速旋转的渐变折射描边。
+/// 严格作为内部 strokeBorder 运行，杜绝外部未裁切矩形底色溢出。
 struct RotatingGlowBorderModifier: ViewModifier {
 
     var cornerRadius: CGFloat = 22
@@ -341,31 +411,9 @@ struct RotatingGlowBorderModifier: ViewModifier {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isAnimated)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             let angle = (time * 42.0).truncatingRemainder(dividingBy: 360)
-            let breath = 0.5 + 0.5 * sin(time * 2.1)
 
             content
-                // 底部动态模糊呼吸弥散背光
-                .background {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            AngularGradient(
-                                gradient: Gradient(colors: [
-                                    accent.opacity(scheme == .dark ? 0.45 : 0.28),
-                                    AppUI.neonViolet.opacity(scheme == .dark ? 0.60 : 0.35),
-                                    Color.white.opacity(scheme == .dark ? 0.20 : 0.40),
-                                    AppUI.deepViolet.opacity(scheme == .dark ? 0.42 : 0.22),
-                                    accent.opacity(scheme == .dark ? 0.45 : 0.28)
-                                ]),
-                                center: .center,
-                                angle: .degrees(angle)
-                            )
-                        )
-                        .scaleEffect(1.025 + 0.025 * breath)
-                        .blur(radius: glowRadius)
-                        .opacity(0.68 + 0.32 * breath)
-                        .allowsHitTesting(false)
-                }
-                // 顶部 360° 旋转渐变折射描边
+                // 顶部 360° 旋转渐变折射描边（纯内边框 strokeBorder，不外溢）
                 .overlay {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .strokeBorder(
@@ -373,9 +421,8 @@ struct RotatingGlowBorderModifier: ViewModifier {
                                 gradient: Gradient(colors: [
                                     Color.white.opacity(scheme == .dark ? 0.88 : 0.95),
                                     accent,
-                                    AppUI.neonViolet,
                                     Color.white.opacity(scheme == .dark ? 0.45 : 0.70),
-                                    AppUI.deepViolet,
+                                    accent.opacity(0.60),
                                     Color.white.opacity(scheme == .dark ? 0.88 : 0.95)
                                 ]),
                                 center: .center,
@@ -390,7 +437,7 @@ struct RotatingGlowBorderModifier: ViewModifier {
 }
 
 extension View {
-    /// 添加 360° 旋转渐变描边与底部呼吸弥散背光。
+    /// 添加 360° 旋转渐变折射描边。
     func rotatingGlowBorder(
         cornerRadius: CGFloat = 22,
         lineWidth: CGFloat = 1.4,

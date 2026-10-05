@@ -470,11 +470,18 @@ public struct AssistantMainView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 24)
+            // 第一阶段：内衬 Liquid Glass
             .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: 30))
-            // 旋转 Conic 渐变折射描边与呼吸弥散背光
-            .conicGlowBorder(cornerRadius: 30, lineWidth: 1.2, isAnimated: true, isBreathing: true)
-            // 跟随手指 3D 透视倾斜与反射流光
-            .interactiveTilt(maxAngle: 7.5, cornerRadius: 30)
+            // 第一阶段：360° 旋转渐变折射描边 (内部 strokeBorder)
+            .conicGlowBorder(cornerRadius: 30, lineWidth: 1.2, isAnimated: true, isBreathing: false)
+            // 第一、二、三阶段：流光、强硬圆角裁剪 (clipShape + contentShape)、
+            // 动态呼吸弥散背光 (.shadow)、栅格化合成组 (.compositingGroup())、3D 透视倾斜与弹性微缩
+            .tiltGlareCard(
+                maxAngle: 7.5,
+                cornerRadius: 30,
+                showsSpecularSheen: true,
+                hasAmbientBacklight: true
+            )
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 16)
         }
