@@ -352,8 +352,6 @@ enum SystemCapabilityGateway {
 
     // MARK: - 本地工作区文件
 
-extension SystemCapabilityGateway {
-
     /// 列出手机本地工作区里的文件。
     static func workspaceList() -> String {
         let files = WorkspaceManager.shared.allFiles.filter { !$0.isDirectory }
@@ -412,7 +410,6 @@ extension SystemCapabilityGateway {
         return files.first { $0.name == name }
             ?? files.first { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }
     }
-}
 
 // MARK: - 文件导出
 
