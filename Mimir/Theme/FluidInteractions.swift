@@ -45,14 +45,32 @@ struct TiltGlareCardModifier: ViewModifier {
 
             // ======== 第一阶段：内部内容与材质渲染 (Internal Content & Sheen) ========
             content
+                // 1. 紫色流体微光交互蒙版：按压/交互时淡入，提供通透的主题紫色微光反馈，严禁使用黑色或暗灰
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    accent.opacity(isTouching ? 0.22 : 0.08),
+                                    accent.opacity(isTouching ? 0.35 : 0.12)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .blendMode(.sourceAtop)
+                        .allowsHitTesting(false)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.70), value: isTouching)
+                }
+                // 2. 液体折射径向反射高光：中心为纯白微光 (0.35)，向外扩散衰减为主题亮紫色 (0.25) 再衰减至透明，营造液体折射光照感
                 .overlay {
                     if showsSpecularSheen && isTouching && viewSize.width > 0 && viewSize.height > 0 {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .fill(
                                 RadialGradient(
                                     colors: [
-                                        Color.white.opacity(scheme == .dark ? 0.35 : 0.45),
-                                        accent.opacity(scheme == .dark ? 0.20 : 0.25),
+                                        Color.white.opacity(0.35),
+                                        accent.opacity(0.25),
                                         Color.clear
                                     ],
                                     center: UnitPoint(
@@ -63,7 +81,7 @@ struct TiltGlareCardModifier: ViewModifier {
                                     endRadius: max(viewSize.width, viewSize.height) * 0.72
                                 )
                             )
-                            .blendMode(scheme == .dark ? .plusLighter : .overlay)
+                            .blendMode(.plusLighter)
                             .allowsHitTesting(false)
                     }
                 }
@@ -81,11 +99,11 @@ struct TiltGlareCardModifier: ViewModifier {
                 .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
 
                 // ======== 第三阶段：外部 3D 变换与环境阴影 (External Transform & Ambient Glow) ========
-                // 1. 外部环境阴影 / 呼吸背光（基于已圆角裁剪的 Alpha 轮廓自然投射，绝无方形硬边）
+                // 1. 外部环境阴影 / 呼吸背光（基于已圆角裁剪的 Alpha 轮廓自然投射，纯主题色，绝无黑色色斑）
                 .shadow(
                     color: hasAmbientBacklight
-                        ? accent.opacity(scheme == .dark ? (0.32 + 0.28 * breath) : (0.22 + 0.22 * breath))
-                        : (scheme == .dark ? Color.black.opacity(0.35) : accent.opacity(0.12)),
+                        ? accent.opacity(scheme == .dark ? (0.35 + 0.30 * breath) : (0.24 + 0.22 * breath))
+                        : accent.opacity(scheme == .dark ? 0.25 : 0.12),
                     radius: hasAmbientBacklight ? (24.0 + 14.0 * breath) : (isTouching ? 18 : 12),
                     x: 0,
                     y: isTouching ? 10 : 6
@@ -508,6 +526,7 @@ struct PhysicalElasticButtonStyle: ButtonStyle {
     var enableHaptic: Bool = true
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -518,17 +537,16 @@ struct PhysicalElasticButtonStyle: ButtonStyle {
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
-                                    Color.black.opacity(scheme == .dark ? 0.60 : 0.28),
-                                    Color.black.opacity(scheme == .dark ? 0.20 : 0.08),
+                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
+                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
                                     Color.clear
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
-                            lineWidth: 2.2
+                            lineWidth: 2.0
                         )
-                        .blur(radius: 1.2)
-                        .blendMode(.multiply)
+                        .blur(radius: 0.8)
                         .allowsHitTesting(false)
                 }
             }
@@ -553,6 +571,7 @@ struct PhysicalElasticCapsuleButtonStyle: ButtonStyle {
     var enableHaptic: Bool = true
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -563,17 +582,16 @@ struct PhysicalElasticCapsuleButtonStyle: ButtonStyle {
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
-                                    Color.black.opacity(scheme == .dark ? 0.60 : 0.28),
-                                    Color.black.opacity(scheme == .dark ? 0.20 : 0.08),
+                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
+                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
                                     Color.clear
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
-                            lineWidth: 2.2
+                            lineWidth: 2.0
                         )
-                        .blur(radius: 1.2)
-                        .blendMode(.multiply)
+                        .blur(radius: 0.8)
                         .allowsHitTesting(false)
                 }
             }
@@ -598,6 +616,7 @@ struct PhysicalElasticCircleButtonStyle: ButtonStyle {
     var enableHaptic: Bool = true
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -608,17 +627,16 @@ struct PhysicalElasticCircleButtonStyle: ButtonStyle {
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
-                                    Color.black.opacity(scheme == .dark ? 0.60 : 0.28),
-                                    Color.black.opacity(scheme == .dark ? 0.20 : 0.08),
+                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
+                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
                                     Color.clear
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
-                            lineWidth: 2.2
+                            lineWidth: 2.0
                         )
-                        .blur(radius: 1.2)
-                        .blendMode(.multiply)
+                        .blur(radius: 0.8)
                         .allowsHitTesting(false)
                 }
             }
@@ -729,9 +747,9 @@ struct GlassCardInteractiveModifier: ViewModifier {
 
     private var darkActionOverlay: some View {
         ZStack {
-            // 黑色半透明液态磨砂玻璃底
+            // 紫色通透半透明液态磨砂玻璃底（彻底清除黑色）
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.black.opacity(0.48))
+                .fill(accent.opacity(scheme == .dark ? 0.35 : 0.20))
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

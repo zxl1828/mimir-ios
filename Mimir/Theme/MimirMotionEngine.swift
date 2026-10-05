@@ -298,17 +298,16 @@ public struct PressScaleOvershootButtonStyle: ButtonStyle {
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
-                                    accent.opacity(scheme == .dark ? 0.32 : 0.22),
-                                    Color.black.opacity(scheme == .dark ? 0.35 : 0.12),
+                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
+                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
                                     Color.clear
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
-                            lineWidth: 2.2
+                            lineWidth: 2.0
                         )
-                        .blur(radius: 1.2)
-                        .blendMode(.multiply)
+                        .blur(radius: 0.8)
                         .allowsHitTesting(false)
                 }
             }
@@ -351,17 +350,16 @@ public struct PressScaleOvershootCapsuleButtonStyle: ButtonStyle {
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
-                                    accent.opacity(scheme == .dark ? 0.32 : 0.22),
-                                    Color.black.opacity(scheme == .dark ? 0.35 : 0.12),
+                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
+                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
                                     Color.clear
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
-                            lineWidth: 2.2
+                            lineWidth: 2.0
                         )
-                        .blur(radius: 1.2)
-                        .blendMode(.multiply)
+                        .blur(radius: 0.8)
                         .allowsHitTesting(false)
                 }
             }
@@ -404,17 +402,16 @@ public struct PressScaleOvershootCircleButtonStyle: ButtonStyle {
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
-                                    accent.opacity(scheme == .dark ? 0.32 : 0.22),
-                                    Color.black.opacity(scheme == .dark ? 0.35 : 0.12),
+                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
+                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
                                     Color.clear
                                 ],
                                 startPoint: .top,
                                 endPoint: .bottom
                             ),
-                            lineWidth: 2.2
+                            lineWidth: 2.0
                         )
-                        .blur(radius: 1.2)
-                        .blendMode(.multiply)
+                        .blur(radius: 0.8)
                         .allowsHitTesting(false)
                 }
             }
