@@ -957,17 +957,17 @@ public struct AssistantMainView: View {
 
 /// 中央助手交互大卡片：严格遵循三层扁平架构、纯白/极深紫色彩基准与局部变换矩阵隔离。
 private struct CentralAssistantCard: View {
+
     let mascotSize: CGFloat
 
-    @Environment(\.appAccent) private var accent
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
 
-    @State private var pitch: CGFloat = 0
-    @State private var roll: CGFloat = 0
-    @State private var isTouching: Bool = false
+    /// 卡片圆角 / 倾斜上限（统一常量，避免散落魔法数字）。
+    private static let cornerRadius: CGFloat = 32
+    private static let maxTiltAngle: CGFloat = 7.0
 
     var body: some View {
-        // ③ 前景层：文字与 Mascot 前景内容
         VStack(spacing: 12) {
             MimirMascot(size: mascotSize, mood: .calm)
                 .padding(.bottom, 2)
@@ -991,31 +991,20 @@ private struct CentralAssistantCard: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
-        // ① 纯净底色层（浅色纯白/极淡紫，深色极深紫）+ 原生 Liquid Glass
+        // 底色层：浅色纯白 / 深色极深紫
         .background {
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
+            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .fill(
                     scheme == .dark
                         ? Color(hex: "120D1D").opacity(0.85)
                         : Color.white.opacity(0.85)
                 )
         }
-        .liquidGlass(.regular, in: .rect(cornerRadius: 32))
-        // 按压/交互微光反馈（彻底废除纯黑与暗灰：浅色为浅紫微光+纯白折射微光，深色为亮紫微光）
+        // 原生 Liquid Glass 材质
+        .liquidGlass(.regular, in: .rect(cornerRadius: Self.cornerRadius))
+        // 1pt 双色渐变描边（迎光面白，背光面主题色）
         .overlay {
-            if isTouching {
-                RoundedRectangle(cornerRadius: 32, style: .continuous)
-                    .fill(
-                        scheme == .dark
-                            ? accent.opacity(0.25)
-                            : Color(hex: "EADEFA").opacity(0.35)
-                    )
-                    .allowsHitTesting(false)
-            }
-        }
-        // ② 边框层：1pt 主题色流体边框
-        .overlay {
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
+            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
@@ -1029,56 +1018,14 @@ private struct CentralAssistantCard: View {
                 )
                 .allowsHitTesting(false)
         }
-        // 强制标准圆角裁切统一收拢在最外层（32pt）
-        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
-        // 静态微环境阴影（固定半径，避免逐帧离屏模糊重绘）
-        .shadow(
-            color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
-            radius: isTouching ? 16 : 10,
-            x: 0,
-            y: isTouching ? 8 : 4
-        )
-        // 性能关键：在 3D 变换前建立复合图层，避免每帧触发离屏渲染树全量重构
-        .compositingGroup()
-        // 触控物理微形变微缩 (0.97)
-        .scaleEffect(isTouching ? 0.97 : 1.0)
-        // 局部 3D 透视倾斜（仅刷新卡片变换矩阵，彻底阻断外层整屏重绘）
-        .rotation3DEffect(
-            .degrees(-Double(pitch * 7.0)),
-            axis: (x: 1.0, y: 0.0, z: 0.0),
-            perspective: 0.50
-        )
-        .rotation3DEffect(
-            .degrees(Double(roll * 7.0)),
-            axis: (x: 0.0, y: 1.0, z: 0.0),
-            perspective: 0.50
-        )
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
-                    let x = value.location.x
-                    let y = value.location.y
-                    let r = min(max((x - 160) / 160, -1.0), 1.0)
-                    let p = min(max((y - 140) / 140, -1.0), 1.0)
-                    if !isTouching {
-                        Haptics.impact(.light)
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.80)) {
-                            isTouching = true
-                        }
-                    }
-                    withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.86)) {
-                        roll = r
-                        pitch = p
-                    }
-                }
-                .onEnded { _ in
-                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
-                        pitch = 0
-                        roll = 0
-                        isTouching = false
-                    }
-                }
+        // 3D 透视倾斜 + 镜像反射流光 + 呼吸背光（统一修饰器）：
+        // 内含圆角裁切（绝不溢出边框）、合成栅格化与按真实尺寸计算的倾角，
+        // 取代此前内联实现里写死 160/140 中心点的版本。
+        .tiltGlareCard(
+            maxAngle: Self.maxTiltAngle,
+            cornerRadius: Self.cornerRadius,
+            showsSpecularSheen: true,
+            hasAmbientBacklight: true
         )
     }
 }

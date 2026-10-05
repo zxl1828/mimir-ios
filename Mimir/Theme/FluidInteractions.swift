@@ -40,6 +40,16 @@ struct TiltGlareCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // 0. 呼吸背光：主题色环境光晕（静态渲染，不参与每帧动画）
+            .background {
+                if hasAmbientBacklight {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(accent.opacity(scheme == .dark ? 0.22 : 0.10))
+                        .blur(radius: 26)
+                        .padding(-8)
+                        .allowsHitTesting(false)
+                }
+            }
             // 1. 按压/交互微光反馈（彻底废除纯黑与暗灰：浅色为淡紫微光，深色为亮紫流光）
             .overlay {
                 if isTouching {
@@ -51,6 +61,26 @@ struct TiltGlareCardModifier: ViewModifier {
                         )
                         .allowsHitTesting(false)
                         .transition(.opacity)
+                }
+            }
+            // 1.5 镜面流光：跟随手指的径向高光（深色下叠加提亮呈白/浅紫，浅色下柔和提亮）
+            .overlay {
+                if showsSpecularSheen, isTouching, viewSize.width > 0, viewSize.height > 0 {
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(scheme == .dark ? 0.32 : 0.42),
+                            accent.opacity(scheme == .dark ? 0.18 : 0.10),
+                            Color.clear
+                        ],
+                        center: UnitPoint(
+                            x: min(max(touchPoint.x / viewSize.width, 0), 1),
+                            y: min(max(touchPoint.y / viewSize.height, 0), 1)
+                        ),
+                        startRadius: 0,
+                        endRadius: max(viewSize.width, viewSize.height) * 0.62
+                    )
+                    .blendMode(scheme == .dark ? .plusLighter : .normal)
+                    .allowsHitTesting(false)
                 }
             }
             .background {
