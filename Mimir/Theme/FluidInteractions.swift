@@ -29,7 +29,7 @@ struct TiltGlareCardModifier: ViewModifier {
         cornerRadius: CGFloat = AppUI.cardRadius,
         showsSpecularSheen: Bool = true,
         hasAmbientBacklight: Bool = false,
-        scaleOnPress: CGFloat = 0.975
+        scaleOnPress: CGFloat = 0.985
     ) {
         self.maxAngle = maxAngle
         self.cornerRadius = cornerRadius
@@ -40,16 +40,6 @@ struct TiltGlareCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // 0. 呼吸背光：主题色环境光晕（静态渲染，不参与每帧动画）
-            .background {
-                if hasAmbientBacklight {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(accent.opacity(scheme == .dark ? 0.22 : 0.10))
-                        .blur(radius: 26)
-                        .padding(-8)
-                        .allowsHitTesting(false)
-                }
-            }
             // 1. 按压/交互微光反馈（彻底废除纯黑与暗灰：浅色为淡紫微光，深色为亮紫流光）
             .overlay {
                 if isTouching {
@@ -103,7 +93,7 @@ struct TiltGlareCardModifier: ViewModifier {
             // 4. 关键：在 3D 变换前建立复合图层，避免每帧触发离屏渲染树全量重构
             .compositingGroup()
             // 5. 触控物理微缩
-            .scaleEffect(isTouching ? scaleOnPress : 1.0)
+            .scaleEffect(isTouching ? scaleOnPress : 1.0, anchor: .center)
             // 6. 3D 透视手势旋转
             .rotation3DEffect(
                 .degrees(-Double(pitch * maxAngle)),
@@ -158,7 +148,7 @@ extension View {
         cornerRadius: CGFloat = AppUI.cardRadius,
         showsSpecularSheen: Bool = true,
         hasAmbientBacklight: Bool = false,
-        scaleOnPress: CGFloat = 0.975
+        scaleOnPress: CGFloat = 0.985
     ) -> some View {
         modifier(
             TiltGlareCardModifier(

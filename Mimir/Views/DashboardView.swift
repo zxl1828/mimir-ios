@@ -233,7 +233,7 @@ struct DashboardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .correctedLiquidGlassCard(cornerRadius: 18)
             }
-            .buttonStyle(PressScaleOvershootButtonStyle(cornerRadius: 18))
+            .buttonStyle(.plain)
             .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
 
             // 卡片 2: Library
@@ -254,7 +254,7 @@ struct DashboardView: View {
                 .frame(maxWidth: .infinity)
                 .correctedLiquidGlassCard(cornerRadius: 18)
             }
-            .buttonStyle(PressScaleOvershootButtonStyle(cornerRadius: 18))
+            .buttonStyle(.plain)
             .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
 
             // 卡片 3: My Projects
@@ -276,7 +276,7 @@ struct DashboardView: View {
                 .frame(maxWidth: .infinity)
                 .correctedLiquidGlassCard(cornerRadius: 18)
             }
-            .buttonStyle(PressScaleOvershootButtonStyle(cornerRadius: 18))
+            .buttonStyle(.plain)
             .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
         }
     }
@@ -748,7 +748,8 @@ struct DashboardView: View {
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PhysicalElasticButtonStyle())
+        // 会话列表行：去掉按压缩放/弹跳，点击即时响应
+        .buttonStyle(.plain)
     }
 
     // MARK: - 6. 底部精选多模态资产展示卡片 (Artwork Showcase)

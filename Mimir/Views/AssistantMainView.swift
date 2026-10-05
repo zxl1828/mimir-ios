@@ -499,7 +499,31 @@ public struct AssistantMainView: View {
         }
         .padding(.vertical, 6)
         .frame(width: 220)
-        .liquidGlass(cornerRadius: 20, isHighlighted: true, glowIntensity: 0.35)
+        // 纯白 / 极深紫底 + 淡紫折射描边：不用 ultraThinMaterial，
+        // 因为它在浅色模式下会泛灰，看起来像一层脏遮罩
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(
+                    scheme == .dark
+                        ? Color(hex: "120D1D").opacity(0.94)
+                        : Color.white.opacity(0.96)
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(scheme == .dark ? 0.35 : 0.90),
+                            accent.opacity(0.45)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.18), radius: 20, y: 8)
         .padding(.trailing, 16)
         .frame(maxWidth: .infinity, alignment: .trailing)
     }
@@ -512,12 +536,12 @@ public struct AssistantMainView: View {
     private var topBlurScrim: some View {
         Rectangle()
             .fill(.ultraThinMaterial)
-            .frame(height: 110)
+            .frame(height: 48)
             .mask(
                 LinearGradient(
                     stops: [
                         .init(color: .black, location: 0.0),
-                        .init(color: .black, location: 0.52),
+                        .init(color: .black, location: 0.62),
                         .init(color: .clear, location: 1.0)
                     ],
                     startPoint: .top,
@@ -1125,7 +1149,7 @@ private struct CentralAssistantCard: View {
             maxAngle: Self.maxTiltAngle,
             cornerRadius: Self.cornerRadius,
             showsSpecularSheen: true,
-            hasAmbientBacklight: true
+            hasAmbientBacklight: false
         )
     }
 }

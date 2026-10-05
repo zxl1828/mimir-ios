@@ -59,12 +59,9 @@ struct CodeWorkspaceCLIView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 6)
 
-            // 实时代码视图（桥接电脑端 AI 正在编辑的文件）
-            codeViewerSection
-
             // 上半部：VS Code CLI 终端视窗
             terminalWindowSection
-                .frame(maxHeight: 200)
+                .frame(maxHeight: 300)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
 
