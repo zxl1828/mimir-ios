@@ -185,7 +185,6 @@ struct CodeWorkspaceCLIView: View {
         return "\(snapshot.lines) 行"
     }
 
-    @ViewBuilder
     /// 代码面板当前显示的快照：**本地工作区优先**，未挂载文件时回退到电脑桥接。
     ///
     /// 这里显式读取 `localTick` 建立依赖，让 1.5 秒的心跳能触发重算——
@@ -215,6 +214,7 @@ struct CodeWorkspaceCLIView: View {
         return "读取中…"
     }
 
+    @ViewBuilder
     private var codeViewerBody: some View {
         if let snapshot = displaySnapshot {
             let lines = snapshot.content.components(separatedBy: "\n")
