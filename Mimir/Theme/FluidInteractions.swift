@@ -56,8 +56,8 @@ struct TiltGlareCardModifier: ViewModifier {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(
                             scheme == .dark
-                                ? accent.opacity(0.25)
-                                : Color(hex: "EADEFA").opacity(0.35)
+                                ? accent.opacity(0.16)
+                                : Color.white.opacity(0.30)
                         )
                         .allowsHitTesting(false)
                         .transition(.opacity)

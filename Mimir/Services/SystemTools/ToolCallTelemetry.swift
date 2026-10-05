@@ -165,6 +165,12 @@ final class ToolCallTelemetry {
             return ("MapKit", "检索地点")
         case SystemCapabilityGateway.exportTool:
             return ("FileManager", "导出文件到本机")
+        case SystemCapabilityGateway.workspaceListTool:
+            return ("FileManager", "列出本地工作区文件")
+        case SystemCapabilityGateway.workspaceReadTool:
+            return ("FileManager", "读取本地工作区文件")
+        case SystemCapabilityGateway.workspaceWriteTool:
+            return ("FileManager", "写入本地工作区文件")
         default:
             return nil
         }

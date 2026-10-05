@@ -61,6 +61,17 @@ public struct AssistantMainView: View {
 
     public var body: some View {
         ZStack(alignment: .top) {
+            // 0. 思考强度选择面板（点击顶栏波形按钮展开；此前只有状态没有 UI）
+            if showReasoningCard {
+                reasoningPanel
+                    .padding(.top, 64)
+                    .zIndex(21)
+                    .transition(
+                        .scale(scale: 0.94, anchor: .topTrailing)
+                            .combined(with: .opacity)
+                    )
+            }
+
             // 1. 顶部状态栏 96pt 主题色微光流光渐变层
             topStatusBarAmbientGlow
                 .zIndex(20)
@@ -442,6 +453,57 @@ public struct AssistantMainView: View {
     // MARK: - 5. 锁定不滚动自适应全屏视口（Non-Scrollable Locked Viewport & Adaptive Layout）
 
     /// 天气 / 日程详情面板（胶囊的流体展开态）。
+    /// 思考强度选择面板：点击顶栏波形按钮展开，选中后自动收起。
+    ///
+    /// 用与全局一致的原生液态玻璃 + 主题色高亮；当前档位用填充圆点与加粗标注，
+    /// 不做任何黑色/灰色蒙版。
+    private var reasoningPanel: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("思考强度")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(AppUI.label3)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 4)
+
+            ForEach(ThinkingMode.allCases) { mode in
+                let isCurrent = chat?.thinkingMode == mode
+
+                Button {
+                    Haptics.selectionChanged()
+                    chat?.thinkingMode = mode
+                    withAnimation(AppUI.snap) { showReasoningCard = false }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: isCurrent ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 15))
+                            .foregroundStyle(isCurrent ? accent : AppUI.label3)
+
+                        Text(mode.title)
+                            .font(.system(size: 14, weight: isCurrent ? .semibold : .regular))
+                            .foregroundStyle(AppUI.label)
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(isCurrent ? accent.opacity(0.12) : Color.clear)
+                    )
+                    .padding(.horizontal, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 6)
+        .frame(width: 220)
+        .liquidGlass(cornerRadius: 20, isHighlighted: true, glowIntensity: 0.35)
+        .padding(.trailing, 16)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
     /// 顶部可变模糊遮罩（110pt）。
     ///
     /// 用 `.ultraThinMaterial` 做渐进模糊，再以**纯 alpha 蒙版**（断点只有 `.clear` 与 `.black`）

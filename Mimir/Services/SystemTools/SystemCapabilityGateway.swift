@@ -27,10 +27,14 @@ enum SystemCapabilityGateway {
     nonisolated static let locationTool = "system_location_once"
     nonisolated static let poiTool = "system_poi_search"
     nonisolated static let exportTool = "system_file_export"
+    nonisolated static let workspaceListTool = "system_workspace_list"
+    nonisolated static let workspaceReadTool = "system_workspace_read"
+    nonisolated static let workspaceWriteTool = "system_workspace_write"
 
     nonisolated static let allNames: Set<String> = [
         timeTool, calendarReadTool, calendarCreateTool, reminderCreateTool,
-        contactsSearchTool, dialTool, shareTool, locationTool, poiTool, exportTool
+        contactsSearchTool, dialTool, shareTool, locationTool, poiTool, exportTool,
+        workspaceListTool, workspaceReadTool, workspaceWriteTool
     ]
 
     nonisolated static func handles(_ name: String) -> Bool { allNames.contains(name) }
@@ -88,6 +92,21 @@ enum SystemCapabilityGateway {
                 name: exportTool,
                 description: "把内容导出为文件（txt / md / csv / pdf），存到本机「文件」App 的 Mimir 目录。",
                 parametersJSON: #"{"type":"object","properties":{"filename":{"type":"string"},"format":{"type":"string","enum":["txt","md","csv","pdf"]},"content":{"type":"string"},"title":{"type":"string"}},"required":["filename","format","content"]}"#
+            ),
+            LLMToolDefinition(
+                name: workspaceListTool,
+                description: "列出手机本地工作区里的文件（名称、大小、修改时间）。",
+                parametersJSON: #"{"type":"object","properties":{},"required":[]}"#
+            ),
+            LLMToolDefinition(
+                name: workspaceReadTool,
+                description: "读取手机本地工作区中某个文件的完整内容。",
+                parametersJSON: #"{"type":"object","properties":{"name":{"type":"string","description":"文件名，可先用 list 查询"}},"required":["name"]}"#
+            ),
+            LLMToolDefinition(
+                name: workspaceWriteTool,
+                description: "写入或覆盖手机本地工作区中的文件，用于编辑代码与文档。写完代码面板会实时刷新。",
+                parametersJSON: #"{"type":"object","properties":{"name":{"type":"string"},"content":{"type":"string"},"create_if_missing":{"type":"boolean","description":"文件不存在时是否新建，默认 false"}},"required":["name","content"]}"#
             )
         ]
     }
@@ -107,6 +126,9 @@ enum SystemCapabilityGateway {
         case locationTool: return await currentLocation()
         case poiTool: return await poiSearch(args)
         case exportTool: return exportFile(args)
+        case workspaceListTool: return workspaceList()
+        case workspaceReadTool: return workspaceRead(args)
+        case workspaceWriteTool: return workspaceWrite(args)
         default: return "未知的系统工具：" + name
         }
     }
@@ -328,7 +350,71 @@ enum SystemCapabilityGateway {
         }
     }
 
-    // MARK: - 文件导出
+    // MARK: - 本地工作区文件
+
+extension SystemCapabilityGateway {
+
+    /// 列出手机本地工作区里的文件。
+    static func workspaceList() -> String {
+        let files = WorkspaceManager.shared.allFiles.filter { !$0.isDirectory }
+        guard !files.isEmpty else {
+            return "本地工作区还没有文件。请先在「文件」页挂载一个文件夹。"
+        }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "M/d HH:mm"
+        let lines = files.prefix(40).map { file -> String in
+            "- " + file.name
+                + "（" + ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file)
+                + "，" + formatter.string(from: file.modifiedAt) + "）"
+        }
+        return "本地工作区文件（\(files.count) 个）：\n" + lines.joined(separator: "\n")
+    }
+
+    /// 读取工作区里某个文件的完整内容。
+    static func workspaceRead(_ args: Arguments) -> String {
+        guard let name = args.string("name") else { return "缺少文件名。" }
+        guard let file = findWorkspaceFile(named: name) else {
+            return "工作区里没有找到「" + name + "」。可以先用 system_workspace_list 看看有哪些文件。"
+        }
+        let content = WorkspaceManager.shared.readFileContent(for: file)
+        guard !content.isEmpty else { return "文件是空的或无法读取。" }
+        return "文件 " + file.name + " 的内容：\n" + content
+    }
+
+    /// 写入 / 覆盖工作区文件；`saveFileContent` 会更新工作区状态，
+    /// 代码工坊面板据此实时刷新。
+    static func workspaceWrite(_ args: Arguments) -> String {
+        guard let name = args.string("name"), let content = args.string("content") else {
+            return "缺少 name 或 content 参数。"
+        }
+        if let file = findWorkspaceFile(named: name) {
+            do {
+                try WorkspaceManager.shared.saveFileContent(item: file, newContent: content)
+                return "已更新工作区文件「" + file.name + "」（" + String(content.count) + " 字符）。"
+            } catch {
+                return "写入失败：" + error.localizedDescription
+            }
+        }
+        guard args.bool("create_if_missing") else {
+            return "工作区里没有「" + name + "」。若确实要新建，请把 create_if_missing 设为 true。"
+        }
+        let created = WorkspaceManager.shared.createNewFile(
+            name: name,
+            content: content,
+            category: .all
+        )
+        return "已新建工作区文件「" + created.name + "」。"
+    }
+
+    static func findWorkspaceFile(named name: String) -> WorkspaceFileItem? {
+        let files = WorkspaceManager.shared.allFiles.filter { !$0.isDirectory }
+        return files.first { $0.name == name }
+            ?? files.first { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }
+    }
+}
+
+// MARK: - 文件导出
 
     private static func exportFile(_ args: Arguments) -> String {
         guard
@@ -387,6 +473,12 @@ struct Arguments {
         if let value = storage[key] as? NSNumber { return value.intValue }
         if let value = storage[key] as? String { return Int(value) }
         return nil
+    }
+
+    func bool(_ key: String) -> Bool {
+        if let value = storage[key] as? Bool { return value }
+        if let value = storage[key] as? NSNumber { return value.boolValue }
+        return false
     }
 
     func date(_ key: String) -> Date? {

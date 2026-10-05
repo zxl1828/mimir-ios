@@ -18,6 +18,12 @@ struct CodeWorkspaceCLIView: View {
     @State private var isKeyboardVisible: Bool = false
     @FocusState private var isInputFocused: Bool
 
+    /// 本地工作区（手机上的文件）：代码面板的主数据源
+    @State private var workspace = WorkspaceManager.shared
+    /// 本地文件轮询心跳（1.5s 一次，触发重算以发现外部修改）
+    @State private var localTick = Date()
+
+    /// 代码桥接（可选备选源：连接电脑端 tools/code_server.py）
     /// 代码桥接：实时显示电脑端 AI 正在编辑的源码文件
     @State private var bridge = CodeBridgeClient.shared
     @State private var showBridgeConfig = false
@@ -78,6 +84,13 @@ struct CodeWorkspaceCLIView: View {
         .onDisappear {
             bridge.stopAutoSync()
         }
+        .task {
+            // 本地文件轮询：手机上的 AI 或其它途径改动文件后，面板自动刷新
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(1_500))
+                localTick = Date()
+            }
+        }
         .alert("代码桥接地址", isPresented: $showBridgeConfig) {
             TextField("http://192.168.1.10:8849", text: $bridgeDraft)
                 .textInputAutocapitalization(.never)
@@ -132,7 +145,7 @@ struct CodeWorkspaceCLIView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(accent)
 
-            Text(bridge.snapshot?.path ?? "实时代码")
+            Text(displaySnapshot?.path ?? "实时代码")
                 .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
                 .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 .lineLimit(1)
@@ -168,13 +181,42 @@ struct CodeWorkspaceCLIView: View {
     private var syncLabel: String {
         guard bridge.hasEndpoint else { return "未连接" }
         guard bridge.isConnected else { return "断开" }
-        guard let snapshot = bridge.snapshot else { return "等待文件…" }
+        guard let snapshot = displaySnapshot else { return localHintLabel }
         return "\(snapshot.lines) 行"
     }
 
     @ViewBuilder
+    /// 代码面板当前显示的快照：**本地工作区优先**，未挂载文件时回退到电脑桥接。
+    ///
+    /// 这里显式读取 `localTick` 建立依赖，让 1.5 秒的心跳能触发重算——
+    /// 这样无论文件是被 App 内 AI 改的、还是被其它途径改的，面板都会自己刷新。
+    private var displaySnapshot: CodeBridgeClient.FileSnapshot? {
+        if let local = localSnapshot { return local }
+        return bridge.snapshot
+    }
+
+    private var localSnapshot: CodeBridgeClient.FileSnapshot? {
+        _ = localTick
+        guard let file = workspace.allFiles.first(where: { !$0.isDirectory }) else { return nil }
+        let content = workspace.readFileContent(for: file)
+        guard !content.isEmpty else { return nil }
+        return CodeBridgeClient.FileSnapshot(
+            path: file.name,
+            mtime: file.modifiedAt.timeIntervalSince1970,
+            lines: content.components(separatedBy: "\n").count,
+            content: content
+        )
+    }
+
+    private var localHintLabel: String {
+        if workspace.allFiles.isEmpty {
+            return bridge.hasEndpoint ? "桥接中…" : "未挂载文件"
+        }
+        return "读取中…"
+    }
+
     private var codeViewerBody: some View {
-        if let snapshot = bridge.snapshot {
+        if let snapshot = displaySnapshot {
             let lines = snapshot.content.components(separatedBy: "\n")
             ScrollView([.horizontal, .vertical]) {
                 HStack(alignment: .top, spacing: 10) {

@@ -201,7 +201,7 @@ final class AppSettings {
             ?? .plain
         self.dynamicBackgroundMode = DynamicBackgroundMode(rawValue: defaults.string(forKey: Key.dynamicBackgroundMode) ?? "")
             ?? .gradientMesh
-        self.cameraAmbientGain = defaults.object(forKey: Key.cameraAmbientGain) as? Double ?? 0.05
+        self.cameraAmbientGain = defaults.object(forKey: Key.cameraAmbientGain) as? Double ?? 0.35
         self.cameraAmbientSmoothing = defaults.object(forKey: Key.cameraAmbientSmoothing) as? Double ?? 0.85
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)

@@ -289,14 +289,9 @@ struct AppBackgroundView: View {
             // 1. 基底：浅紫至雪白平滑渐变（深色为深紫夜渐变，彻底杜绝纯黑底板）
             AppUI.ambientBackground(scheme: scheme)
 
-            // 2. 动态环境层：低功耗现实环境光实时融合 vs 模拟动态流光
-            if settings.dynamicBackgroundMode == .cameraAmbientFeed && ambientEngine.isRunning {
-                cameraAmbientOverlay
-            } else {
-                meshGradientOverlay
-            }
-
-            // 3. 用户自选内置壁纸（若有）
+            // 2. 用户自选内置壁纸（若有）
+            //    注意：壁纸必须放在动态环境层**之下**，否则会把环境光/流光整层盖住，
+            //    这正是此前「环境光实时融合完全没体现」的原因。
             if let name = background.assetName {
                 Image(name)
                     .resizable()
@@ -307,6 +302,17 @@ struct AppBackgroundView: View {
                         AppUI.ambientBackground(scheme: scheme)
                             .opacity(scheme == .dark ? 0.68 : 0.82)
                     )
+            }
+
+            // 3. 动态环境层：低功耗现实环境光实时融合 vs 模拟动态流光
+            //    叠在壁纸之上，强度由 settings.cameraAmbientGain 控制；有壁纸时略降透明度，
+            //    让两层都能看见。
+            if settings.dynamicBackgroundMode == .cameraAmbientFeed && ambientEngine.isRunning {
+                cameraAmbientOverlay
+                    .opacity(background.assetName == nil ? 1.0 : 0.7)
+            } else {
+                meshGradientOverlay
+                    .opacity(background.assetName == nil ? 1.0 : 0.55)
             }
         }
         .ignoresSafeArea()
