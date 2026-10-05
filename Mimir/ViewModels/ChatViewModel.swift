@@ -462,6 +462,9 @@ final class ChatViewModel {
             // Spark：流式文本推送灵动岛的独立节流（Live Activity 更新有频率预算，
             // 与画面刷新用的 50ms 节流分开，这里 1.5 秒一次就够"打字机"观感）
             var lastSparkPush = Date.distantPast
+            // 注意：嵌套函数不会继承外层闭包的 actor 隔离，必须显式标注，
+            // 否则访问 MainActor 隔离的 MimirSparkManager 会编译失败。
+            @MainActor
             func flushStreamingText(force: Bool = false) {
                 let now = Date()
                 guard force || now.timeIntervalSince(lastFlush) >= 0.05 else { return }
