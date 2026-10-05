@@ -7,6 +7,7 @@ struct ExportConversationSheet: View {
     let conversation: Conversation
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appAccent) private var accent
     @State private var style: ShareCardStyle = .light
     @State private var preview: UIImage?
     @State private var isRendering = false
