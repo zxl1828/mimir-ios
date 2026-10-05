@@ -661,6 +661,63 @@ private struct BackgroundSettingsView: View {
 
         List {
             Section {
+                Picker("动态背景引擎", selection: $settings.dynamicBackgroundMode) {
+                    ForEach(DynamicBackgroundMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                if settings.dynamicBackgroundMode == .cameraAmbientFeed {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("环境微光增益 (Gain)")
+                                .font(AppUI.subheadline)
+                                .foregroundStyle(AppUI.label)
+                            Spacer()
+                            Text(String(format: "%.2f", settings.cameraAmbientGain))
+                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(settings.accent.color)
+                        }
+                        Slider(value: $settings.cameraAmbientGain, in: 0.0...1.0, step: 0.01)
+                            .tint(settings.accent.color)
+                    }
+                    .padding(.vertical, 4)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("时间平滑滤波 (Smoothing)")
+                                .font(AppUI.subheadline)
+                                .foregroundStyle(AppUI.label)
+                            Spacer()
+                            Text(String(format: "%.2f", settings.cameraAmbientSmoothing))
+                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(settings.accent.color)
+                        }
+                        Slider(value: $settings.cameraAmbientSmoothing, in: 0.50...0.98, step: 0.01)
+                            .tint(settings.accent.color)
+                    }
+                    .padding(.vertical, 4)
+
+                    HStack(spacing: 8) {
+                        Image(systemName: "camera.macro")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(settings.accent.color)
+                        Text("15 fps 极低采样 · 360p · 模糊半径 > 100 · 仅提取环境明度与色温")
+                            .font(AppUI.caption)
+                            .foregroundStyle(AppUI.label2)
+                    }
+                    .padding(.top, 2)
+                }
+            } header: {
+                Text("动态全局背景引擎")
+            } footer: {
+                Text(settings.dynamicBackgroundMode == .cameraAmbientFeed
+                    ? "环境光实时融合模式通过后置摄像头以 15 fps 极低采样实时捕获环境光照并以极大高斯模糊提炼为微光背景；绝对无法还原人脸或画面，零隐私泄漏风险。"
+                    : "模拟渐变流光使用纯正的流体紫色呼吸算法。")
+            }
+
+            Section {
                 ForEach(AppBackground.allCases) { option in
                     Button {
                         Haptics.impact(.light)
@@ -685,6 +742,8 @@ private struct BackgroundSettingsView: View {
                     }
                     .buttonStyle(.plain)
                 }
+            } header: {
+                Text("底色与壁纸")
             } footer: {
                 Text("背景只作用于对话页；深浅色模式下会自动加一层底衬，保证正文可读。")
             }

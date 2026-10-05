@@ -205,7 +205,7 @@ struct MessageInputBar: View {
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.system(size: 16))
-                                        .foregroundStyle(.white, Color.black.opacity(0.55))
+                                        .foregroundStyle(.white, Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.75))
                                 }
                                 .buttonStyle(.plain)
                                 .offset(x: 5, y: -5)

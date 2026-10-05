@@ -23,6 +23,14 @@ struct FloatingTabBar: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(height: 64)
+        .background {
+            Capsule(style: .continuous)
+                .fill(
+                    scheme == .dark
+                        ? Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.38)
+                        : Color.white.opacity(0.42)
+                )
+        }
         .liquidGlass(.regular.interactive(), in: .capsule)
         .overlay {
             Capsule(style: .continuous)
@@ -46,7 +54,7 @@ struct FloatingTabBar: View {
             y: 8
         )
         .shadow(
-            color: Color.black.opacity(scheme == .dark ? 0.45 : 0.08),
+            color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.45) : accent.opacity(0.08)),
             radius: 12,
             x: 0,
             y: 4

@@ -202,17 +202,42 @@ public struct AssistantMainView: View {
 
     // MARK: - 1. 顶部状态栏 96pt 主题色微光流光渐变层
 
+    private var isConversationEmpty: Bool {
+        chat?.messages.isEmpty ?? true
+    }
+
+    // MARK: - 1. 顶部状态栏 120pt 主题色微光流光渐变层 + 高斯模糊毛玻璃羽化
+
     private var topStatusBarAmbientGlow: some View {
-        LinearGradient(
-            colors: [
-                accent.opacity(scheme == .dark ? 0.24 : 0.16),
-                accent.opacity(scheme == .dark ? 0.09 : 0.05),
-                Color.clear
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: 96)
+        ZStack(alignment: .top) {
+            // 1. 高斯模糊毛玻璃层：向下平滑羽化渐隐
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .mask {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0.0),
+                            .init(color: .white.opacity(0.85), location: 0.45),
+                            .init(color: .white.opacity(0.25), location: 0.80),
+                            .init(color: .clear, location: 1.0)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+
+            // 2. 主题色流光微渐变：融合 Dynamic Island 与状态栏区域
+            LinearGradient(
+                colors: [
+                    accent.opacity(scheme == .dark ? 0.32 : 0.20),
+                    accent.opacity(scheme == .dark ? 0.12 : 0.06),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .frame(height: 120)
         .ignoresSafeArea(edges: .top)
         .allowsHitTesting(false)
     }
@@ -223,7 +248,11 @@ public struct AssistantMainView: View {
         VStack(spacing: 0) {
             topBar
 
-            messageList
+            if isConversationEmpty {
+                lockedEmptyStateViewport
+            } else {
+                messageList
+            }
         }
         .background(Color.clear)
         // 控制组固定在屏幕底部：键盘弹起时由 safeAreaInset 随键盘自动平滑提升，悬浮于键盘上方 8~12pt
@@ -325,10 +354,6 @@ public struct AssistantMainView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    if chat?.messages.isEmpty ?? true {
-                        emptyStateMascotCard
-                    }
-
                     ForEach(Array((chat?.messages ?? []).enumerated()), id: \.element.id) { index, message in
                         MessageBubble(
                             message: message,
@@ -400,7 +425,7 @@ public struct AssistantMainView: View {
         }
     }
 
-    // MARK: - 5. 空对话页：悬浮微胶囊 + 中央全息大卡片（Conic 旋转流光与呼吸背光）
+    // MARK: - 5. 锁定不滚动自适应全屏视口（Non-Scrollable Locked Viewport & Adaptive Layout）
 
     /// 天气 / 日程详情面板（胶囊的流体展开态）。
     private var ambientDetailPanel: some View {
@@ -430,63 +455,95 @@ public struct AssistantMainView: View {
         .accessibilityElement(children: .contain)
     }
 
-    private var emptyStateMascotCard: some View {
-        VStack(spacing: 12) {
-            // 悬浮天气与日程胶囊：点击后由 FluidMorphContainer 流体变形为详情面板
-            // （第 2 项物理动效：interpolatingSpring 驱动尺寸与圆角连续变形）
-            FluidMorphContainer(isExpanded: $showWeatherDetail) {
-                FloatingWeatherAgendaCapsule(
-                    weatherText: weatherSummaryText,
-                    agendaText: agendaSummaryText,
-                    onTap: {
-                        withAnimation(.interpolatingSpring(stiffness: 280, damping: 24)) {
-                            showWeatherDetail = true
+    private var lockedEmptyStateViewport: some View {
+        GeometryReader { proxy in
+            let availableHeight = proxy.size.height
+            // 依据可用视口高度自适应调整猫头鹰尺寸 (140 ~ 210pt)，在所有机型上绝不发生文本截断或挤压碰撞
+            let mascotSize = min(210, max(140, availableHeight * 0.28))
+
+            VStack(spacing: 0) {
+                // 顶栏避让弹性间距
+                Spacer(minLength: 8)
+
+                // 1. 悬浮天气与日程微胶囊（保留充足呼吸空间，杜绝与顶栏或灵动岛碰撞重叠）
+                FluidMorphContainer(isExpanded: $showWeatherDetail) {
+                    FloatingWeatherAgendaCapsule(
+                        weatherText: weatherSummaryText,
+                        agendaText: agendaSummaryText,
+                        onTap: {
+                            withAnimation(.interpolatingSpring(stiffness: 280, damping: 24)) {
+                                showWeatherDetail = true
+                            }
                         }
-                    }
+                    )
+                } expanded: {
+                    ambientDetailPanel
+                }
+                .padding(.top, 4)
+                .padding(.bottom, 6)
+
+                Spacer(minLength: 8)
+
+                // 2. 中央全息大卡片（带保护性底衬、360° Conic 折射描边与 3D 透视）
+                VStack(spacing: 12) {
+                    MimirMascot(size: mascotSize, mood: .calm)
+                        .padding(.bottom, 2)
+
+                    Text("Assistant Turn Workspace")
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppUI.label)
+                        .lineLimit(1)
+
+                    Text("Mimir Cyber-Owl Mascot")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(accent)
+                        .lineLimit(1)
+
+                    Text("输入问题，用 / 唤起技能，或点按下方胶囊调节思考强度")
+                        .font(AppUI.footnote)
+                        .foregroundStyle(AppUI.label2)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+                // 保护性底衬：保障 WCAG AAA 文字对比度，杜绝透视发虚
+                .background {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(
+                            scheme == .dark
+                                ? Color(red: 0.12, green: 0.09, blue: 0.20).opacity(0.40)
+                                : Color.white.opacity(0.45)
+                        )
+                }
+                // 原生 Liquid Glass 材质
+                .liquidGlass(.regular, in: .rect(cornerRadius: 28))
+                // 360° 旋转渐变折射描边
+                .conicGlowBorder(cornerRadius: 28, lineWidth: 1.2, isAnimated: true, isBreathing: false)
+                // 主题紫色微光蒙版、高光流光、强硬圆角裁剪与 3D 透视倾斜
+                .tiltGlareCard(
+                    maxAngle: 7.5,
+                    cornerRadius: 28,
+                    showsSpecularSheen: true,
+                    hasAmbientBacklight: true
                 )
-            } expanded: {
-                ambientDetailPanel
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 8)
             }
-            .padding(.bottom, 2)
-
-            // 中央全息大卡片
-            VStack(spacing: 16) {
-                MimirMascot(size: 260, mood: .calm)
-                    .padding(.bottom, 6)
-
-                Text("Assistant Turn Workspace")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppUI.label)
-
-                Text("Mimir Cyber-Owl Mascot")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(accent)
-
-                Text("输入问题，用 / 唤起技能，或点按下方胶囊调节思考强度")
-                    .font(AppUI.footnote)
-                    .foregroundStyle(AppUI.label2)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if showReasoningCard {
+                    withAnimation(AppUI.snap) { showReasoningCard = false }
+                }
+                if isFieldFocused {
+                    isFieldFocused = false
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 24)
-            // 第一阶段：内衬 Liquid Glass（非 interactive，避免系统着色器暗色压制）
-            .liquidGlass(.regular, in: .rect(cornerRadius: 30))
-            // 第一阶段：360° 旋转渐变折射描边 (内部 strokeBorder)
-            .conicGlowBorder(cornerRadius: 30, lineWidth: 1.2, isAnimated: true, isBreathing: false)
-            // 第一、二、三阶段：主题紫色微光蒙版、高光流光、强硬圆角裁剪 (clipShape + contentShape)、
-            // 动态呼吸弥散背光 (.shadow)、栅格化合成组 (.compositingGroup())、3D 透视倾斜与弹性微缩
-            .tiltGlareCard(
-                maxAngle: 7.5,
-                cornerRadius: 30,
-                showsSpecularSheen: true,
-                hasAmbientBacklight: true
-            )
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 16)
         }
-        .padding(.top, 20)
-        .padding(.bottom, 36)
     }
 
     // MARK: - 6. 底部控制区（思考胶囊 + 输入框）
@@ -537,8 +594,8 @@ public struct AssistantMainView: View {
             LinearGradient(
                 colors: [
                     Color.clear,
-                    (scheme == .dark ? Color.black : Color.white).opacity(0.82),
-                    (scheme == .dark ? Color.black : Color.white).opacity(0.96)
+                    (scheme == .dark ? Color(red: 0.08, green: 0.06, blue: 0.14) : Color(red: 0.957, green: 0.945, blue: 0.980)).opacity(0.85),
+                    (scheme == .dark ? Color(red: 0.04, green: 0.03, blue: 0.08) : Color(red: 0.910, green: 0.886, blue: 0.961)).opacity(0.98)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -863,8 +920,12 @@ public struct AssistantMainView: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(Color.black.opacity(0.78))
-                        .shadow(color: Color.black.opacity(0.2), radius: 8, y: 4)
+                        .fill(Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.90))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(accent.opacity(0.45), lineWidth: 0.8)
+                        )
+                        .shadow(color: accent.opacity(0.30), radius: 10, y: 4)
                 )
                 .padding(.top, 16)
                 .transition(.move(edge: .top).combined(with: .opacity))

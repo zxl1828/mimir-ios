@@ -479,8 +479,8 @@ public struct VelocitySnappingDrawer<Content: View>: View {
     public var body: some View {
         ZStack(alignment: .bottom) {
             if isPresented {
-                Color.black
-                    .opacity(scheme == .dark ? 0.46 : 0.22)
+                (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.09) : accent)
+                    .opacity(scheme == .dark ? 0.48 : 0.18)
                     .ignoresSafeArea()
                     .onTapGesture { closeWithSpring() }
                     .transition(.opacity)
@@ -488,7 +488,7 @@ public struct VelocitySnappingDrawer<Content: View>: View {
                 VStack(spacing: 0) {
                     // 抽屉抓握条
                     Capsule(style: .continuous)
-                        .fill(scheme == .dark ? Color.white.opacity(0.30) : Color.black.opacity(0.20))
+                        .fill(scheme == .dark ? Color.white.opacity(0.30) : accent.opacity(0.25))
                         .frame(width: 42, height: 5)
                         .padding(.top, 10)
                         .padding(.bottom, 8)

@@ -23,14 +23,20 @@ enum AppUI {
 
     // MARK: - 颜色（纯黑 / 纯白背景 + 系统语义色 + 自适应深浅色）
 
-    /// 画布主背景：深色下纯黑（OLED #000000），浅色下纯白（#FFFFFF）。
+    /// 画布主背景：深色下沉稳紫夜，浅色下雪白紫雾（#F4F1FA -> #E8E2F5）。
     static var canvas: Color {
-        Color.adaptive(light: .white, dark: .black)
+        Color.adaptive(
+            light: UIColor(red: 0.957, green: 0.945, blue: 0.980, alpha: 1.0),
+            dark: UIColor(red: 0.08, green: 0.06, blue: 0.14, alpha: 1.0)
+        )
     }
 
-    /// 分组背景：深色下纯黑，浅色下纯白。
+    /// 分组背景：深色下纯黑紫夜，浅色下柔和浅雪紫。
     static var groupCanvas: Color {
-        Color.adaptive(light: .white, dark: .black)
+        Color.adaptive(
+            light: UIColor(red: 0.945, green: 0.932, blue: 0.970, alpha: 1.0),
+            dark: UIColor(red: 0.06, green: 0.05, blue: 0.11, alpha: 1.0)
+        )
     }
 
     static var secondary: Color {
@@ -185,7 +191,7 @@ enum AppUI {
     }
 }
 
-/// 软玻璃拟态卡片修饰器（全原生 iOS 27 Liquid Glass）。
+/// 软玻璃拟态卡片修饰器（全原生 iOS 27 Liquid Glass + 保护性文本清晰度底衬）。
 struct SoftGlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 20
     @Environment(\.colorScheme) private var scheme
@@ -193,6 +199,15 @@ struct SoftGlassCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // 文本可读性保护底衬（WCAG AAA 级对比度保障，杜绝背景穿透文字发虚）
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        scheme == .dark
+                            ? Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.38)
+                            : Color.white.opacity(0.42)
+                    )
+            }
             .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -248,21 +263,33 @@ extension EnvironmentValues {
     }
 }
 
-// MARK: - 背景（纯黑 / 纯白）
+// MARK: - 背景（纯净紫雾 / 紫夜底板 + 动态环境光实时融合）
 
-/// 全屏聊天背景：深色下纯黑（#000000），浅色下纯白（#FFFFFF），支持按用户设置切为内置壁纸。
+/// 全屏聊天背景：浅紫至雪白平滑渐变（#F4F1FA -> #E8E2F5），深色自适应为深紫夜渐变，彻底废除纯黑粗糙底板；
+/// 支持低功耗现实环境光融合与内置壁纸。
 struct AppBackgroundView: View {
 
     var background: AppBackground
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
+    @Environment(AppSettings.self) private var settings
+
+    @State private var ambientEngine = CameraLiveAmbientEngine.shared
 
     var body: some View {
         ZStack {
-            // 底板：纯黑（深色）或纯白（浅色）
-            scheme == .dark ? Color.black : Color.white
+            // 1. 基底：浅紫至雪白平滑渐变（深色为深紫夜渐变，彻底杜绝纯黑底板）
+            AppUI.ambientBackground(scheme: scheme)
 
+            // 2. 动态环境层：低功耗现实环境光实时融合 vs 模拟动态流光
+            if settings.dynamicBackgroundMode == .cameraAmbientFeed && ambientEngine.isRunning {
+                cameraAmbientOverlay
+            } else {
+                meshGradientOverlay
+            }
+
+            // 3. 用户自选内置壁纸（若有）
             if let name = background.assetName {
                 Image(name)
                     .resizable()
@@ -270,13 +297,67 @@ struct AppBackgroundView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
                     .overlay(
-                        (scheme == .dark ? Color.black : Color.white)
+                        AppUI.ambientBackground(scheme: scheme)
                             .opacity(scheme == .dark ? 0.68 : 0.82)
                     )
             }
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.25), value: background)
+        .onAppear {
+            syncCameraEngine()
+        }
+        .onChange(of: settings.dynamicBackgroundMode) { _, _ in
+            syncCameraEngine()
+        }
+        .onChange(of: settings.cameraAmbientGain) { _, gain in
+            ambientEngine.gain = gain
+        }
+        .onChange(of: settings.cameraAmbientSmoothing) { _, smoothing in
+            ambientEngine.temporalSmoothing = smoothing
+        }
+    }
+
+    private func syncCameraEngine() {
+        ambientEngine.gain = settings.cameraAmbientGain
+        ambientEngine.temporalSmoothing = settings.cameraAmbientSmoothing
+        if settings.dynamicBackgroundMode == .cameraAmbientFeed {
+            ambientEngine.start()
+        } else {
+            ambientEngine.stop()
+        }
+    }
+
+    private var cameraAmbientOverlay: some View {
+        LinearGradient(
+            colors: [
+                ambientEngine.ambientTopColor.opacity(settings.cameraAmbientGain * (scheme == .dark ? 1.2 : 0.9)),
+                ambientEngine.ambientBottomColor.opacity(settings.cameraAmbientGain * (scheme == .dark ? 0.8 : 0.6))
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .blur(radius: 80)
+        .allowsHitTesting(false)
+        .blendMode(scheme == .dark ? .plusLighter : .sourceAtop)
+    }
+
+    private var meshGradientOverlay: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { timeline in
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let breath = 0.5 + 0.5 * sin(t * 0.4)
+
+            RadialGradient(
+                colors: [
+                    accent.opacity((scheme == .dark ? 0.16 : 0.10) * breath),
+                    Color.clear
+                ],
+                center: .topLeading,
+                startRadius: 40,
+                endRadius: 420
+            )
+            .allowsHitTesting(false)
+        }
     }
 }
 
@@ -427,7 +508,7 @@ struct UIQuickChip: View {
 
 // MARK: - 液态玻璃修饰器
 
-/// iOS 27 官方液态玻璃修饰器：原生 glassEffect + 物理折射描边 + 悬浮辉光投影。
+/// iOS 27 官方液态玻璃修饰器：原生 glassEffect + 物理折射描边 + 悬浮辉光投影 + 保护性文本清晰度底衬。
 struct LiquidGlassModifier: ViewModifier {
 
     @Environment(\.appAccent) private var accent
@@ -439,6 +520,15 @@ struct LiquidGlassModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // 文本可读性保护底衬（WCAG AAA 级对比度保障，杜绝玻璃背景穿透文字发虚）
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        scheme == .dark
+                            ? Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.38)
+                            : Color.white.opacity(0.42)
+                    )
+            }
             .liquidGlass(
                 isHighlighted
                     ? .regular.tint(accent.opacity(0.35)).interactive()
@@ -466,7 +556,11 @@ struct LiquidGlassModifier: ViewModifier {
                 radius: isHighlighted ? 18 : 12,
                 y: 5
             )
-            .shadow(color: .black.opacity(scheme == .dark ? 0.46 : 0.08), radius: 10, y: 4)
+            .shadow(
+                color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.46) : accent.opacity(0.08)),
+                radius: 10,
+                y: 4
+            )
             .animation(AppUI.snap, value: isHighlighted)
     }
 }

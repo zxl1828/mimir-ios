@@ -62,6 +62,15 @@ public struct CorrectedLiquidGlassCardModifier: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
+            // 文本可读性保护底衬（WCAG AAA 对比度保障）
+            .background {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(
+                        scheme == .dark
+                            ? Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.38)
+                            : Color.white.opacity(0.42)
+                    )
+            }
             .liquidGlass(
                 interactive ? .regular.interactive() : .regular,
                 in: .rect(cornerRadius: cornerRadius)

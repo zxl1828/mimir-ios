@@ -90,7 +90,7 @@ struct ReasoningEffortCard: View {
             y: 8
         )
         .shadow(
-            color: .black.opacity(scheme == .dark ? 0.55 : 0.12),
+            color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.55) : accent.opacity(0.12)),
             radius: 16,
             y: 6
         )
@@ -227,7 +227,7 @@ struct ReasoningEffortSlider: View {
             .fill(
                 scheme == .dark
                     ? Color.white.opacity(0.12)
-                    : Color.black.opacity(0.08)
+                    : accent.opacity(0.10)
             )
             .overlay(alignment: .trailing) {
                 // 右侧微弱算力芯片水印图标（对应实机截图滑轨右侧的暗纹）
@@ -236,7 +236,7 @@ struct ReasoningEffortSlider: View {
                     .foregroundStyle(
                         scheme == .dark
                             ? Color.white.opacity(0.16)
-                            : Color.black.opacity(0.14)
+                            : accent.opacity(0.24)
                     )
                     .padding(.trailing, 20)
             }
@@ -245,7 +245,7 @@ struct ReasoningEffortSlider: View {
                     .strokeBorder(
                         scheme == .dark
                             ? Color.white.opacity(0.18)
-                            : Color.black.opacity(0.10),
+                            : accent.opacity(0.18),
                         lineWidth: 0.8
                     )
             )
@@ -307,7 +307,7 @@ struct ReasoningEffortSlider: View {
                             ? Color.white.opacity(isMajor ? 0.88 : 0.55)
                             : (scheme == .dark
                                 ? Color.white.opacity(isMajor ? 0.36 : 0.22)
-                                : Color.black.opacity(isMajor ? 0.26 : 0.16))
+                                : accent.opacity(isMajor ? 0.35 : 0.20))
                     )
                     .frame(width: dotSize, height: dotSize)
                     .offset(x: x - dotSize / 2)
@@ -325,7 +325,7 @@ struct ReasoningEffortSlider: View {
                 Circle()
                     .strokeBorder(Color.white.opacity(0.95), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.28), radius: 4, x: 0, y: 1)
+            .shadow(color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.40) : accent.opacity(0.18)), radius: 4, x: 0, y: 1)
             .shadow(color: accent.opacity(0.45), radius: 8, x: 0, y: 0)
             .scaleEffect(dragProgress == nil ? 1.0 : 1.06)
             .animation(AppUI.snap, value: dragProgress == nil)
@@ -480,7 +480,7 @@ struct ReasoningStatusChip: View {
                     )
             )
             .shadow(
-                color: isExpanded ? accent.opacity(scheme == .dark ? 0.42 : 0.22) : .black.opacity(scheme == .dark ? 0.25 : 0.06),
+                color: isExpanded ? accent.opacity(scheme == .dark ? 0.42 : 0.22) : accent.opacity(scheme == .dark ? 0.20 : 0.08),
                 radius: isExpanded ? 10 : 5,
                 y: 2
             )

@@ -69,7 +69,7 @@ struct ScheduledTasksView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color.black.opacity(0.75)))
+                        .background(Capsule().fill(Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.88)))
                         .padding(.bottom, 22)
                 }
             }

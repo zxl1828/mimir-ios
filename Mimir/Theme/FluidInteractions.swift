@@ -340,8 +340,8 @@ struct FluidRubberBandDrawer<Content: View>: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             if isPresented {
-                Color.black
-                    .opacity(scheme == .dark ? 0.45 : 0.25)
+                (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.09) : accent)
+                    .opacity(scheme == .dark ? 0.48 : 0.18)
                     .ignoresSafeArea()
                     .onTapGesture { closeWithAnimation() }
                     .transition(.opacity)
@@ -349,7 +349,7 @@ struct FluidRubberBandDrawer<Content: View>: View {
                 VStack(spacing: 0) {
                     // 抽屉顶部液态抓握条（Grabber）
                     Capsule(style: .continuous)
-                        .fill(scheme == .dark ? Color.white.opacity(0.26) : Color.black.opacity(0.20))
+                        .fill(scheme == .dark ? Color.white.opacity(0.26) : accent.opacity(0.25))
                         .frame(width: 40, height: 5)
                         .padding(.top, 10)
                         .padding(.bottom, 8)

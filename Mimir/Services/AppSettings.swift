@@ -36,6 +36,28 @@ enum RetentionPolicy: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// 全局动态背景引擎模式。
+public enum DynamicBackgroundMode: String, Codable, CaseIterable, Identifiable, Sendable {
+    case gradientMesh
+    case cameraAmbientFeed
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .gradientMesh: return "模拟渐变流光 (Gradient Mesh)"
+        case .cameraAmbientFeed: return "环境光实时融合 (Camera Ambient)"
+        }
+    }
+
+    public var detail: String {
+        switch self {
+        case .gradientMesh: return "预置的动态流体呼吸渐变网络"
+        case .cameraAmbientFeed: return "15 fps 超低功耗提取现实环境色温与明度微光"
+        }
+    }
+}
+
 /// 全局设置。敏感信息（API Key）落在 Keychain，其余落在 UserDefaults。
 @Observable
 final class AppSettings {
@@ -56,6 +78,9 @@ final class AppSettings {
         static let appearance = "settings.appearance.v1"
         static let accent = "settings.accent.v1"
         static let background = "settings.background.v1"
+        static let dynamicBackgroundMode = "settings.dynamic.bg.mode.v1"
+        static let cameraAmbientGain = "settings.camera.ambient.gain.v1"
+        static let cameraAmbientSmoothing = "settings.camera.ambient.smoothing.v1"
         static let secretAccount = "app.api.key"
         static let webSearchSecretAccount = "websearch.api.key"
     }
@@ -128,6 +153,21 @@ final class AppSettings {
         didSet { defaults.set(background.rawValue, forKey: Key.background) }
     }
 
+    /// 全局动态背景引擎模式。
+    var dynamicBackgroundMode: DynamicBackgroundMode {
+        didSet { defaults.set(dynamicBackgroundMode.rawValue, forKey: Key.dynamicBackgroundMode) }
+    }
+
+    /// 环境微光增益乘数 (0.0 ~ 1.0, 默认 0.05)。
+    var cameraAmbientGain: Double {
+        didSet { defaults.set(cameraAmbientGain, forKey: Key.cameraAmbientGain) }
+    }
+
+    /// 时间平滑滤波系数 (0.50 ~ 0.98, 默认 0.85)。
+    var cameraAmbientSmoothing: Double {
+        didSet { defaults.set(cameraAmbientSmoothing, forKey: Key.cameraAmbientSmoothing) }
+    }
+
     var hasUsableCredential: Bool {
         !credential.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -159,6 +199,10 @@ final class AppSettings {
             ?? .purple
         self.background = AppBackground(rawValue: defaults.string(forKey: Key.background) ?? "")
             ?? .plain
+        self.dynamicBackgroundMode = DynamicBackgroundMode(rawValue: defaults.string(forKey: Key.dynamicBackgroundMode) ?? "")
+            ?? .gradientMesh
+        self.cameraAmbientGain = defaults.object(forKey: Key.cameraAmbientGain) as? Double ?? 0.05
+        self.cameraAmbientSmoothing = defaults.object(forKey: Key.cameraAmbientSmoothing) as? Double ?? 0.85
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)
             ?? APICredential.placeholder
