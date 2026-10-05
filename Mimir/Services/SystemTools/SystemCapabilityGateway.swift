@@ -17,27 +17,27 @@ enum SystemCapabilityGateway {
 
     // MARK: - 工具名
 
-    static let timeTool = "system_current_time"
-    static let calendarReadTool = "system_calendar_read"
-    static let calendarCreateTool = "system_calendar_create"
-    static let reminderCreateTool = "system_reminder_create"
-    static let contactsSearchTool = "system_contacts_search"
-    static let dialTool = "system_phone_dial"
-    static let shareTool = "system_share"
-    static let locationTool = "system_location_once"
-    static let poiTool = "system_poi_search"
-    static let exportTool = "system_file_export"
+    nonisolated static let timeTool = "system_current_time"
+    nonisolated static let calendarReadTool = "system_calendar_read"
+    nonisolated static let calendarCreateTool = "system_calendar_create"
+    nonisolated static let reminderCreateTool = "system_reminder_create"
+    nonisolated static let contactsSearchTool = "system_contacts_search"
+    nonisolated static let dialTool = "system_phone_dial"
+    nonisolated static let shareTool = "system_share"
+    nonisolated static let locationTool = "system_location_once"
+    nonisolated static let poiTool = "system_poi_search"
+    nonisolated static let exportTool = "system_file_export"
 
-    static let allNames: Set<String> = [
+    nonisolated static let allNames: Set<String> = [
         timeTool, calendarReadTool, calendarCreateTool, reminderCreateTool,
         contactsSearchTool, dialTool, shareTool, locationTool, poiTool, exportTool
     ]
 
-    static func handles(_ name: String) -> Bool { allNames.contains(name) }
+    nonisolated static func handles(_ name: String) -> Bool { allNames.contains(name) }
 
     // MARK: - 工具定义
 
-    static var definitions: [LLMToolDefinition] {
+    nonisolated static var definitions: [LLMToolDefinition] {
         [
             LLMToolDefinition(
                 name: timeTool,
