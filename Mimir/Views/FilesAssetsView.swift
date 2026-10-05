@@ -558,7 +558,7 @@ struct FilesAssetsView: View {
                     .strokeBorder(Color.white.opacity(scheme == .dark ? 0.35 : 0.70), lineWidth: 0.8)
                     .allowsHitTesting(false)
             }
-            .shadow(color: Color.black.opacity(0.12), radius: 8, y: 3)
+            .shadow(color: accent.opacity(scheme == .dark ? 0.20 : 0.08), radius: 8, y: 3)
         }
         .buttonStyle(PhysicalElasticCapsuleButtonStyle())
     }

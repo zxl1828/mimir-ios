@@ -484,52 +484,10 @@ public struct AssistantMainView: View {
 
                 Spacer(minLength: 8)
 
-                // 2. 中央全息大卡片（带保护性底衬、360° Conic 折射描边与 3D 透视）
-                VStack(spacing: 12) {
-                    MimirMascot(size: mascotSize, mood: .calm)
-                        .padding(.bottom, 2)
-
-                    Text("Assistant Turn Workspace")
-                        .font(.system(size: 19, weight: .bold, design: .rounded))
-                        .foregroundStyle(AppUI.label)
-                        .lineLimit(1)
-
-                    Text("Mimir Cyber-Owl Mascot")
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(accent)
-                        .lineLimit(1)
-
-                    Text("输入问题，用 / 唤起技能，或点按下方胶囊调节思考强度")
-                        .font(AppUI.footnote)
-                        .foregroundStyle(AppUI.label2)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 18)
-                // 保护性底衬：保障 WCAG AAA 文字对比度，杜绝透视发虚
-                .background {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(
-                            scheme == .dark
-                                ? Color(red: 0.12, green: 0.09, blue: 0.20).opacity(0.40)
-                                : Color.white.opacity(0.45)
-                        )
-                }
-                // 原生 Liquid Glass 材质
-                .liquidGlass(.regular, in: .rect(cornerRadius: 28))
-                // 360° 旋转渐变折射描边
-                .conicGlowBorder(cornerRadius: 28, lineWidth: 1.2, isAnimated: true, isBreathing: false)
-                // 主题紫色微光蒙版、高光流光、强硬圆角裁剪与 3D 透视倾斜
-                .tiltGlareCard(
-                    maxAngle: 7.5,
-                    cornerRadius: 28,
-                    showsSpecularSheen: true,
-                    hasAmbientBacklight: true
-                )
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 16)
+                // 2. 中央大卡片：严格遵循极简三层架构、标准 32pt 圆角裁切与局部变换隔离
+                CentralAssistantCard(mascotSize: mascotSize)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 16)
 
                 Spacer(minLength: 8)
             }
@@ -594,8 +552,8 @@ public struct AssistantMainView: View {
             LinearGradient(
                 colors: [
                     Color.clear,
-                    (scheme == .dark ? Color(red: 0.08, green: 0.06, blue: 0.14) : Color(red: 0.957, green: 0.945, blue: 0.980)).opacity(0.85),
-                    (scheme == .dark ? Color(red: 0.04, green: 0.03, blue: 0.08) : Color(red: 0.910, green: 0.886, blue: 0.961)).opacity(0.98)
+                    (scheme == .dark ? Color(hex: "120D1D") : Color(hex: "F8F6FD")).opacity(0.85),
+                    (scheme == .dark ? Color(hex: "1A122B") : Color.white).opacity(0.98)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -992,5 +950,135 @@ public struct AssistantMainView: View {
             chatViewModel.attach(to: fresh)
         }
         listViewModel.applyRetentionPolicy()
+    }
+}
+
+// MARK: - 中央助手大卡片（3 层扁平架构 + 纯白/极深紫基准 + 局部变换隔离）
+
+/// 中央助手交互大卡片：严格遵循三层扁平架构、纯白/极深紫色彩基准与局部变换矩阵隔离。
+private struct CentralAssistantCard: View {
+    let mascotSize: CGFloat
+
+    @Environment(\.appAccent) private var accent
+    @Environment(\.colorScheme) private var scheme
+
+    @State private var pitch: CGFloat = 0
+    @State private var roll: CGFloat = 0
+    @State private var isTouching: Bool = false
+
+    var body: some View {
+        // ③ 前景层：文字与 Mascot 前景内容
+        VStack(spacing: 12) {
+            MimirMascot(size: mascotSize, mood: .calm)
+                .padding(.bottom, 2)
+
+            Text("Assistant Turn Workspace")
+                .font(.system(size: 19, weight: .bold, design: .rounded))
+                .foregroundStyle(AppUI.label)
+                .lineLimit(1)
+
+            Text("Mimir Cyber-Owl Mascot")
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(accent)
+                .lineLimit(1)
+
+            Text("输入问题，用 / 唤起技能，或点按下方胶囊调节思考强度")
+                .font(AppUI.footnote)
+                .foregroundStyle(AppUI.label2)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        // ① 纯净底色层（浅色纯白/极淡紫，深色极深紫）+ 原生 Liquid Glass
+        .background {
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .fill(
+                    scheme == .dark
+                        ? Color(hex: "120D1D").opacity(0.85)
+                        : Color.white.opacity(0.85)
+                )
+        }
+        .liquidGlass(.regular, in: .rect(cornerRadius: 32))
+        // 按压/交互微光反馈（彻底废除纯黑与暗灰：浅色为浅紫微光+纯白折射微光，深色为亮紫微光）
+        .overlay {
+            if isTouching {
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
+                    .fill(
+                        scheme == .dark
+                            ? accent.opacity(0.25)
+                            : Color(hex: "EADEFA").opacity(0.35)
+                    )
+                    .allowsHitTesting(false)
+            }
+        }
+        // ② 边框层：1pt 主题色流体边框
+        .overlay {
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(scheme == .dark ? 0.60 : 0.90),
+                            accent.opacity(scheme == .dark ? 0.50 : 0.40)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.0
+                )
+                .allowsHitTesting(false)
+        }
+        // 强制标准圆角裁切统一收拢在最外层（32pt）
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+        // 静态微环境阴影（固定半径，避免逐帧离屏模糊重绘）
+        .shadow(
+            color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
+            radius: isTouching ? 16 : 10,
+            x: 0,
+            y: isTouching ? 8 : 4
+        )
+        // 性能关键：在 3D 变换前建立复合图层，避免每帧触发离屏渲染树全量重构
+        .compositingGroup()
+        // 触控物理微形变微缩 (0.97)
+        .scaleEffect(isTouching ? 0.97 : 1.0)
+        // 局部 3D 透视倾斜（仅刷新卡片变换矩阵，彻底阻断外层整屏重绘）
+        .rotation3DEffect(
+            .degrees(-Double(pitch * 7.0)),
+            axis: (x: 1.0, y: 0.0, z: 0.0),
+            perspective: 0.50
+        )
+        .rotation3DEffect(
+            .degrees(Double(roll * 7.0)),
+            axis: (x: 0.0, y: 1.0, z: 0.0),
+            perspective: 0.50
+        )
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    let x = value.location.x
+                    let y = value.location.y
+                    let r = min(max((x - 160) / 160, -1.0), 1.0)
+                    let p = min(max((y - 140) / 140, -1.0), 1.0)
+                    if !isTouching {
+                        Haptics.impact(.light)
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.80)) {
+                            isTouching = true
+                        }
+                    }
+                    withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.86)) {
+                        roll = r
+                        pitch = p
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                        pitch = 0
+                        roll = 0
+                        isTouching = false
+                    }
+                }
+        )
     }
 }

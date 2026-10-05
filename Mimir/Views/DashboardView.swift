@@ -798,7 +798,7 @@ struct DashboardView: View {
                 .padding(14)
                 .background {
                     LinearGradient(
-                        colors: [Color.clear, Color.black.opacity(0.75)],
+                        colors: [Color.clear, Color(hex: "120D1D").opacity(0.85)],
                         startPoint: .top,
                         endPoint: .bottom
                     )

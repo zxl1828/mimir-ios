@@ -97,6 +97,7 @@ struct AuroraBackground: View {
                     particleLayer(in: size)
                 }
             }
+            .compositingGroup()
             .ignoresSafeArea()
             .onAppear {
                 withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) {
@@ -112,12 +113,8 @@ struct AuroraBackground: View {
     private var baseGradient: some View {
         LinearGradient(
             colors: scheme == .dark
-                ? [Color(red: 0.05, green: 0.06, blue: 0.12),
-                   Color(red: 0.07, green: 0.08, blue: 0.16),
-                   Color(red: 0.04, green: 0.05, blue: 0.10)]
-                : [Color(red: 0.96, green: 0.97, blue: 1.00),
-                   Color(red: 0.95, green: 0.96, blue: 0.99),
-                   Color(red: 0.98, green: 0.97, blue: 0.99)],
+                ? [Color(hex: "120D1D"), Color(hex: "1A122B"), Color(hex: "120D1D")]
+                : [Color.white, Color(hex: "F8F6FD"), Color.white],
             startPoint: .top,
             endPoint: .bottom
         )

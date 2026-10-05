@@ -28,6 +28,12 @@ private final class AmbientCaptureSessionCoordinator: NSObject, AVCaptureVideoDa
 
     private var smoothedLum: Double = 0.50
 
+    // 采样节流与过滤缓存，阻断主线程高频重绘
+    private var lastDispatchTime: Double = 0
+    private var lastDispatchedTopR: Double = 0.58
+    private var lastDispatchedTopG: Double = 0.35
+    private var lastDispatchedTopB: Double = 0.95
+
     var temporalSmoothing: Double = 0.85
     var onColorsSampled: (@Sendable (Double, Double, Double, Double, Double, Double, Double) -> Void)?
 
@@ -116,39 +122,51 @@ private final class AmbientCaptureSessionCoordinator: NSObject, AVCaptureVideoDa
         let extent = ciImage.extent
         guard extent.width > 0, extent.height > 0 else { return }
 
-        // 极限高斯模糊 (半径 > 100)，完全粉碎物象/轮廓/人脸，只保留宏观光照与色温
-        let blurFilter = CIFilter(name: "CIGaussianBlur")
-        blurFilter?.setValue(ciImage, forKey: kCIInputImageKey)
-        blurFilter?.setValue(110.0, forKey: kCIInputRadiusKey)
-        guard let blurred = blurFilter?.outputImage?.cropped(to: extent) else { return }
-
-        // 提取上下半区宏观色温与亮度
+        // 剔除昂贵的 CIGaussianBlur 全图卷积渲染黑洞，直接通过 CIAreaAverage 硬件下采样提取宏观色温
         let topRect = CGRect(x: extent.minX, y: extent.midY, width: extent.width, height: extent.height / 2)
         let bottomRect = CGRect(x: extent.minX, y: extent.minY, width: extent.width, height: extent.height / 2)
 
-        let topSample = sampleColor(from: blurred, rect: topRect)
-        let bottomSample = sampleColor(from: blurred, rect: bottomRect)
+        let topSample = sampleColor(from: ciImage, rect: topRect)
+        let bottomSample = sampleColor(from: ciImage, rect: bottomRect)
 
         // 时间平滑指数衰减滤波 (EMA Smoothing)
         let alpha = max(0.01, min(1.0 - temporalSmoothing, 0.99))
-        smoothedTopR = smoothedTopR * (1.0 - alpha) + topSample.0 * alpha
-        smoothedTopG = smoothedTopG * (1.0 - alpha) + topSample.1 * alpha
-        smoothedTopB = smoothedTopB * (1.0 - alpha) + topSample.2 * alpha
+        let newTopR = smoothedTopR * (1.0 - alpha) + topSample.0 * alpha
+        let newTopG = smoothedTopG * (1.0 - alpha) + topSample.1 * alpha
+        let newTopB = smoothedTopB * (1.0 - alpha) + topSample.2 * alpha
 
-        smoothedBottomR = smoothedBottomR * (1.0 - alpha) + bottomSample.0 * alpha
-        smoothedBottomG = smoothedBottomG * (1.0 - alpha) + bottomSample.1 * alpha
-        smoothedBottomB = smoothedBottomB * (1.0 - alpha) + bottomSample.2 * alpha
+        let newBotR = smoothedBottomR * (1.0 - alpha) + bottomSample.0 * alpha
+        let newBotG = smoothedBottomG * (1.0 - alpha) + bottomSample.1 * alpha
+        let newBotB = smoothedBottomB * (1.0 - alpha) + bottomSample.2 * alpha
 
-        let lum = 0.2126 * ((smoothedTopR + smoothedBottomR) / 2)
-            + 0.7152 * ((smoothedTopG + smoothedBottomG) / 2)
-            + 0.0722 * ((smoothedTopB + smoothedBottomB) / 2)
-        smoothedLum = smoothedLum * (1.0 - alpha) + lum * alpha
+        let lum = 0.2126 * ((newTopR + newBotR) / 2)
+            + 0.7152 * ((newTopG + newBotG) / 2)
+            + 0.0722 * ((newTopB + newBotB) / 2)
+        let newLum = smoothedLum * (1.0 - alpha) + lum * alpha
 
-        onColorsSampled?(
-            smoothedTopR, smoothedTopG, smoothedTopB,
-            smoothedBottomR, smoothedBottomG, smoothedBottomB,
-            smoothedLum
-        )
+        smoothedTopR = newTopR
+        smoothedTopG = newTopG
+        smoothedTopB = newTopB
+        smoothedBottomR = newBotR
+        smoothedBottomG = newBotG
+        smoothedBottomB = newBotB
+        smoothedLum = newLum
+
+        // 节流与阈值拦截：仅在实质性色温变化或间隔达到 300ms 时才派发主线程，彻底杜绝主线程 15Hz 全树无效刷新
+        let now = CACurrentMediaTime()
+        let delta = abs(newTopR - lastDispatchedTopR) + abs(newTopG - lastDispatchedTopG) + abs(newTopB - lastDispatchedTopB)
+        if delta > 0.025 || (now - lastDispatchTime) > 0.32 {
+            lastDispatchTime = now
+            lastDispatchedTopR = newTopR
+            lastDispatchedTopG = newTopG
+            lastDispatchedTopB = newTopB
+
+            onColorsSampled?(
+                smoothedTopR, smoothedTopG, smoothedTopB,
+                smoothedBottomR, smoothedBottomG, smoothedBottomB,
+                smoothedLum
+            )
+        }
     }
 
     private func sampleColor(from image: CIImage, rect: CGRect) -> (Double, Double, Double) {
@@ -222,14 +240,16 @@ public final class CameraLiveAmbientEngine {
         coordinator.onColorsSampled = { [weak self] topR, topG, topB, botR, botG, botB, lum in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                self.ambientTopColor = Color(red: topR, green: topG, blue: topB)
-                self.ambientBottomColor = Color(red: botR, green: botG, blue: botB)
-                self.ambientColor = Color(
-                    red: (topR + botR) / 2,
-                    green: (topG + botG) / 2,
-                    blue: (topB + botB) / 2
-                )
-                self.ambientLuminance = lum
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    self.ambientTopColor = Color(red: topR, green: topG, blue: topB)
+                    self.ambientBottomColor = Color(red: botR, green: botG, blue: botB)
+                    self.ambientColor = Color(
+                        red: (topR + botR) / 2,
+                        green: (topG + botG) / 2,
+                        blue: (topB + botB) / 2
+                    )
+                    self.ambientLuminance = lum
+                }
             }
         }
 

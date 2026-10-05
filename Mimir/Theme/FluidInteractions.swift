@@ -39,120 +39,84 @@ struct TiltGlareCardModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !hasAmbientBacklight)) { timeline in
-            let time = timeline.date.timeIntervalSinceReferenceDate
-            let breath = hasAmbientBacklight ? (0.5 + 0.5 * sin(time * (2 * .pi / 3.0))) : 0.5
-
-            // ======== 第一阶段：内部内容与材质渲染 (Internal Content & Sheen) ========
-            content
-                // 1. 紫色流体微光交互蒙版：按压/交互时淡入，提供通透的主题紫色微光反馈，严禁使用黑色或暗灰
-                .overlay {
+        content
+            // 1. 按压/交互微光反馈（彻底废除纯黑与暗灰：浅色为淡紫微光，深色为亮紫流光）
+            .overlay {
+                if isTouching {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(
-                            LinearGradient(
-                                colors: [
-                                    accent.opacity(isTouching ? 0.22 : 0.08),
-                                    accent.opacity(isTouching ? 0.35 : 0.12)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+                            scheme == .dark
+                                ? accent.opacity(0.25)
+                                : Color(hex: "EADEFA").opacity(0.35)
                         )
-                        .blendMode(.sourceAtop)
                         .allowsHitTesting(false)
-                        .animation(.spring(response: 0.25, dampingFraction: 0.70), value: isTouching)
+                        .transition(.opacity)
                 }
-                // 2. 液体折射径向反射高光：中心为纯白微光 (0.35)，向外扩散衰减为主题亮紫色 (0.25) 再衰减至透明，营造液体折射光照感
-                .overlay {
-                    if showsSpecularSheen && isTouching && viewSize.width > 0 && viewSize.height > 0 {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        Color.white.opacity(0.35),
-                                        accent.opacity(0.25),
-                                        Color.clear
-                                    ],
-                                    center: UnitPoint(
-                                        x: min(max(touchPoint.x / viewSize.width, 0), 1),
-                                        y: min(max(touchPoint.y / viewSize.height, 0), 1)
-                                    ),
-                                    startRadius: 2,
-                                    endRadius: max(viewSize.width, viewSize.height) * 0.72
-                                )
-                            )
-                            .blendMode(.plusLighter)
-                            .allowsHitTesting(false)
-                    }
+            }
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { viewSize = proxy.size }
+                        .onChange(of: proxy.size) { _, newSize in viewSize = newSize }
                 }
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear
-                            .onAppear { viewSize = proxy.size }
-                            .onChange(of: proxy.size) { _, newSize in viewSize = newSize }
-                    }
-                }
-
-                // ======== 第二阶段：强硬圆角裁剪 (Hard Rounded Boundary Clipping - 关键) ========
-                // 死死锁在圆角矩形内，杜绝任何渐变/高光/反光溢出边缘
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-
-                // ======== 第三阶段：外部 3D 变换与环境阴影 (External Transform & Ambient Glow) ========
-                // 1. 外部环境阴影 / 呼吸背光（基于已圆角裁剪的 Alpha 轮廓自然投射，纯主题色，绝无黑色色斑）
-                .shadow(
-                    color: hasAmbientBacklight
-                        ? accent.opacity(scheme == .dark ? (0.35 + 0.30 * breath) : (0.24 + 0.22 * breath))
-                        : accent.opacity(scheme == .dark ? 0.25 : 0.12),
-                    radius: hasAmbientBacklight ? (24.0 + 14.0 * breath) : (isTouching ? 18 : 12),
-                    x: 0,
-                    y: isTouching ? 10 : 6
-                )
-                // 2. 栅格化合成组：强制将裁剪好的圆角卡片渲染为平整复合纹理图层，彻底避免 3D 透视变换时子图层发生视差错位或 CALayer 矩形底纹脱色
-                .compositingGroup()
-                // 3. 触控物理按压微形变反馈
-                .scaleEffect(isTouching ? scaleOnPress : 1.0)
-                // 4. 3D 透视与手势旋转
-                .rotation3DEffect(
-                    .degrees(-Double(pitch * maxAngle)),
-                    axis: (x: 1.0, y: 0.0, z: 0.0),
-                    perspective: 0.50
-                )
-                .rotation3DEffect(
-                    .degrees(Double(roll * maxAngle)),
-                    axis: (x: 0.0, y: 1.0, z: 0.0),
-                    perspective: 0.50
-                )
-                // 5. 交互手势
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            guard viewSize.width > 0, viewSize.height > 0 else { return }
-                            let x = value.location.x
-                            let y = value.location.y
-                            touchPoint = value.location
-                            let halfW = viewSize.width / 2
-                            let halfH = viewSize.height / 2
-                            let r = min(max((x - halfW) / halfW, -1.0), 1.0)
-                            let p = min(max((y - halfH) / halfH, -1.0), 1.0)
-                            if !isTouching {
-                                Haptics.impact(.light)
-                            }
-                            isTouching = true
-                            withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.86)) {
-                                roll = r
-                                pitch = p
+            }
+            // 2. 强硬圆角裁剪：统一收拢在最外层
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            // 3. 静态主题环境阴影（固定半径，杜绝每帧离屏重算）
+            .shadow(
+                color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
+                radius: isTouching ? 16 : 10,
+                x: 0,
+                y: isTouching ? 8 : 4
+            )
+            // 4. 关键：在 3D 变换前建立复合图层，避免每帧触发离屏渲染树全量重构
+            .compositingGroup()
+            // 5. 触控物理微缩
+            .scaleEffect(isTouching ? scaleOnPress : 1.0)
+            // 6. 3D 透视手势旋转
+            .rotation3DEffect(
+                .degrees(-Double(pitch * maxAngle)),
+                axis: (x: 1.0, y: 0.0, z: 0.0),
+                perspective: 0.50
+            )
+            .rotation3DEffect(
+                .degrees(Double(roll * maxAngle)),
+                axis: (x: 0.0, y: 1.0, z: 0.0),
+                perspective: 0.50
+            )
+            // 7. 局部手势绑定
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard viewSize.width > 0, viewSize.height > 0 else { return }
+                        let x = value.location.x
+                        let y = value.location.y
+                        touchPoint = value.location
+                        let halfW = viewSize.width / 2
+                        let halfH = viewSize.height / 2
+                        let r = min(max((x - halfW) / halfW, -1.0), 1.0)
+                        let p = min(max((y - halfH) / halfH, -1.0), 1.0)
+                        if !isTouching {
+                            Haptics.impact(.light)
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.80)) {
+                                isTouching = true
                             }
                         }
-                        .onEnded { _ in
-                            withAnimation(.spring(response: 0.44, dampingFraction: 0.66)) {
-                                pitch = 0
-                                roll = 0
-                                isTouching = false
-                            }
+                        withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.86)) {
+                            roll = r
+                            pitch = p
                         }
-                )
-        }
+                    }
+                    .onEnded { _ in
+                        withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+                            pitch = 0
+                            roll = 0
+                            isTouching = false
+                        }
+                    }
+            )
+    }
     }
 }
 
@@ -254,8 +218,8 @@ struct SharedElementImageViewer: View {
 
     var body: some View {
         ZStack {
-            // 背景连续平滑缩放与透明度渐变
-            Color.black
+            // 背景连续平滑缩放与透明度渐变（使用极深紫，严禁纯黑）
+            Color(hex: "120D1D")
                 .opacity((1.0 - Double(dragProgress) * 0.85) * (isDismissing ? 0 : 0.96))
                 .ignoresSafeArea()
                 .onTapGesture { dismissWithAnimation() }
@@ -284,7 +248,7 @@ struct SharedElementImageViewer: View {
                         RoundedRectangle(cornerRadius: 18 * currentScale, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.24 * (1 - dragProgress)), lineWidth: 1)
                     )
-                    .shadow(color: .black.opacity(0.6 * (1 - dragProgress)), radius: 30, y: 15)
+                    .shadow(color: Color(hex: "120D1D").opacity(0.6 * (1 - dragProgress)), radius: 24, y: 12)
                     .scaleEffect(currentScale)
                     .offset(dragOffset)
                     .gesture(
@@ -364,7 +328,7 @@ struct FluidRubberBandDrawer<Content: View>: View {
                         .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1.1)
                         .allowsHitTesting(false)
                 )
-                .shadow(color: .black.opacity(scheme == .dark ? 0.55 : 0.12), radius: 24, y: -6)
+                .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.12), radius: 20, y: -6)
                 .gesture(
                     DragGesture()
                         .onChanged { value in

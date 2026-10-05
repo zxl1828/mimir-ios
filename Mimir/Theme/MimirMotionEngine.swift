@@ -201,8 +201,8 @@ public struct SharedElementTransitionView<Content: View>: View {
 
     public var body: some View {
         ZStack {
-            // 背景连续平滑透明度渐变，杜绝白屏闪烁
-            Color.black
+            // 背景连续平滑透明度渐变，杜绝白屏闪烁（严禁纯黑，采用极深紫）
+            Color(hex: "120D1D")
                 .opacity((1.0 - Double(dragProgress) * 0.85) * (isDismissing ? 0 : 0.94))
                 .ignoresSafeArea()
                 .onTapGesture { dismissWithSpring() }
@@ -232,7 +232,7 @@ public struct SharedElementTransitionView<Content: View>: View {
                             RoundedRectangle(cornerRadius: 20 * currentScale, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.24 * (1 - dragProgress)), lineWidth: 1)
                         )
-                        .shadow(color: .black.opacity(0.60 * (1 - dragProgress)), radius: 32, y: 16)
+                        .shadow(color: Color(hex: "120D1D").opacity(0.60 * (1 - dragProgress)), radius: 24, y: 12)
                         .scaleEffect(currentScale)
                         .offset(dragOffset)
                         .gesture(
@@ -513,7 +513,7 @@ public struct VelocitySnappingDrawer<Content: View>: View {
                         )
                         .allowsHitTesting(false)
                 )
-                .shadow(color: .black.opacity(scheme == .dark ? 0.50 : 0.12), radius: 26, y: -6)
+                .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.12), radius: 22, y: -6)
                 .gesture(
                     DragGesture()
                         .onChanged { value in

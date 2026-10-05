@@ -541,7 +541,7 @@ struct MarkdownTableView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(scheme == .dark ? Color.white.opacity(0.05) : Color.black.opacity(0.03))
+                    .fill(scheme == .dark ? Color.white.opacity(0.05) : Color(hex: "EADEFA").opacity(0.18))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)

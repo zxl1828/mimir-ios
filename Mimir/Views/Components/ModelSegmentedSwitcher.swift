@@ -34,7 +34,7 @@ struct ModelSegmentedSwitcher: View {
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         )
-        .shadow(color: .black.opacity(scheme == .dark ? 0.35 : 0.08), radius: 8, y: 3)
+        .shadow(color: accent.opacity(scheme == .dark ? 0.25 : 0.08), radius: 8, y: 3)
         .contextMenu {
             Button {
                 onOpenSettings()

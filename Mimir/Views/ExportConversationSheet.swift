@@ -92,7 +92,7 @@ struct ExportConversationSheet: View {
                     .resizable()
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .shadow(color: Color.black.opacity(0.18), radius: 14, y: 6)
+                    .shadow(color: accent.opacity(0.20), radius: 14, y: 6)
                     .padding(8)
             } else {
                 VStack(spacing: 10) {

@@ -22,9 +22,9 @@ public struct CorrectedSoftVerticalFadeMaskModifier: ViewModifier {
         content
             .mask(
                 VStack(spacing: 0) {
-                    // 顶部平滑淡入：从纯透明 (.clear) 到纯不透明 (.black)
+                    // 顶部平滑淡入：从纯透明 (.clear) 到纯不透明 (.white)
                     LinearGradient(
-                        colors: [Color.clear, Color.black],
+                        colors: [Color.clear, Color.white],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -32,11 +32,11 @@ public struct CorrectedSoftVerticalFadeMaskModifier: ViewModifier {
 
                     // 中间视口完全通透
                     Rectangle()
-                        .fill(Color.black)
+                        .fill(Color.white)
 
-                    // 底部平滑渐隐：从纯不透明 (.black) 到纯透明 (.clear)
+                    // 底部平滑渐隐：从纯不透明 (.white) 到纯透明 (.clear)
                     LinearGradient(
-                        colors: [Color.black, Color.clear],
+                        colors: [Color.white, Color.clear],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -62,13 +62,13 @@ public struct CorrectedLiquidGlassCardModifier: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
-            // 文本可读性保护底衬（WCAG AAA 对比度保障）
+            // 文本可读性保护底衬（WCAG AAA 对比度保障，采用纯白与极深紫基准）
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(
                         scheme == .dark
-                            ? Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.38)
-                            : Color.white.opacity(0.42)
+                            ? Color(hex: "120D1D").opacity(0.80)
+                            : Color.white.opacity(0.85)
                     )
             }
             .liquidGlass(

@@ -28,14 +28,14 @@ enum ShareCardStyle: String, CaseIterable, Identifiable, Sendable {
 
     var cardBackground: Color {
         self == .dark
-            ? Color(red: 0.12, green: 0.12, blue: 0.16)
+            ? Color(hex: "120D1D")
             : Color.white
     }
 
     var hairline: Color {
         self == .dark
             ? Color.white.opacity(0.08)
-            : Color.black.opacity(0.06)
+            : Color(hex: "EADEFA").opacity(0.40)
     }
 
     var primaryText: Color {

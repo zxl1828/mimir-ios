@@ -21,21 +21,28 @@ enum AppUI {
     /// 主视图打开抽屉时向右偏移的距离。
     static let sidebarShift: CGFloat = 280
 
-    // MARK: - 颜色（纯黑 / 纯白背景 + 系统语义色 + 自适应深浅色）
+    // MARK: - 基础色彩基准（严禁纯黑，统一采用纯白/极淡紫与极深紫）
+    static let baseLightWhite = Color.white
+    static let baseLightLavender = Color(hex: "F8F6FD")
+    static let baseDarkDeepPurple = Color(hex: "120D1D")
+    static let baseDarkPlum = Color(hex: "1A122B")
+    static let pressSheenLight = Color(hex: "EADEFA")
 
-    /// 画布主背景：深色下沉稳紫夜，浅色下雪白紫雾（#F4F1FA -> #E8E2F5）。
+    // MARK: - 颜色（纯白/极淡紫与极深紫基准 + 系统语义色）
+
+    /// 画布主背景：深色下极深紫夜（#120D1D），浅色下极淡薰衣草紫（#F8F6FD）。
     static var canvas: Color {
         Color.adaptive(
-            light: UIColor(red: 0.957, green: 0.945, blue: 0.980, alpha: 1.0),
-            dark: UIColor(red: 0.08, green: 0.06, blue: 0.14, alpha: 1.0)
+            light: UIColor(red: 0.973, green: 0.965, blue: 0.992, alpha: 1.0),
+            dark: UIColor(red: 0.071, green: 0.051, blue: 0.114, alpha: 1.0)
         )
     }
 
-    /// 分组背景：深色下纯黑紫夜，浅色下柔和浅雪紫。
+    /// 分组背景：深色下极深紫李（#1A122B），浅色下纯白（#FFFFFF）。
     static var groupCanvas: Color {
         Color.adaptive(
-            light: UIColor(red: 0.945, green: 0.932, blue: 0.970, alpha: 1.0),
-            dark: UIColor(red: 0.06, green: 0.05, blue: 0.11, alpha: 1.0)
+            light: UIColor.white,
+            dark: UIColor(red: 0.102, green: 0.071, blue: 0.169, alpha: 1.0)
         )
     }
 
@@ -161,17 +168,17 @@ enum AppUI {
         scheme == .dark ? Color(red: 0.49, green: 0.48, blue: 0.56) : Color(red: 0.61, green: 0.64, blue: 0.69)
     }
 
-    /// 规范要求的浅紫至雪白平滑渐变背景（深色模式自适应为深紫夜渐变）。
+    /// 规范要求的纯白/极淡紫至极深紫渐变背景（深色模式自适应为极深高级紫 #120D1D -> #1A122B）。
     static func ambientBackground(scheme: ColorScheme) -> LinearGradient {
         if scheme == .dark {
             return LinearGradient(
-                colors: [Color(red: 0.07, green: 0.06, blue: 0.11), Color(red: 0.03, green: 0.03, blue: 0.05)],
+                colors: [Color(hex: "120D1D"), Color(hex: "1A122B")],
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else {
             return LinearGradient(
-                colors: [Color(red: 0.957, green: 0.945, blue: 0.980), Color(red: 0.910, green: 0.886, blue: 0.961)],
+                colors: [Color.white, Color(hex: "F8F6FD")],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -204,8 +211,8 @@ struct SoftGlassCardModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(
                         scheme == .dark
-                            ? Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.38)
-                            : Color.white.opacity(0.42)
+                            ? Color(hex: "120D1D").opacity(0.80)
+                            : Color.white.opacity(0.85)
                     )
             }
             .liquidGlass(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
@@ -215,10 +222,10 @@ struct SoftGlassCardModifier: ViewModifier {
                     .allowsHitTesting(false)
             }
             .shadow(
-                color: accent.opacity(scheme == .dark ? 0.22 : 0.08),
-                radius: 16,
+                color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
+                radius: 14,
                 x: 0,
-                y: 8
+                y: 6
             )
     }
 }
@@ -337,27 +344,21 @@ struct AppBackgroundView: View {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
-        .blur(radius: 80)
         .allowsHitTesting(false)
         .blendMode(scheme == .dark ? .plusLighter : .sourceAtop)
     }
 
     private var meshGradientOverlay: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            let breath = 0.5 + 0.5 * sin(t * 0.4)
-
-            RadialGradient(
-                colors: [
-                    accent.opacity((scheme == .dark ? 0.16 : 0.10) * breath),
-                    Color.clear
-                ],
-                center: .topLeading,
-                startRadius: 40,
-                endRadius: 420
-            )
-            .allowsHitTesting(false)
-        }
+        RadialGradient(
+            colors: [
+                accent.opacity(scheme == .dark ? 0.12 : 0.08),
+                Color.clear
+            ],
+            center: .topLeading,
+            startRadius: 40,
+            endRadius: 420
+        )
+        .allowsHitTesting(false)
     }
 }
 
@@ -440,7 +441,7 @@ struct UIBarButton: View {
                         .allowsHitTesting(false)
                 }
                 .shadow(
-                    color: isHighlighted ? accent.opacity(scheme == .dark ? 0.50 : 0.28) : .black.opacity(scheme == .dark ? 0.32 : 0.08),
+                    color: isHighlighted ? accent.opacity(scheme == .dark ? 0.50 : 0.28) : accent.opacity(scheme == .dark ? 0.20 : 0.06),
                     radius: isHighlighted ? 11 : 6,
                     y: 2
                 )
@@ -496,7 +497,7 @@ struct UIQuickChip: View {
                     .allowsHitTesting(false)
             )
             .shadow(
-                color: isSelected ? accent.opacity(scheme == .dark ? 0.45 : 0.25) : .black.opacity(scheme == .dark ? 0.20 : 0.04),
+                color: isSelected ? accent.opacity(scheme == .dark ? 0.45 : 0.25) : accent.opacity(scheme == .dark ? 0.16 : 0.04),
                 radius: 6,
                 y: 2
             )

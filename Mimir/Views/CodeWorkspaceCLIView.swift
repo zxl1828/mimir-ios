@@ -199,7 +199,7 @@ struct CodeWorkspaceCLIView: View {
             }
             .padding(.horizontal, 10)
             .frame(height: 38)
-            .background(Color.black.opacity(0.55))
+            .background(Color(hex: "120D1D").opacity(0.85))
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(Color.white.opacity(0.12))
@@ -229,7 +229,7 @@ struct CodeWorkspaceCLIView: View {
                     }
                     .padding(10)
                 }
-                .background(Color(red: 0.05, green: 0.04, blue: 0.09).opacity(0.96))
+                .background(Color(hex: "120D1D").opacity(0.96))
                 .onChange(of: terminalLogs.count) { _, _ in
                     withAnimation(.easeOut(duration: 0.2)) {
                         proxy.scrollTo("terminal.bottom", anchor: .bottom)
@@ -254,7 +254,7 @@ struct CodeWorkspaceCLIView: View {
                 )
                 .allowsHitTesting(false)
         }
-        .shadow(color: Color.black.opacity(0.45), radius: 14, y: 6)
+        .shadow(color: accent.opacity(0.35), radius: 14, y: 6)
     }
 
     private func logLineView(_ log: CLILogLine) -> some View {
@@ -378,7 +378,7 @@ struct CodeWorkspaceCLIView: View {
                         }
                     }
                     .shadow(
-                        color: msg.isUser ? accent.opacity(0.35) : Color.black.opacity(scheme == .dark ? 0.30 : 0.06),
+                        color: msg.isUser ? accent.opacity(0.35) : accent.opacity(scheme == .dark ? 0.20 : 0.06),
                         radius: 6,
                         y: 2
                     )

@@ -128,7 +128,7 @@ struct OnboardingView: View {
     }
 
     private var focusGlow: Color {
-        fieldFocused ? AppColor.brandBlue.opacity(0.35) : Color.black.opacity(0.06)
+        fieldFocused ? AppColor.brandBlue.opacity(0.35) : Color(hex: "EADEFA").opacity(0.35)
     }
 
     private var revealButton: some View {
