@@ -145,6 +145,26 @@ final class ToolCallTelemetry {
             return ("CoreSpotlight", "检索本机索引")
         case "web_search":
             return ("URLSession", "联网检索公开网页")
+        case SystemCapabilityGateway.timeTool:
+            return ("Foundation", "读取设备时间与时区")
+        case SystemCapabilityGateway.calendarReadTool:
+            return ("EventKit", "读取日历日程")
+        case SystemCapabilityGateway.calendarCreateTool:
+            return ("EventKit", "写入日历日程")
+        case SystemCapabilityGateway.reminderCreateTool:
+            return ("EventKit", "创建提醒事项")
+        case SystemCapabilityGateway.contactsSearchTool:
+            return ("Contacts", "检索通讯录")
+        case SystemCapabilityGateway.dialTool:
+            return ("Telephony", "准备拨号")
+        case SystemCapabilityGateway.shareTool:
+            return ("UIKit", "准备分享内容")
+        case SystemCapabilityGateway.locationTool:
+            return ("CoreLocation", "获取当前位置")
+        case SystemCapabilityGateway.poiTool:
+            return ("MapKit", "检索地点")
+        case SystemCapabilityGateway.exportTool:
+            return ("FileManager", "导出文件到本机")
         default:
             return nil
         }

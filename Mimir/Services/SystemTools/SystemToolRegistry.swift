@@ -12,6 +12,10 @@ enum SystemToolRegistry {
     static let webSearchToolName = "web_search"
 
     static var definitions: [LLMToolDefinition] {
+        localDefinitions + SystemCapabilityGateway.definitions
+    }
+
+    private static var localDefinitions: [LLMToolDefinition] {
         [
             LLMToolDefinition(
                 name: ocrToolName,
@@ -112,6 +116,14 @@ enum SystemToolRegistry {
             }
 
         default:
+            // 系统能力（时间 / 日历 / 提醒 / 通讯录 / 拨号 / 分享 / 定位 / POI / 导出）
+            // 由专门的网关处理
+            if SystemCapabilityGateway.handles(name) {
+                return await SystemCapabilityGateway.invoke(
+                    name: name,
+                    argumentsJSON: argumentsJSON
+                )
+            }
             return "未知的本地工具：\(name)"
         }
     }
@@ -121,6 +133,7 @@ enum SystemToolRegistry {
             || name == barcodeToolName
             || name == spotlightToolName
             || name == webSearchToolName
+            || SystemCapabilityGateway.handles(name)
     }
 
     private static func stringArgument(_ key: String, in json: String) -> String? {
