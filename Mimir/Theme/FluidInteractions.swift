@@ -117,7 +117,6 @@ struct TiltGlareCardModifier: ViewModifier {
                     }
             )
     }
-    }
 }
 
 typealias InteractivePerspectiveTiltModifier = TiltGlareCardModifier
