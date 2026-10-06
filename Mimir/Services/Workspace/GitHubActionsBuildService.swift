@@ -21,6 +21,7 @@ enum GitHubBuildError: LocalizedError {
     case invalidRepository
     case invalidToken
     case accountChanged(expected: String, actual: String)
+    case repositoryOwnerMismatch(account: String, owner: String)
     case noWorkspace
     case noProject
     case tooManyFiles
@@ -35,6 +36,7 @@ enum GitHubBuildError: LocalizedError {
         case .invalidRepository: return "GitHub 仓库格式应为 owner/repository。"
         case .invalidToken: return "无法验证这个 GitHub 令牌，请检查令牌是否有效。"
         case .accountChanged(let expected, let actual): return "绑定账号不匹配：当前令牌属于 @\(actual)，已绑定账号是 @\(expected)。请重新绑定。"
+        case .repositoryOwnerMismatch(let account, let owner): return "目标仓库属于 @\(owner)，当前绑定账号是 @\(account)。只能上传到绑定账号名下的仓库。"
         case .noWorkspace: return "请先选择要编译的项目文件夹。"
         case .noProject: return "所选文件夹里没有 Project.yml、.xcodeproj 或 .xcworkspace。"
         case .tooManyFiles: return "项目包含超过 400 个文件，暂不支持上传构建。"
@@ -73,6 +75,9 @@ enum GitHubActionsBuildService {
         let accountLogin = try await authenticatedLogin(token: token)
         guard accountLogin.caseInsensitiveCompare(expectedAccountLogin) == .orderedSame else {
             throw GitHubBuildError.accountChanged(expected: expectedAccountLogin, actual: accountLogin)
+        }
+        guard owner.caseInsensitiveCompare(accountLogin) == .orderedSame else {
+            throw GitHubBuildError.repositoryOwnerMismatch(account: accountLogin, owner: owner)
         }
         guard let root = workspace.activeWorkspaceURL else { throw GitHubBuildError.noWorkspace }
         let accessing = root.startAccessingSecurityScopedResource()

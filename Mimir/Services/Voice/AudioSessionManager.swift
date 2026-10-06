@@ -59,10 +59,8 @@ final class AudioSessionManager {
     /// 语音识别授权。
     ///
     /// 实测（iPhone 17 Pro / iOS 27，侧载安装）：无条件调用 `requestAuthorization`
-    /// 会在「麦克风授权通过之后」把 App 直接干掉。因此这里三道保险：
-    /// ① 已授权直接放行，已拒绝 / 受限直接返回 false，只有「未决定」才真正弹窗；
-    /// ② 调用本身用 ObjC 的 @try/@catch 包住（`ObjCExceptionCatcher`）；
-    /// ③ 弹窗 20 秒没有回调就当作未授权，不阻塞语音界面。
+    /// 会在「麦克风授权通过之后」把 App 直接干掉。因此先检查状态和识别器，
+    /// 并在授权回调未返回时于 20 秒后退出等待。
     func speechPermission() async -> Bool {
         let status = SFSpeechRecognizer.authorizationStatus()
         AppDiagnostics.shared.log("voice: speech status = \(Self.describe(status))")
@@ -91,15 +89,8 @@ final class AudioSessionManager {
             "voice: recognizer ok, onDevice = \(recognizer.supportsOnDeviceRecognition)"
         )
 
-        do {
-            try ObjCExceptionCatcher.perform {
-                SFSpeechRecognizer.requestAuthorization { status in
-                    box.finish(status == .authorized)
-                }
-            }
-        } catch {
-            AppDiagnostics.shared.log("voice: speech request threw \(error.localizedDescription)")
-            return false
+        SFSpeechRecognizer.requestAuthorization { status in
+            box.finish(status == .authorized)
         }
 
         let granted = await box.value(timeout: .seconds(20))
