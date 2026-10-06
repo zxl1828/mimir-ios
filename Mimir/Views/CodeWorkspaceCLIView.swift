@@ -67,7 +67,7 @@ struct CodeWorkspaceCLIView: View {
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("将以 @\(settings.githubAccountLogin) 身份上传 \(uploadFileCount) 个文件（\(ByteCountFormatter.string(fromByteCount: uploadBytes, countStyle: .file)）到 \(settings.githubRepository) 的临时分支。公开仓库中的源码在构建期间可被他人查看；Actions 构建产物保留 30 天，临时分支会在构建结束后删除。")
+            Text("将以 @\(settings.githubAccountLogin) 身份上传 \(uploadFileCount) 个文件（\(ByteCountFormatter.string(fromByteCount: uploadBytes, countStyle: .file))）到 \(settings.githubRepository) 的临时分支。公开仓库中的源码在构建期间可被他人查看；Actions 构建产物保留 30 天，临时分支会在构建结束后删除。")
         }
         .alert("构建失败", isPresented: Binding(
             get: { buildError != nil },
