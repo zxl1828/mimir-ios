@@ -35,15 +35,8 @@ struct FloatingTabBar: View {
         .overlay {
             Capsule(style: .continuous)
                 .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(scheme == .dark ? 0.45 : 0.85),
-                            accent.opacity(scheme == .dark ? 0.35 : 0.20)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1.1
+                    AppUI.refractionEdge(accent, scheme: scheme),
+                    lineWidth: 1.0
                 )
                 .allowsHitTesting(false)
         }
@@ -59,6 +52,7 @@ struct FloatingTabBar: View {
             x: 0,
             y: 4
         )
+        .frame(maxWidth: 480)
         .padding(.horizontal, 20)
     }
 

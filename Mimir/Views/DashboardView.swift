@@ -56,13 +56,12 @@ struct DashboardView: View {
                 // 4. 进行中的会话与任务流（CURRENT CONVERSATIONS）
                 currentConversationsSection
                     .staggerCascade(index: 3)
-
-                // 5. 底部星穹神树精选多模态资产微展台
-                    .staggerCascade(index: 4)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 96) // 留足底部悬浮 TabBar 的空间
+            .frame(maxWidth: 1040)
+            .frame(maxWidth: .infinity)
         }
         .correctedSoftFadeMask(topFade: 16, bottomFade: 40)
         .background {
@@ -190,7 +189,7 @@ struct DashboardView: View {
 
     private var quickToolsRow: some View {
         HStack(spacing: 12) {
-            // 卡片 1: [AI] Image Generation
+            // 卡片 1: 图像生成
             Button {
                 coordinator.navigateToAssistant(withPrompt: "画一张图片，画面是：")
             } label: {
@@ -206,7 +205,7 @@ struct DashboardView: View {
                                     .fill(accent.opacity(0.14))
                             )
 
-                        Text("Image Gen")
+                        Text("图像生成")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(AppUI.textTitle(scheme: scheme))
                             .lineLimit(1)
@@ -246,7 +245,7 @@ struct DashboardView: View {
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                         .frame(height: 28)
 
-                    Text("Library")
+                    Text("资料库")
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 }
@@ -267,7 +266,7 @@ struct DashboardView: View {
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                         .frame(height: 28)
 
-                    Text("My Projects")
+                    Text("我的项目")
                         .font(.system(size: 12.5, weight: .semibold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                         .lineLimit(1)
@@ -291,12 +290,15 @@ struct DashboardView: View {
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .padding(.horizontal, 4)
                 Spacer()
-                Text("长按展开操作蒙版")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                Text("04 MODULES")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(accent)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(accent.opacity(scheme == .dark ? 0.14 : 0.08), in: Capsule())
             }
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 164, maximum: 244), spacing: 12)], spacing: 12) {
                 // 卡片 1: 智能体中心 (Agents & Models)
                 agentCenterCard
 

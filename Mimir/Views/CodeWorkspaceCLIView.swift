@@ -1,714 +1,623 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
-/// Tab 4: 代码工坊与 CLI 控制台（CodeWorkspaceCLIView）。
-///
-/// 采用上下分屏沉浸式架构：
-/// - **上半部**：VS Code CLI 终端视窗（深暗色流体玻璃、红黄绿三色控制点、运行按钮、SF Mono 等宽流式编译输出）；
-/// - **下半部**：与终端联动的实时对话气泡流与支持 `/run` 快捷指令的输入栏（动态避让底部四大金刚 TabBar）。
+/// Phone-first source editor and coding agent for a user-selected local project folder.
 struct CodeWorkspaceCLIView: View {
-
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
-    @Environment(AppSettings.self) private var settings
-
-    @State private var terminalLogs: [CLILogLine] = []
-    @State private var chatMessages: [CLIChatMessage] = []
-    @State private var inputText: String = ""
-    @State private var isExecuting: Bool = false
-    @State private var isKeyboardVisible: Bool = false
-    @FocusState private var isInputFocused: Bool
-
-    /// 本地工作区（手机上的文件）：代码面板的主数据源
+    @Environment(\.openURL) private var openURL
     @State private var workspace = WorkspaceManager.shared
-    /// 本地文件轮询心跳（1.5s 一次，触发重算以发现外部修改）
-    @State private var localTick = Date()
-
-    /// 代码桥接（可选备选源：连接电脑端 tools/code_server.py）
-    /// 代码桥接：实时显示电脑端 AI 正在编辑的源码文件
-    @State private var bridge = CodeBridgeClient.shared
-    @State private var showBridgeConfig = false
-    @State private var bridgeDraft = ""
-
-    struct CLILogLine: Identifiable, Sendable {
-        let id = UUID()
-        let text: String
-        let level: LogLevel
-        let timestamp: Date = Date()
-
-        enum LogLevel: Sendable {
-            case command
-            case info
-            case success
-            case warning
-            case error
-        }
-    }
-
-    struct CLIChatMessage: Identifiable, Sendable {
-        let id = UUID()
-        let isUser: Bool
-        let text: String
-        let timestamp: Date = Date()
-    }
+    @State private var agent = CodeWorkspaceAgent()
+    @State private var settings = AppSettings()
+    @State private var showFolderImporter = false
+    @State private var showFilePicker = false
+    @State private var draft = ""
+    @State private var saveState = "已保存"
+    @State private var saveError: String?
+    @State private var saveTask: Task<Void, Never>?
+    @State private var showGitHubSettings = false
+    @State private var confirmRemoteBuild = false
+    @State private var repositoryDraft = ""
+    @State private var tokenDraft = ""
+    @State private var isBindingGitHub = false
+    @State private var githubBindingError: String?
+    @State private var isBuilding = false
+    @State private var buildMessage = ""
+    @State private var buildError: String?
+    @State private var buildResult: GitHubBuildResult?
+    @FocusState private var composerFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            // 顶部工作区标头
-            cliHeaderBar
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 6)
-
-            // 上半部：VS Code CLI 终端视窗
-            terminalWindowSection
-                .frame(maxHeight: 300)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-
-            // 下半部：与终端联动的对话流与快捷控制台
-            conversationAndInputSection
-        }
-        .background {
-            AppUI.ambientBackground(scheme: scheme)
-                .ignoresSafeArea()
-        }
-        .onAppear {
-            if terminalLogs.isEmpty {
-                bootstrapCLI()
+        GeometryReader { geometry in
+            VStack(spacing: 10) {
+                header
+                editorPanel(height: min(max(geometry.size.height * 0.44, 230), 410))
+                if !buildMessage.isEmpty { buildStatusBar }
+                agentPanel
             }
-            bridge.startAutoSync()
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .frame(maxWidth: 1040)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                AppUI.ambientBackground(scheme: scheme).ignoresSafeArea()
+            }
         }
-        .onDisappear {
-            bridge.stopAutoSync()
+        .fileImporter(
+            isPresented: $showFolderImporter,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let folder = urls.first {
+                workspace.mountFolder(url: folder)
+                workspace.selectCodeFile(workspace.sourceFiles.first)
+                saveState = "已载入工作区"
+            }
+        }
+        .sheet(isPresented: $showFilePicker) {
+            sourceFilePicker
+        }
+        .sheet(isPresented: $showGitHubSettings) {
+            githubSettingsSheet
+        }
+        .confirmationDialog("上传项目并编译？", isPresented: $confirmRemoteBuild, titleVisibility: .visible) {
+            Button("上传并构建", role: .destructive) {
+                Task { await buildSelectedProject() }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将以 @\(settings.githubAccountLogin) 身份上传 \(uploadFileCount) 个文件（\(ByteCountFormatter.string(fromByteCount: uploadBytes, countStyle: .file)）到 \(settings.githubRepository) 的临时分支。公开仓库中的源码在构建期间可被他人查看；Actions 构建产物保留 30 天，临时分支会在构建结束后删除。")
+        }
+        .alert("构建失败", isPresented: Binding(
+            get: { buildError != nil },
+            set: { if !$0 { buildError = nil } }
+        )) {
+            Button("好", role: .cancel) { buildError = nil }
+        } message: {
+            Text(buildError ?? "")
+        }
+        .alert("无法保存文件", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("好", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
         }
         .task {
-            // 本地文件轮询：手机上的 AI 或其它途径改动文件后，面板自动刷新
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(1_500))
-                localTick = Date()
+                try? await Task.sleep(for: .seconds(2))
+                workspace.refreshCurrentCodeFile()
             }
         }
-        .alert("代码桥接地址", isPresented: $showBridgeConfig) {
-            TextField("http://192.168.1.10:8849", text: $bridgeDraft)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Button("取消", role: .cancel) {}
-            Button("保存") { bridge.updateEndpoint(bridgeDraft) }
-        } message: {
-            Text("在电脑上运行 python tools/code_server.py，把它显示的局域网地址填在这里，即可实时看到 AI 正在编辑的代码。")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
-                isKeyboardVisible = true
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                isKeyboardVisible = false
-            }
+        .onDisappear {
+            saveTask?.cancel()
+            persistCurrentFile()
         }
     }
 
-    // MARK: - 1. 顶部工作区标头
-
-    // MARK: - 实时代码视图（桥接 AI 正在编辑的文件）
-
-    private var codeViewerSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            codeViewerHeader
-            Divider().overlay(accent.opacity(0.25))
-            codeViewerBody
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    scheme == .dark
-                        ? Color(hex: "120D1D").opacity(0.85)
-                        : Color.white.opacity(0.85)
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(accent.opacity(0.30), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
-    }
-
-    private var codeViewerHeader: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "doc.text.fill")
-                .font(.system(size: 11))
-                .foregroundStyle(accent)
-
-            Text(displaySnapshot?.path ?? "实时代码")
-                .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
-                .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                .lineLimit(1)
-                .truncationMode(.head)
-
-            Spacer(minLength: 6)
-
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(bridge.isConnected ? Color(hex: "34C759") : AppUI.textCaption(scheme: scheme))
-                    .frame(width: 6, height: 6)
-                Text(syncLabel)
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
-                    .monospacedDigit()
-            }
-
-            Button {
-                bridgeDraft = bridge.endpoint
-                showBridgeConfig = true
-            } label: {
-                Image(systemName: "link")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("设置代码桥接地址")
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-    }
-
-    private var syncLabel: String {
-        guard bridge.hasEndpoint else { return "未连接" }
-        guard bridge.isConnected else { return "断开" }
-        guard let snapshot = displaySnapshot else { return localHintLabel }
-        return "\(snapshot.lines) 行"
-    }
-
-    /// 代码面板当前显示的快照：**本地工作区优先**，未挂载文件时回退到电脑桥接。
-    ///
-    /// 这里显式读取 `localTick` 建立依赖，让 1.5 秒的心跳能触发重算——
-    /// 这样无论文件是被 App 内 AI 改的、还是被其它途径改的，面板都会自己刷新。
-    private var displaySnapshot: CodeBridgeClient.FileSnapshot? {
-        if let local = localSnapshot { return local }
-        return bridge.snapshot
-    }
-
-    private var localSnapshot: CodeBridgeClient.FileSnapshot? {
-        _ = localTick
-        guard let file = workspace.allFiles.first(where: { !$0.isDirectory }) else { return nil }
-        let content = workspace.readFileContent(for: file)
-        guard !content.isEmpty else { return nil }
-        return CodeBridgeClient.FileSnapshot(
-            path: file.name,
-            mtime: file.modifiedAt.timeIntervalSince1970,
-            lines: content.components(separatedBy: "\n").count,
-            content: content
-        )
-    }
-
-    private var localHintLabel: String {
-        if workspace.allFiles.isEmpty {
-            return bridge.hasEndpoint ? "桥接中…" : "未挂载文件"
-        }
-        return "读取中…"
-    }
-
-    @ViewBuilder
-    private var codeViewerBody: some View {
-        if let snapshot = displaySnapshot {
-            let lines = snapshot.content.components(separatedBy: "\n")
-            ScrollView([.horizontal, .vertical]) {
-                HStack(alignment: .top, spacing: 10) {
-                    VStack(alignment: .trailing, spacing: 0) {
-                        ForEach(0..<max(lines.count, 1), id: \.self) { index in
-                            Text("\(index + 1)")
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(AppUI.textCaption(scheme: scheme).opacity(0.6))
-                                .frame(height: 16)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                            Text(line.isEmpty ? " " : line)
-                                .font(.system(size: 11.5, design: .monospaced))
-                                .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                                .frame(height: 16, alignment: .leading)
-                        }
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-            }
-            .frame(maxHeight: 200)
-            // 只有 mtime 真变化才过渡，避免 AI 高频写盘导致画面跳动
-            .animation(.easeInOut(duration: 0.18), value: snapshot.mtime)
-            // 切换到下一个文件时整体重置（含滚动位置）
-            .id(snapshot.path)
-        } else {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(bridge.hasEndpoint ? "等待桥接响应…" : "未连接代码桥接")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                Text(
-                    bridge.hasEndpoint
-                        ? (bridge.lastError ?? "正在轮询电脑端的文件变化")
-                        : "在电脑上运行 tools/code_server.py，再点右上角链接图标填入它显示的地址"
-                )
-                .font(.system(size: 11))
-                .foregroundStyle(AppUI.textCaption(scheme: scheme))
-                .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 14)
-        }
-    }
-
-    private var cliHeaderBar: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text("代码工坊")
+    private var header: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 7) {
+                    Text("代码 Agent")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
-
-                    Text("CLI")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(accent))
+                    Circle()
+                        .fill(agent.isWorking ? accent : Color.green)
+                        .frame(width: 7, height: 7)
+                        .shadow(color: accent.opacity(agent.isWorking ? 0.7 : 0), radius: 5)
+                    Text(agent.isWorking ? "处理中" : "就绪")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(AppUI.textCaption(scheme: scheme))
                 }
-
-                Text("VS Code Terminal & Runtime Assistant")
+                Text(workspace.activeWorkspaceURL?.lastPathComponent ?? "选择一个项目文件夹")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                    .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            // 状态小胶囊
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(isExecuting ? Color.orange : Color(hex: "34D399"))
-                    .frame(width: 7, height: 7)
-                    .shadow(color: (isExecuting ? Color.orange : Color(hex: "34D399")).opacity(0.6), radius: 3)
-
-                Text(isExecuting ? "BUILDING" : "IDLE")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+            Button {
+                showFolderImporter = true
+            } label: {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 38, height: 38)
+                    .contentShape(Circle())
+                    .liquidGlass(.regular, in: .circle)
+                    .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
             }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .liquidGlass(.regular, in: .capsule)
-            .overlay(
-                Capsule().strokeBorder(accent.opacity(0.3), lineWidth: 0.8)
-            )
+            .buttonStyle(PhysicalElasticCircleButtonStyle())
+            .accessibilityLabel("选择项目文件夹")
+
+            Button {
+                showFilePicker = true
+            } label: {
+                Image(systemName: "chevron.left.forwardslash.chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 38, height: 38)
+                    .contentShape(Circle())
+                    .liquidGlass(.regular, in: .circle)
+                    .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
+            }
+            .buttonStyle(PhysicalElasticCircleButtonStyle())
+            .accessibilityLabel("选择源码文件")
+
+            Button(action: beginRemoteBuild) {
+                HStack(spacing: 5) {
+                    Image(systemName: isBuilding ? "hourglass" : "hammer.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(isBuilding ? "构建中" : "编译")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 11)
+                .frame(height: 38)
+                .background(Capsule().fill(accent))
+                .overlay { Capsule().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8) }
+            }
+            .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+            .disabled(isBuilding || workspace.activeWorkspaceURL == nil)
+            .accessibilityLabel("通过 GitHub Actions 编译此项目")
         }
     }
 
-    // MARK: - 2. 上半部：VS Code CLI 终端视窗
-
-    private var terminalWindowSection: some View {
-        VStack(spacing: 0) {
-            // 终端标题栏：红黄绿三色控制点 + 终端名称 + 运行/清空按钮
-            HStack(spacing: 8) {
-                // macOS / VS Code 三色控制点
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Color(red: 1.0, green: 0.37, blue: 0.34))
-                        .frame(width: 10, height: 10)
-                    Circle()
-                        .fill(Color(red: 1.0, green: 0.74, blue: 0.18))
-                        .frame(width: 10, height: 10)
-                    Circle()
-                        .fill(Color(red: 0.15, green: 0.79, blue: 0.25))
-                        .frame(width: 10, height: 10)
-                }
-                .padding(.leading, 4)
-
-                Spacer()
-
-                // 终端窗口标题
-                HStack(spacing: 4) {
-                    Image(systemName: "terminal.fill")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(accent)
-
-                    Text("mimir-cli ~ zsh (80x24)")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Color.white.opacity(0.85))
-                }
-
-                Spacer()
-
-                // 清空终端按钮
-                Button {
-                    Haptics.impact(.light)
-                    withAnimation {
-                        terminalLogs.removeAll()
-                    }
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.white.opacity(0.60))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.90))
-
-                // 运行 / 执行按钮
-                Button {
-                    executeRunCommand()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: isExecuting ? "stop.fill" : "play.fill")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(isExecuting ? "中断" : "运行")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                    }
-                    .foregroundStyle(Color.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        Capsule().fill(isExecuting ? Color.red.opacity(0.85) : accent)
-                    )
-                    .overlay(
-                        Capsule().strokeBorder(Color.white.opacity(0.40), lineWidth: 0.8)
-                    )
-                    .shadow(color: (isExecuting ? Color.red : accent).opacity(0.50), radius: 6, y: 1)
-                }
-                .buttonStyle(PhysicalElasticCapsuleButtonStyle())
-                .disabled(isExecuting)
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 38)
-            .background(Color(hex: "120D1D").opacity(0.85))
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(height: 0.6)
-            }
-
-            // 终端屏幕输出区
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: true) {
-                    LazyVStack(alignment: .leading, spacing: 4) {
-                        ForEach(terminalLogs) { log in
-                            logLineView(log)
-                        }
-
-                        // 光标闪烁指示行
-                        HStack(spacing: 4) {
-                            Text("mimir@local %")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundStyle(accent)
-
-                            Rectangle()
-                                .fill(Color.white.opacity(0.85))
-                                .frame(width: 7, height: 13)
-                                .opacity(isExecuting ? 0.3 : 1.0)
-                        }
-                        .id("terminal.bottom")
-                    }
-                    .padding(10)
-                }
-                .background(Color(hex: "120D1D").opacity(0.96))
-                .onChange(of: terminalLogs.count) { _, _ in
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo("terminal.bottom", anchor: .bottom)
-                    }
-                }
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.35),
-                            accent.opacity(0.45),
-                            Color.white.opacity(0.12)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1.1
-                )
-                .allowsHitTesting(false)
-        }
-        .shadow(color: accent.opacity(0.35), radius: 14, y: 6)
-    }
-
-    private func logLineView(_ log: CLILogLine) -> some View {
-        HStack(alignment: .top, spacing: 6) {
-            switch log.level {
-            case .command:
-                Text("$")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(accent)
-                Text(log.text)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.white)
-            case .info:
-                Text(log.text)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color(hex: "9CA3AF"))
-            case .success:
-                Text(log.text)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color(hex: "34D399"))
-            case .warning:
-                Text(log.text)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color(hex: "FBBF24"))
-            case .error:
-                Text(log.text)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color(hex: "F87171"))
-            }
-        }
-    }
-
-    // MARK: - 3. 下半部：终端联动的对话流与快捷控制输入栏
-
-    private var conversationAndInputSection: some View {
-        VStack(spacing: 8) {
-            // 对话气泡滚动区
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 12) {
-                        ForEach(Array(chatMessages.enumerated()), id: \.element.id) { index, msg in
-                            cliMessageBubble(msg)
-                                .staggerCascade(index: index)
-                        }
-                        Color.clear.frame(height: 10).id("chat.bottom")
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 6)
-                }
-                .correctedSoftFadeMask(topFade: 12, bottomFade: 24)
-                .onChange(of: chatMessages.count) { _, _ in
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
-                        proxy.scrollTo("chat.bottom", anchor: .bottom)
-                    }
-                }
-            }
-
-            // 快捷指令胶囊栏
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    commandChip(title: "/run", desc: "编译运行") {
-                        executeRunCommand()
-                    }
-                    commandChip(title: "/test", desc: "单测套件") {
-                        sendCustomCommand("/test")
-                    }
-                    commandChip(title: "/analyze", desc: "严格并发静态分析") {
-                        sendCustomCommand("/analyze")
-                    }
-                    commandChip(title: "/clean", desc: "清理缓存") {
-                        sendCustomCommand("/clean")
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-
-            // 底部输入框（避让底部四大金刚 TabBar）
-            cliInputBar
-                .padding(.horizontal, 16)
-                .padding(.bottom, isKeyboardVisible ? 8 : 78)
-        }
-    }
-
-    private func cliMessageBubble(_ msg: CLIChatMessage) -> some View {
-        HStack {
-            if msg.isUser { Spacer(minLength: 40) }
-
-            VStack(alignment: msg.isUser ? .trailing : .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    if !msg.isUser {
-                        Image(systemName: "cpu")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(accent)
-                        Text("Mimir Code Agent")
-                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                            .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
-                    } else {
-                        Text("You")
-                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                            .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
-                    }
-                }
-
-                Text(msg.text)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(msg.isUser ? Color.white : AppUI.textTitle(scheme: scheme))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background {
-                        if msg.isUser {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(accent)
-                        } else {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(.clear)
-                                .liquidGlass(.regular, in: .rect(cornerRadius: 16))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .strokeBorder(accent.opacity(0.35), lineWidth: 0.9)
-                                )
-                        }
-                    }
-                    .shadow(
-                        color: msg.isUser ? accent.opacity(0.35) : accent.opacity(scheme == .dark ? 0.20 : 0.06),
-                        radius: 6,
-                        y: 2
-                    )
-            }
-
-            if !msg.isUser { Spacer(minLength: 40) }
-        }
-    }
-
-    private func commandChip(title: String, desc: String, action: @escaping () -> Void) -> some View {
-        Button {
-            Haptics.impact(.light)
-            action()
-        } label: {
-            HStack(spacing: 5) {
-                Text(title)
-                    .font(.system(size: 11.5, weight: .bold, design: .monospaced))
-                    .foregroundStyle(accent)
-                Text(desc)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .liquidGlass(.regular, in: .capsule)
-            .overlay(
-                Capsule().strokeBorder(accent.opacity(0.35), lineWidth: 0.8)
-            )
-        }
-        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
-    }
-
-    private var cliInputBar: some View {
+    private var buildStatusBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
+            if isBuilding { ProgressView().controlSize(.mini) }
+            Image(systemName: buildResult == nil ? "arrow.up.forward.app" : "checkmark.icloud")
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(accent)
-                .padding(.leading, 4)
-
-            TextField("输入 /run 或向代码助手提问…", text: $inputText)
-                .font(.system(size: 13.5))
-                .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                .focused($isInputFocused)
-                .submitLabel(.send)
-                .onSubmit {
-                    submitMessage()
-                }
-
-            if !inputText.isEmpty {
-                Button {
-                    submitMessage()
-                } label: {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 26, weight: .bold))
+            Text(buildMessage)
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let result = buildResult {
+                Link(destination: result.runURL) {
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(accent)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.90))
+                .accessibilityLabel("打开 GitHub Actions 构建记录")
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: 44)
-        .liquidGlass(.regular, in: .capsule)
-        .overlay(
-            Capsule().strokeBorder(accent.opacity(0.40), lineWidth: 1.0)
-        )
-        .shadow(color: accent.opacity(0.18), radius: 8, y: 2)
     }
 
-    // MARK: - 行为与指令模拟
+    private func editorPanel(height: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: workspace.currentActiveCodeFile?.systemIcon ?? "doc.text")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(accent)
+                Text(workspace.currentActiveCodeFile.flatMap(workspace.relativePath(for:)) ?? "未选择源码")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                Spacer(minLength: 4)
+                Text(saveState)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                    .lineLimit(1)
+                Button {
+                    workspace.refreshActiveWorkspace()
+                    if let file = workspace.currentActiveCodeFile {
+                        workspace.selectCodeFile(file)
+                        saveState = "已重新载入"
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(width: 30, height: 30)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.92))
+                .accessibilityLabel("重新载入文件")
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 42)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(AppUI.refractionEdge(accent, scheme: scheme).opacity(0.6)).frame(height: 0.6)
+            }
 
-    private func bootstrapCLI() {
-        terminalLogs = [
-            CLILogLine(text: "Mimir Interactive CLI Runtime [Version 2.0.26]", level: .info),
-            CLILogLine(text: "Loaded Swift 6 Complete Concurrency Mode.", level: .info),
-            CLILogLine(text: "Workspace root: /Users/admin/MimirWorkspace", level: .info)
-        ]
-
-        chatMessages = [
-            CLIChatMessage(
-                isUser: false,
-                text: "欢迎来到代码工坊。上方是实时 CLI 终端视窗，下方我将为你提供编译诊断与代码重构建议。输入 `/run` 可立即触发构建。"
-            )
-        ]
-    }
-
-    private func executeRunCommand() {
-        guard !isExecuting else { return }
-        Haptics.impact(.medium)
-        isExecuting = true
-
-        terminalLogs.append(CLILogLine(text: "swift build --configuration release -Xswiftc -strict-concurrency=complete", level: .command))
-
-        Task {
-            try? await Task.sleep(for: .milliseconds(400))
-            terminalLogs.append(CLILogLine(text: "Fetching dependencies (modelcontextprotocol/swift-sdk)...", level: .info))
-            try? await Task.sleep(for: .milliseconds(500))
-            terminalLogs.append(CLILogLine(text: "Compiling Mimir targets with Swift 6...", level: .info))
-            try? await Task.sleep(for: .milliseconds(600))
-            terminalLogs.append(CLILogLine(text: "[Build] 0 errors, 0 warnings. Complete concurrency checks passed.", level: .success))
-            terminalLogs.append(CLILogLine(text: "✓ Linking Mimir-unsigned.ipa... done (0.68s)", level: .success))
-
-            isExecuting = false
-
-            chatMessages.append(
-                CLIChatMessage(
-                    isUser: false,
-                    text: "终端编译执行成功！Swift 6 严格并发检查通过，未发现任何竞态条件或数据隔离冲突。"
-                )
-            )
-        }
-    }
-
-    private func sendCustomCommand(_ cmd: String) {
-        Haptics.impact(.light)
-        inputText = cmd
-        submitMessage()
-    }
-
-    private func submitMessage() {
-        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        Haptics.impact(.light)
-        inputText = ""
-
-        chatMessages.append(CLIChatMessage(isUser: true, text: trimmed))
-
-        if trimmed == "/run" {
-            executeRunCommand()
-        } else if trimmed == "/clean" {
-            terminalLogs.append(CLILogLine(text: "rm -rf .build && swift package clean", level: .command))
-            terminalLogs.append(CLILogLine(text: "Clean complete. Cache cleared.", level: .success))
-            chatMessages.append(CLIChatMessage(isUser: false, text: "已清理工程构建缓存与派生数据。"))
-        } else if trimmed == "/analyze" {
-            terminalLogs.append(CLILogLine(text: "swift-format lint --strict -r Mimir", level: .command))
-            terminalLogs.append(CLILogLine(text: "Concurrency isolation: 100% compliant.", level: .success))
-            chatMessages.append(CLIChatMessage(isUser: false, text: "静态分析完成：所有异步代码与 Sendable 协议严格符合规范。"))
-        } else {
-            Task {
-                try? await Task.sleep(for: .milliseconds(350))
-                chatMessages.append(
-                    CLIChatMessage(
-                        isUser: false,
-                        text: "收到关于「\(trimmed)」的调试请求。已同步检查当前代码逻辑与 AST 语法树，你可以点击上方「运行」查看实机输出。"
-                    )
-                )
+            if workspace.currentActiveCodeFile != nil {
+                TextEditor(text: Binding(
+                    get: { workspace.currentCodeContent },
+                    set: { updateCode($0) }
+                ))
+                .font(.system(size: 12.5, weight: .regular, design: .monospaced))
+                .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                .scrollContentBackground(.hidden)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .padding(.horizontal, 7)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(scheme == .dark ? AppUI.baseDarkDeepPurple.opacity(0.72) : AppUI.baseLightWhite.opacity(0.88))
+            } else {
+                VStack(spacing: 9) {
+                    Image(systemName: "folder.badge.questionmark")
+                        .font(.system(size: 25, weight: .light))
+                        .foregroundStyle(accent)
+                    Text(workspace.activeWorkspaceURL == nil ? "先选择手机上的项目文件夹" : "这个文件夹里还没有可编辑的源码")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                    Button("选择文件夹") { showFolderImporter = true }
+                        .font(.system(size: 12, weight: .semibold))
+                        .buttonStyle(.borderedProminent)
+                        .tint(accent)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(scheme == .dark ? AppUI.baseDarkDeepPurple.opacity(0.72) : AppUI.baseLightWhite.opacity(0.88))
             }
         }
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private var agentPanel: some View {
+        VStack(spacing: 8) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        if agent.turns.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Mimir Code")
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                                Text("描述要检查或修改的内容，Agent 会在当前文件夹中查找、读取并保存代码。")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                        }
+                        ForEach(agent.turns) { turn in
+                            turnBubble(turn)
+                                .id(turn.id)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .correctedSoftFadeMask(topFade: 8, bottomFade: 14)
+                .onChange(of: agent.turns.count) { _, _ in
+                    guard let last = agent.turns.last else { return }
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                TextField("让 Agent 检查或修改代码…", text: $draft, axis: .vertical)
+                    .font(.system(size: 13))
+                    .lineLimit(1...4)
+                    .focused($composerFocused)
+                    .submitLabel(.send)
+                    .onSubmit { submitDraft() }
+                    .padding(.leading, 12)
+                    .padding(.vertical, 10)
+
+                Button(action: submitDraft) {
+                    Image(systemName: agent.isWorking ? "ellipsis" : "arrow.up")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(accent))
+                }
+                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.92))
+                .disabled(agent.isWorking || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .padding(.trailing, 5)
+                .accessibilityLabel("发送给代码 Agent")
+            }
+            .liquidGlass(.regular, in: .rect(cornerRadius: 20))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func turnBubble(_ turn: CodeAgentTurn) -> some View {
+        switch turn.kind {
+        case .user:
+            Text(turn.text)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(accent.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        case .assistant:
+            Text(turn.text.isEmpty ? "正在思考…" : turn.text)
+                .font(.system(size: 12.5))
+                .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .activity:
+            Label(turn.text, systemImage: "terminal")
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var sourceFilePicker: some View {
+        NavigationStack {
+            List(workspace.sourceFiles) { file in
+                Button {
+                    persistCurrentFile()
+                    workspace.selectCodeFile(file)
+                    saveState = "已载入"
+                    showFilePicker = false
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: file.systemIcon).foregroundStyle(accent)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(file.name).foregroundStyle(.primary)
+                            Text(workspace.relativePath(for: file) ?? file.path)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        if workspace.currentActiveCodeFile?.id == file.id {
+                            Image(systemName: "checkmark").font(.system(size: 12, weight: .semibold)).foregroundStyle(accent)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("源码文件")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") { showFilePicker = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private var githubSettingsSheet: some View {
+        NavigationStack {
+            Form {
+                Section("你的 GitHub 仓库") {
+                    TextField("owner/repository", text: $repositoryDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.system(size: 13, design: .monospaced))
+                    SecureField("你的 Fine-grained personal access token", text: $tokenDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    if settings.githubTokenIsConfigured {
+                        if settings.githubAccountLogin.isEmpty {
+                            Label("令牌尚未验证，请重新绑定", systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.orange)
+                        } else {
+                            Label("已绑定 GitHub 账号 @\(settings.githubAccountLogin)", systemImage: "checkmark.shield.fill")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.green)
+                        }
+                        Button("解除 GitHub 账号绑定", role: .destructive) {
+                            unbindGitHubAccount()
+                        }
+                    }
+                    if let githubBindingError {
+                        Label(githubBindingError, systemImage: "exclamationmark.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.red)
+                    }
+                }
+
+                Section {
+                    Text("保存前会向 GitHub 验证令牌并显示账号。令牌仅保存在本机钥匙串；需要目标仓库 Contents 与 Actions 读写权限，默认分支需包含 .github/workflows/build-ipa.yml。")
+                        .font(.system(size: 12))
+                    Text("构建会将所选文件夹写入你绑定仓库的独立临时分支。公开仓库会公开这些源文件；构建结束后分支自动删除，GitHub Actions 产物保留 30 天。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Link("创建仓库访问令牌", destination: URL(string: "https://github.com/settings/personal-access-tokens/new")!)
+                        .font(.system(size: 12, weight: .semibold))
+                } header: {
+                    Text("构建访问")
+                }
+            }
+            .navigationTitle("GitHub 构建绑定")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { showGitHubSettings = false }
+                        .disabled(isBindingGitHub)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isBindingGitHub ? "验证中…" : "验证并绑定") {
+                        Task { await saveGitHubSettings() }
+                    }
+                    .disabled(isBindingGitHub
+                        || repositoryDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || (tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !settings.githubTokenIsConfigured))
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .interactiveDismissDisabled(isBindingGitHub)
+        .onAppear {
+            repositoryDraft = settings.githubRepository
+            tokenDraft = ""
+        }
+    }
+
+    private var uploadFileCount: Int {
+        uploadFiles.count
+    }
+
+    private var uploadBytes: Int64 {
+        uploadFiles.reduce(0) { $0 + $1.size }
+    }
+
+    private var uploadFiles: [WorkspaceFileItem] {
+        let excludedDirectories: Set<String> = [".git", "Build", ".build", "DerivedData", "node_modules", "Pods", "Carthage"]
+        return workspace.allFiles.filter { item in
+            guard !item.isDirectory,
+                  item.url != nil,
+                  let path = workspace.relativePath(for: item) else { return false }
+            return !path.split(separator: "/").contains { excludedDirectories.contains(String($0)) }
+        }
+    }
+
+    private func beginRemoteBuild() {
+        guard !settings.githubRepository.isEmpty,
+              !settings.githubAccountLogin.isEmpty,
+              settings.githubTokenIsConfigured else {
+            showGitHubSettings = true
+            return
+        }
+        confirmRemoteBuild = true
+    }
+
+    private func saveGitHubSettings() async {
+        guard !isBindingGitHub else { return }
+        isBindingGitHub = true
+        githubBindingError = nil
+        defer { isBindingGitHub = false }
+
+        let repository = repositoryDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? settings.resolvedGitHubToken
+            : tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let components = repository.split(separator: "/", omittingEmptySubsequences: false)
+        guard components.count == 2,
+              components.allSatisfy({ $0.range(of: #"^[A-Za-z0-9_.-]+$"#, options: .regularExpression) != nil }),
+              !token.isEmpty else {
+            githubBindingError = "请输入有效的 owner/repository 和个人访问令牌。"
+            return
+        }
+
+        do {
+            let login = try await GitHubActionsBuildService.authenticatedLogin(token: token)
+            if !tokenDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                try settings.storeGitHubToken(token)
+            }
+            settings.githubAccountLogin = login
+            settings.githubRepository = repository
+            showGitHubSettings = false
+        } catch {
+            githubBindingError = error.localizedDescription
+        }
+    }
+
+    private func unbindGitHubAccount() {
+        do {
+            try settings.storeGitHubToken("")
+            tokenDraft = ""
+            repositoryDraft = ""
+            githubBindingError = nil
+        } catch {
+            githubBindingError = error.localizedDescription
+        }
+    }
+
+    private func buildSelectedProject() async {
+        isBuilding = true
+        buildResult = nil
+        buildMessage = "正在以 @\(settings.githubAccountLogin) 身份上传到 \(settings.githubRepository)…"
+        defer { isBuilding = false }
+        let repository = settings.githubRepository
+        let accountLogin = settings.githubAccountLogin
+        let token = settings.resolvedGitHubToken
+
+        do {
+            let result = try await GitHubActionsBuildService.dispatch(
+                workspace: workspace,
+                repository: repository,
+                expectedAccountLogin: accountLogin,
+                token: token
+            )
+            buildResult = result
+            let privacy = result.isPrivateRepository ? "私有仓库" : "公开仓库"
+            buildMessage = "已验证 @\(result.accountLogin)，上传 \(result.fileCount) 个文件到 \(result.repository)（\(privacy)），等待 Xcode 构建…"
+            guard let runID = result.runID else { return }
+
+            for _ in 0..<270 {
+                try await Task.sleep(for: .seconds(10))
+                let status = try await GitHubActionsBuildService.status(
+                    runID: runID,
+                    repository: repository,
+                    token: token
+                )
+                if status.status == "completed" {
+                    if status.conclusion == "success" {
+                        buildMessage = "IPA 构建成功。打开 Actions 页面下载产物。"
+                    } else {
+                        buildMessage = "构建结束：\(status.conclusion ?? "未知状态")。打开 Actions 查看日志。"
+                    }
+                    break
+                }
+                if status.status == "queued" {
+                    buildMessage = "Xcode 构建排队中…"
+                } else if let activeStep = status.activeStep {
+                    buildMessage = "正在执行：\(activeStep)"
+                } else {
+                    buildMessage = "Xcode 正在编译所选项目…"
+                }
+            }
+        } catch {
+            buildError = error.localizedDescription
+            buildMessage = "构建未启动"
+        }
+    }
+
+    private func updateCode(_ content: String) {
+        workspace.currentCodeContent = content
+        saveState = "未保存"
+        saveTask?.cancel()
+        guard let file = workspace.currentActiveCodeFile else { return }
+        saveTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            do {
+                try workspace.saveFileContent(item: file, newContent: content)
+                saveState = "已保存"
+            } catch {
+                saveError = error.localizedDescription
+                saveState = "保存失败"
+            }
+        }
+    }
+
+    private func persistCurrentFile() {
+        saveTask?.cancel()
+        guard let file = workspace.currentActiveCodeFile,
+              workspace.currentCodeContent != "" else { return }
+        do {
+            try workspace.saveFileContent(item: file, newContent: workspace.currentCodeContent)
+            saveState = "已保存"
+        } catch {
+            saveError = error.localizedDescription
+            saveState = "保存失败"
+        }
+    }
+
+    private func submitDraft() {
+        let prompt = draft
+        guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        persistCurrentFile()
+        draft = ""
+        composerFocused = false
+        Task { await agent.send(prompt, workspace: workspace, settings: settings) }
     }
 }

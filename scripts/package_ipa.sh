@@ -48,10 +48,20 @@ if [ "$PLATFORM" != "iPhoneOS" ]; then
 fi
 
 EXECUTABLE="$(plutil -extract CFBundleExecutable raw -o - "$APP_PATH/Info.plist")"
+APP_BUNDLE_NAME="$(basename "$APP_PATH")"
 if [ ! -f "$APP_PATH/$EXECUTABLE" ]; then
   echo "错误：Info.plist 里的 CFBundleExecutable（$EXECUTABLE）与实际二进制文件名不一致" >&2
   exit 1
 fi
+
+# 确保主 App、扩展与嵌入式 Framework 的可执行文件在 IPA 中保留执行位
+while IFS= read -r -d '' plist; do
+  bundle_dir="${plist%/Info.plist}"
+  bundle_executable="$(plutil -extract CFBundleExecutable raw -o - "$plist" 2>/dev/null || true)"
+  if [ -n "$bundle_executable" ] && [ -f "$bundle_dir/$bundle_executable" ]; then
+    chmod +x "$bundle_dir/$bundle_executable"
+  fi
+done < <(find "$APP_PATH" -name Info.plist -type f -print0)
 
 # 确认二进制是 arm64（真机架构）
 if ! lipo -info "$APP_PATH/$EXECUTABLE" 2>/dev/null | grep -q "arm64"; then
@@ -71,7 +81,7 @@ if [ -n "$finds" ]; then
   done
 fi
 
-# 2.2 移除二进制里的嵌入式签名段（失败不阻断：本来就可能没有）
+# 2.2 移除并验证所有 Mach-O 的嵌入式签名段，包括扩展与动态库
 strip_signature() {
   local binary="$1"
   [ -f "$binary" ] || return 0
@@ -80,12 +90,15 @@ strip_signature() {
   fi
 }
 
-strip_signature "$APP_PATH/$EXECUTABLE"
-for appex in "$APP_PATH"/PlugIns/*.appex; do
-  [ -d "$appex" ] || continue
-  appex_exe="$(plutil -extract CFBundleExecutable raw -o - "$appex/Info.plist" 2>/dev/null || true)"
-  [ -n "$appex_exe" ] && strip_signature "$appex/$appex_exe"
-done
+while IFS= read -r -d '' binary; do
+  if file "$binary" | grep -q 'Mach-O'; then
+    strip_signature "$binary"
+    if otool -l "$binary" | grep -q 'cmd LC_CODE_SIGNATURE'; then
+      echo "错误：$binary 仍包含 LC_CODE_SIGNATURE，拒绝打包" >&2
+      exit 1
+    fi
+  fi
+done < <(find "$APP_PATH" -type f -print0)
 
 # ---------------------------------------------------------------- 3. 组装 Payload
 echo "==> [3/5] 组装单层 Payload 结构"
@@ -114,6 +127,11 @@ rm -f "$OUTPUT_IPA"
 echo "==> [5/5] 校验产物结构"
 
 ls -lh "$OUTPUT_IPA"
+unzip -t "$OUTPUT_IPA" >/dev/null
+if ! zipinfo -l "$OUTPUT_IPA" "Payload/$APP_BUNDLE_NAME/$EXECUTABLE" | grep -Eq '^-rwx'; then
+  echo "错误：IPA 内主程序缺少可执行权限，拒绝交付" >&2
+  exit 1
+fi
 
 ENTRIES="$(unzip -Z1 "$OUTPUT_IPA")"
 
@@ -134,8 +152,8 @@ if echo "$ENTRIES" | grep -q '_CodeSignature'; then
 fi
 
 for required in \
-  "Payload/Mimir.app/Info.plist" \
-  "Payload/Mimir.app/$EXECUTABLE"
+  "Payload/$APP_BUNDLE_NAME/Info.plist" \
+  "Payload/$APP_BUNDLE_NAME/$EXECUTABLE"
 do
   if ! echo "$ENTRIES" | grep -qx "$required"; then
     echo "错误：缺少必需条目 $required" >&2
@@ -151,7 +169,7 @@ if [ -n "$STRAY" ]; then
   exit 1
 fi
 
-APPEX_COUNT="$(echo "$ENTRIES" | grep -c '^Payload/Mimir.app/PlugIns/.*\.appex/Info\.plist$' || true)"
+APPEX_COUNT="$(echo "$ENTRIES" | grep -c "^Payload/$APP_BUNDLE_NAME/PlugIns/.*\\.appex/Info\\.plist$" || true)"
 echo "    嵌套扩展数量：$APPEX_COUNT"
 echo "    条目总数：$(echo "$ENTRIES" | wc -l | tr -d ' ')"
 

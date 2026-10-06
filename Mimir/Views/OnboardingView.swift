@@ -10,6 +10,9 @@ struct OnboardingView: View {
     @Environment(AppSettings.self) private var settings
 
     @State private var keyText: String = ""
+    @State private var baseURLText = APIKeyFormat.deepseekNative.defaultBaseURL
+    @State private var modelIDText = ""
+    @State private var discoveredModels: [String] = []
     @State private var isRevealed: Bool = false
     @State private var phase: Phase = .idle
     @State private var noticeText: String?
@@ -37,6 +40,26 @@ struct OnboardingView: View {
                         .padding(.bottom, 34)
 
                     keyField
+
+                    baseURLField
+                        .padding(.top, 10)
+
+                    TextField("模型 ID（可留空自动解析）", text: $modelIDText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12.5, design: .monospaced))
+                        .foregroundStyle(AppColor.primaryText)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .disabled(phase == .validating)
+                        .padding(.horizontal, 16)
+                        .frame(width: fieldWidth, height: 42)
+                        .liquidGlass(.clear, in: .rect(cornerRadius: 14))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.8)
+                                .allowsHitTesting(false)
+                        }
+                        .padding(.top, 8)
 
                     continueButton
                         .padding(.top, 16)
@@ -84,7 +107,10 @@ struct OnboardingView: View {
                 .submitLabel(.continue)
                 .focused($fieldFocused)
                 .disabled(phase == .validating)
-                .onChange(of: keyText) { _, _ in
+                .onChange(of: keyText) { _, value in
+                    if value.hasPrefix("sk-ant-"), baseURLText == APIKeyFormat.deepseekNative.defaultBaseURL {
+                        baseURLText = APIKeyFormat.anthropic.defaultBaseURL
+                    }
                     if noticeIsError {
                         noticeText = nil
                         noticeIsError = false
@@ -110,6 +136,25 @@ struct OnboardingView: View {
         .scaleEffect(fieldFocused ? 1.02 : 1.0)
         .animation(AppAnimation.onboarding, value: fieldFocused)
         .animation(AppAnimation.onboarding, value: isRevealed)
+    }
+
+    private var baseURLField: some View {
+        TextField("服务商 API Base URL", text: $baseURLText)
+            .textFieldStyle(.plain)
+            .font(.system(size: 12.5, design: .monospaced))
+            .foregroundStyle(AppColor.primaryText)
+            .textInputAutocapitalization(.never)
+            .autocorrectionDisabled()
+            .keyboardType(.URL)
+            .disabled(phase == .validating)
+            .padding(.horizontal, 16)
+            .frame(width: fieldWidth, height: 42)
+            .liquidGlass(.clear, in: .rect(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.8)
+                    .allowsHitTesting(false)
+            }
     }
 
     private var focusBorder: LinearGradient {
@@ -217,7 +262,7 @@ struct OnboardingView: View {
     // MARK: - 提示文字
 
     private var notice: some View {
-        Text(noticeText ?? "支持 OpenAI / Anthropic 格式的 API Key")
+        Text(noticeText ?? "输入 API Key 与服务商地址，自动读取可用模型")
             .font(AppFont.hint)
             .foregroundStyle(noticeIsError ? AppColor.danger : AppColor.secondaryText)
             .multilineTextAlignment(.center)
@@ -278,7 +323,22 @@ struct OnboardingView: View {
         noticeText = nil
         noticeIsError = false
 
-        let credential = APICredential.inferred(from: trimmed)
+        var credential = APICredential.inferred(from: trimmed)
+        let enteredBaseURL = baseURLText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !enteredBaseURL.isEmpty { credential.baseURL = enteredBaseURL }
+        do {
+            discoveredModels = try await ModelDiscoveryService.fetchModels(credential: credential)
+            let preferred = discoveredModels.first(where: Self.looksLikeChatModel) ?? discoveredModels.first
+            if modelIDText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let preferred {
+                credential.modelID = preferred
+                modelIDText = preferred
+            }
+        } catch {
+            discoveredModels = []
+        }
+        if !modelIDText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            credential.modelID = modelIDText.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         let client = LLMClientFactory.make(for: credential)
         let result = await client.validate(credential: credential)
 
@@ -299,6 +359,24 @@ struct OnboardingView: View {
 
         do {
             try settings.storeCredential(credential)
+            if !discoveredModels.isEmpty {
+                settings.customModels.removeAll {
+                    $0.baseURL == credential.baseURL && $0.format == credential.format
+                }
+                settings.customModels.append(contentsOf: discoveredModels.map { modelID in
+                    CustomModelEntry(
+                        displayName: modelID,
+                        modelID: modelID,
+                        baseURL: credential.baseURL,
+                        format: credential.format,
+                        source: credential.baseURL,
+                        note: ""
+                    )
+                })
+            }
+            noticeText = discoveredModels.isEmpty
+                ? "已连接，可以在设置中读取或更换模型。"
+                : "已连接并解析 \(discoveredModels.count) 个模型。"
             withAnimation(AppAnimation.onboarding) {
                 settings.hasCompletedOnboarding = true
             }
@@ -308,6 +386,15 @@ struct OnboardingView: View {
             noticeIsError = true
             burstProgress = 0
         }
+    }
+
+    private static func looksLikeChatModel(_ modelID: String) -> Bool {
+        let value = modelID.lowercased()
+        guard !value.contains("embedding"), !value.contains("rerank"), !value.contains("moderation") else {
+            return false
+        }
+        return ["chat", "gpt", "claude", "deepseek", "qwen", "llama", "mistral", "gemini", "sonnet", "opus", "haiku"]
+            .contains { value.contains($0) }
     }
 
     private func triggerShake() {

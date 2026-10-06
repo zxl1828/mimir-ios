@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      project_path:
+        description: Relative path to an iOS project folder in this repository
+        required: false
+        type: string
 
 concurrency:
   group: build-ipa-${{ github.ref }}
@@ -17,7 +22,6 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,74 +30,138 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Available Xcode installations:"
           ls -d /Applications/Xcode*.app 2>/dev/null || true
           LATEST="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)"
           if [ -z "$LATEST" ]; then
             LATEST="$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1 || true)"
           fi
-          if [ -n "$LATEST" ]; then
-            echo "Selecting $LATEST"
-            sudo xcode-select -s "$LATEST"
-          fi
+          if [ -n "$LATEST" ]; then sudo xcode-select -s "$LATEST"; fi
 
       - name: Print toolchain
         run: |
           xcodebuild -version
-          xcodebuild -showsdks | grep -i "iphoneos" || true
+          xcodebuild -showsdks | grep -i iphoneos || true
+
+      - name: Resolve project folder
+        id: project
+        shell: bash
+        env:
+          PROJECT_PATH: ${{ inputs.project_path }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$PROJECT_PATH" ]]; then
+            PROJECT_ROOT="$GITHUB_WORKSPACE"
+          else
+            case "$PROJECT_PATH" in
+              /*|..|../*|*/../*|*/..) echo "Project path must stay inside the repository" >&2; exit 1 ;;
+            esac
+            PROJECT_ROOT="$(cd "$GITHUB_WORKSPACE/$PROJECT_PATH" && pwd -P)"
+            case "$PROJECT_ROOT" in
+              "$GITHUB_WORKSPACE"/*) ;;
+              *) echo "Project path resolves outside the repository" >&2; exit 1 ;;
+            esac
+          fi
+          echo "project_root=$PROJECT_ROOT" >> "$GITHUB_OUTPUT"
 
       - name: Install XcodeGen
+        if: hashFiles('**/Project.yml') != ''
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
-
-      - name: Build unsigned app
         shell: bash
+        env:
+          PROJECT_ROOT: ${{ steps.project.outputs.project_root }}
         run: |
           set -euo pipefail
-          xcodebuild \
-            -project Mimir.xcodeproj \
-            -scheme Mimir \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath Build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            build
+          if [ -f "$PROJECT_ROOT/Project.yml" ]; then
+            (cd "$PROJECT_ROOT" && xcodegen generate)
+          fi
 
-      - name: Package unsigned IPA
+      - name: Build unsigned iPhone and iPad app
+        id: xcodebuild
         shell: bash
+        env:
+          PROJECT_ROOT: ${{ steps.project.outputs.project_root }}
         run: |
           set -euo pipefail
-          APP_PATH="$(find Build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -1)"
-          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-            echo "Error: no .app found in Build/Build/Products/Release-iphoneos" >&2
+          WORKSPACE_PATH="$(find "$PROJECT_ROOT" -maxdepth 4 -type d -name '*.xcworkspace' -print -quit)"
+          PROJECT_FILE="$(find "$PROJECT_ROOT" -maxdepth 4 -type d -name '*.xcodeproj' -print -quit)"
+          if [ -n "$WORKSPACE_PATH" ]; then
+            LIST_JSON="$(xcodebuild -list -json -workspace "$WORKSPACE_PATH")"
+            SCHEME="$(echo "$LIST_JSON" | jq -r '.workspace.schemes[0] // empty')"
+          elif [ -n "$PROJECT_FILE" ]; then
+            LIST_JSON="$(xcodebuild -list -json -project "$PROJECT_FILE")"
+            SCHEME="$(echo "$LIST_JSON" | jq -r '.project.schemes[0] // empty')"
+          else
+            echo "No .xcworkspace or .xcodeproj found in $PROJECT_ROOT" >&2
             exit 1
           fi
-          # 打包交给 scripts/package_ipa.sh：纯净未签名包 + 结构自检
-          bash scripts/package_ipa.sh "$APP_PATH" Mimir-unsigned.ipa
+          if [ -z "$SCHEME" ]; then echo "No shared Xcode scheme found" >&2; exit 1; fi
+          echo "Building scheme: $SCHEME"
+          BUILD_ARGS=(
+            -scheme "$SCHEME"
+            -configuration Release
+            -sdk iphoneos
+            -destination 'generic/platform=iOS'
+            -derivedDataPath "$GITHUB_WORKSPACE/Build"
+            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGN_IDENTITY=
+            build
+          )
+          if [ -n "$WORKSPACE_PATH" ]; then
+            xcodebuild -workspace "$WORKSPACE_PATH" "${BUILD_ARGS[@]}"
+          else
+            xcodebuild -project "$PROJECT_FILE" "${BUILD_ARGS[@]}"
+          fi
 
-      - name: Upload IPA
+      - name: Package unsigned IPA
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRODUCTS="$GITHUB_WORKSPACE/Build/Build/Products/Release-iphoneos"
+          APP_PATH="$(find "$PRODUCTS" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "No iPhoneOS .app found in $PRODUCTS" >&2
+            exit 1
+          fi
+          APP_NAME="${APP_PATH##*/}"
+          APP_NAME="${APP_NAME%.app}"
+          IPA_PATH="$GITHUB_WORKSPACE/${APP_NAME}-unsigned.ipa"
+          bash "$GITHUB_WORKSPACE/scripts/package_ipa.sh" "$APP_PATH" "$IPA_PATH"
+          echo "name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "path=$IPA_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mimir-ipa
-          path: Mimir-unsigned.ipa
+          name: ${{ steps.package.outputs.name }}-ipa
+          path: ${{ steps.package.outputs.path }}
           if-no-files-found: error
           retention-days: 30
 
-      # 同时发布到 Release，方便用镜像加速下载大体积安装包。
-      - name: Publish to release
-        if: github.ref == 'refs/heads/main'
+      - name: Publish Mimir release
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.project_path == '')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IPA_PATH: ${{ steps.package.outputs.path }}
         shell: bash
         run: |
           set -euo pipefail
           TAG="build-$(date -u +%Y%m%d-%H%M%S)"
-          gh release create "$TAG" Mimir-unsigned.ipa \
+          gh release create "$TAG" "$IPA_PATH" \
             --title "Mimir iOS $TAG" \
             --notes "Automated unsigned IPA build from $GITHUB_SHA"
-          echo "released: $TAG"
+
+  cleanup:
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.project_path != '' && startsWith(github.ref_name, 'mimir-code-build-')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete temporary project branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$GITHUB_REF_NAME" --silent

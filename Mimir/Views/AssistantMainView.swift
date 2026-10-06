@@ -559,7 +559,8 @@ public struct AssistantMainView: View {
         GeometryReader { proxy in
             let availableHeight = proxy.size.height
             // 依据可用视口高度自适应调整猫头鹰尺寸 (140 ~ 210pt)，在所有机型上绝不发生文本截断或挤压碰撞
-            let mascotSize = min(210, max(140, availableHeight * 0.28))
+            let isCompact = availableHeight < 360
+            let mascotSize = min(210, max(isCompact ? 64 : 112, availableHeight * (isCompact ? 0.22 : 0.28)))
 
             VStack(spacing: 0) {
                 // 顶栏避让弹性间距
@@ -585,7 +586,7 @@ public struct AssistantMainView: View {
                 Spacer(minLength: 8)
 
                 // 2. 中央大卡片：严格遵循极简三层架构、标准 32pt 圆角裁切与局部变换隔离
-                CentralAssistantCard(mascotSize: mascotSize)
+                CentralAssistantCard(mascotSize: mascotSize, isCompact: isCompact)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 16)
 
@@ -1059,6 +1060,7 @@ public struct AssistantMainView: View {
 private struct CentralAssistantCard: View {
 
     let mascotSize: CGFloat
+    let isCompact: Bool
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
@@ -1068,29 +1070,24 @@ private struct CentralAssistantCard: View {
     private static let maxTiltAngle: CGFloat = 7.0
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: isCompact ? 7 : 12) {
             MimirMascot(size: mascotSize, mood: .calm)
-                .padding(.bottom, 2)
+                .shadow(color: accent.opacity(scheme == .dark ? 0.22 : 0.14), radius: mascotSize * 0.16, y: 2)
+                .padding(.bottom, isCompact ? 0 : 2)
 
-            Text("Assistant Turn Workspace")
-                .font(.system(size: 19, weight: .bold, design: .rounded))
+            Text("你好，我是米米")
+                .font(.system(size: isCompact ? 17 : 19, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.label)
                 .lineLimit(1)
 
-            Text("Mimir Cyber-Owl Mascot")
-                .font(.system(size: 12.5, weight: .medium))
+            Text("把复杂问题，一步一步想清楚。")
+                .font(.system(size: isCompact ? 11 : 12.5, weight: .medium))
                 .foregroundStyle(accent)
-                .lineLimit(1)
-
-            Text("输入问题，用 / 唤起技能，或点按下方胶囊调节思考强度")
-                .font(AppUI.footnote)
-                .foregroundStyle(AppUI.label2)
+                .lineLimit(2)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
+        .padding(.horizontal, isCompact ? 12 : 20)
+        .padding(.vertical, isCompact ? 8 : 18)
         // 底色层：浅色纯白 / 深色极深紫
         .background {
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
@@ -1106,14 +1103,7 @@ private struct CentralAssistantCard: View {
         .overlay {
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .strokeBorder(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(scheme == .dark ? 0.60 : 0.90),
-                            accent.opacity(scheme == .dark ? 0.50 : 0.40)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
+                    AppUI.refractionEdge(accent, scheme: scheme),
                     lineWidth: 1.0
                 )
                 .allowsHitTesting(false)
@@ -1125,7 +1115,7 @@ private struct CentralAssistantCard: View {
             maxAngle: Self.maxTiltAngle,
             cornerRadius: Self.cornerRadius,
             showsSpecularSheen: true,
-            hasAmbientBacklight: false
+            hasAmbientBacklight: true
         )
     }
 }

@@ -81,8 +81,11 @@ final class AppSettings {
         static let dynamicBackgroundMode = "settings.dynamic.bg.mode.v1"
         static let cameraAmbientGain = "settings.camera.ambient.gain.v1"
         static let cameraAmbientSmoothing = "settings.camera.ambient.smoothing.v1"
+        static let githubRepository = "settings.github.repository.v1"
+        static let githubAccountLogin = "settings.github.account.login.v1"
         static let secretAccount = "app.api.key"
         static let webSearchSecretAccount = "websearch.api.key"
+        static let githubSecretAccount = "github.actions.token"
     }
 
     private let defaults: UserDefaults
@@ -168,8 +171,19 @@ final class AppSettings {
         didSet { defaults.set(cameraAmbientSmoothing, forKey: Key.cameraAmbientSmoothing) }
     }
 
+    var githubRepository: String {
+        didSet { defaults.set(githubRepository, forKey: Key.githubRepository) }
+    }
+
+    var githubAccountLogin: String {
+        didSet { defaults.set(githubAccountLogin, forKey: Key.githubAccountLogin) }
+    }
+
+    private(set) var githubTokenIsConfigured: Bool
+
     var hasUsableCredential: Bool {
-        !credential.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !((keychain.string(for: Key.secretAccount) ?? credential.key)
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     // MARK: - 初始化
@@ -179,8 +193,12 @@ final class AppSettings {
         self.keychain = keychain
 
         self.hasCompletedOnboarding = defaults.bool(forKey: Key.onboarding)
-        self.parameters = Self.load(ModelParameters.self, from: defaults, key: Key.parameters)
+        var loadedParameters = Self.load(ModelParameters.self, from: defaults, key: Key.parameters)
             ?? ModelParameters()
+        if loadedParameters.systemPrompt == ModelParameters.legacyDeepSeekSystemPrompt {
+            loadedParameters.systemPrompt = ModelParameters.defaultSystemPrompt
+        }
+        self.parameters = loadedParameters
         self.voice = Self.load(VoicePreferences.self, from: defaults, key: Key.voice)
             ?? VoicePreferences()
         self.retention = RetentionPolicy(rawValue: defaults.string(forKey: Key.retention) ?? "")
@@ -203,6 +221,9 @@ final class AppSettings {
             ?? .gradientMesh
         self.cameraAmbientGain = defaults.object(forKey: Key.cameraAmbientGain) as? Double ?? 0.35
         self.cameraAmbientSmoothing = defaults.object(forKey: Key.cameraAmbientSmoothing) as? Double ?? 0.85
+        self.githubRepository = defaults.string(forKey: Key.githubRepository) ?? ""
+        self.githubAccountLogin = defaults.string(forKey: Key.githubAccountLogin) ?? ""
+        self.githubTokenIsConfigured = keychain.string(for: Key.githubSecretAccount) != nil
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)
             ?? APICredential.placeholder
@@ -239,6 +260,23 @@ final class AppSettings {
         if value.baseURL.isEmpty { value.baseURL = value.format.defaultBaseURL }
         if value.modelID.isEmpty { value.modelID = value.format.defaultModelID }
         return value
+    }
+
+    var resolvedGitHubToken: String {
+        keychain.string(for: Key.githubSecretAccount) ?? ""
+    }
+
+    func storeGitHubToken(_ token: String) throws {
+        let value = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.isEmpty {
+            try keychain.remove(account: Key.githubSecretAccount)
+            githubTokenIsConfigured = false
+            githubAccountLogin = ""
+            githubRepository = ""
+        } else {
+            try keychain.setString(value, for: Key.githubSecretAccount)
+            githubTokenIsConfigured = true
+        }
     }
 
     // MARK: - 联网搜索密钥

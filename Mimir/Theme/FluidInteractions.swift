@@ -83,6 +83,16 @@ struct TiltGlareCardModifier: ViewModifier {
             // 2. 强硬圆角裁剪：统一收拢在最外层
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .background {
+                if hasAmbientBacklight {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(accent.opacity(scheme == .dark ? 0.22 : 0.10))
+                        .blur(radius: 24)
+                        .scaleEffect(x: 1.02, y: 1.08)
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeInOut(duration: 0.24), value: isTouching)
             // 3. 静态主题环境阴影（固定半径，杜绝每帧离屏重算）
             .shadow(
                 color: accent.opacity(scheme == .dark ? 0.20 : 0.08),

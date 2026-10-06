@@ -56,6 +56,8 @@ struct FilesAssetsView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 110) // 避让底部悬浮 TabBar 与 FAB
+                .frame(maxWidth: 1040)
+                .frame(maxWidth: .infinity)
             }
             .correctedSoftFadeMask(topFade: 16, bottomFade: 40)
 
@@ -142,7 +144,7 @@ struct FilesAssetsView: View {
                     .liquidGlass(.clear, in: .rect(cornerRadius: 12))
                     .overlay {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
+                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                             .allowsHitTesting(false)
                     }
             }
@@ -214,8 +216,10 @@ struct FilesAssetsView: View {
                             .overlay(
                                 Capsule(style: .continuous)
                                     .strokeBorder(
-                                        isSelected ? accent : Color.white.opacity(0.6),
-                                        lineWidth: 0.8
+                                        isSelected
+                                            ? AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme))
+                                            : AnyShapeStyle(AppUI.separator),
+                                        lineWidth: 1
                                     )
                                     .allowsHitTesting(false)
                             )
@@ -288,13 +292,10 @@ struct FilesAssetsView: View {
         .interactiveTilt(maxAngle: 4.0, cornerRadius: 18)
     }
 
-    // MARK: - 4. 网格视图 (2 列流式布局)
+    // MARK: - 4. 网格视图
 
     private var assetGridSection: some View {
-        let columns = [
-            GridItem(.flexible(), spacing: 12),
-            GridItem(.flexible(), spacing: 12)
-        ]
+        let columns = [GridItem(.adaptive(minimum: 168, maximum: 280), spacing: 12)]
 
         return LazyVGrid(columns: columns, spacing: 12) {
             ForEach(Array(workspace.filteredFiles.enumerated()), id: \.element.id) { index, item in

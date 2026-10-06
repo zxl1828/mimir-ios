@@ -425,6 +425,8 @@ private struct APIConfigSettingsView: View {
     @State private var showsKey: Bool = false
     @State private var validationMessage: String?
     @State private var isValidating = false
+    @State private var discoveredModelIDs: [String] = []
+    @State private var isFetchingModels = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -453,11 +455,10 @@ private struct APIConfigSettingsView: View {
                     .buttonStyle(.plain)
                 }
 
-                HStack {
-                    Text("接口格式")
-                    Spacer()
-                    Text(settings.credential.format.displayName)
-                        .foregroundStyle(AppUI.label2)
+                Picker("API 协议", selection: $settings.credential.format) {
+                    ForEach(APIKeyFormat.allCases) { format in
+                        Text(format.displayName).tag(format)
+                    }
                 }
 
                 TextField("Base URL", text: $settings.credential.baseURL)
@@ -469,6 +470,26 @@ private struct APIConfigSettingsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(AppFont.codeSmall)
+
+                if !discoveredModelIDs.isEmpty {
+                    Picker("已解析模型", selection: $settings.credential.modelID) {
+                        ForEach(discoveredModelIDs, id: \.self) { modelID in
+                            Text(modelID).tag(modelID)
+                        }
+                    }
+                }
+
+                Button {
+                    Task { await fetchModels() }
+                } label: {
+                    HStack {
+                        Text(isFetchingModels ? "正在读取模型…" : "读取服务商模型列表")
+                        Spacer()
+                        if isFetchingModels { ProgressView().controlSize(.small) }
+                        else { Image(systemName: "arrow.clockwise") }
+                    }
+                }
+                .disabled(isFetchingModels || keyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 Button {
                     Task { await saveAndValidate() }
@@ -495,7 +516,7 @@ private struct APIConfigSettingsView: View {
             } header: {
                 Text("接入")
             } footer: {
-                Text("Key 只保存在本机钥匙串中。根据前缀自动识别格式：sk-ant- 为 Anthropic，sk- 为 OpenAI 兼容，其余按 DeepSeek 原生处理。")
+                Text("Key 只保存在本机钥匙串中。可填写服务商 Base URL 并读取 /models 列表；也可以直接输入自定义模型 ID。")
             }
 
             Section {
@@ -539,7 +560,64 @@ private struct APIConfigSettingsView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("API 配置")
         .navigationBarTitleDisplayMode(.inline)
-        .task { keyDraft = settings.resolvedCredential.key }
+        .task {
+            keyDraft = settings.resolvedCredential.key
+            discoveredModelIDs = settings.customModels
+                .filter { $0.baseURL == settings.credential.baseURL && $0.format == settings.credential.format }
+                .map(\.modelID)
+        }
+        .onChange(of: keyDraft) { _, value in
+            guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            let detected = APIKeyFormat.detect(from: value)
+            let oldFormat = settings.credential.format
+            let previousDefault = oldFormat.defaultBaseURL
+            settings.credential.format = detected
+            if settings.credential.baseURL.isEmpty || settings.credential.baseURL == previousDefault {
+                settings.credential.baseURL = detected.defaultBaseURL
+            }
+        }
+        .onChange(of: settings.credential.modelID) { _, modelID in
+            settings.parameters.modelID = modelID
+        }
+    }
+
+    private func fetchModels() async {
+        isFetchingModels = true
+        validationMessage = nil
+        defer { isFetchingModels = false }
+
+        let credential = draftCredential()
+        do {
+            let models = try await ModelDiscoveryService.fetchModels(credential: credential)
+            discoveredModelIDs = models
+            let source = credential.baseURL
+            settings.customModels.removeAll { $0.baseURL == source && $0.format == credential.format }
+            settings.customModels.append(contentsOf: models.map { modelID in
+                CustomModelEntry(
+                    displayName: modelID,
+                    modelID: modelID,
+                    baseURL: source,
+                    format: credential.format,
+                    source: source,
+                    note: ""
+                )
+            })
+            if !models.contains(settings.credential.modelID) {
+                settings.credential.modelID = models[0]
+                settings.parameters.modelID = models[0]
+            }
+            validationMessage = "已读取 \(models.count) 个模型。"
+        } catch {
+            validationMessage = error.localizedDescription
+        }
+    }
+
+    private func draftCredential() -> APICredential {
+        var credential = settings.credential
+        credential.key = keyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        credential.baseURL = settings.credential.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        credential.modelID = settings.credential.modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return credential
     }
 
     private func saveAndValidate() async {
@@ -548,9 +626,8 @@ private struct APIConfigSettingsView: View {
         defer { isValidating = false }
 
         let trimmed = keyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        var credential = APICredential.inferred(from: trimmed)
-        credential.baseURL = settings.credential.baseURL
-        credential.modelID = settings.credential.modelID
+        guard !trimmed.isEmpty else { return }
+        var credential = draftCredential()
 
         let client = LLMClientFactory.make(for: credential)
         let result = await client.validate(credential: credential)
@@ -823,7 +900,7 @@ private struct GeneralSettingsView: View {
                 }
                 if let repositoryURL = URL(string: "https://github.com/zxl1828/mimir-ios") {
                     Link(destination: repositoryURL) {
-                        Text("GitHub 仓库")
+                        Text("Mimir 项目主页")
                     }
                 }
             } header: {

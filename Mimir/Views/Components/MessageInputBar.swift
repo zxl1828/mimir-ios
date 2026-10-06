@@ -62,6 +62,11 @@ struct MessageInputBar: View {
             .padding(.vertical, 6)
             // Dispatch Omni-Bar：液态玻璃大圆角悬浮胶囊 + 高位白光折射描边
             .liquidGlass(cornerRadius: 27, isHighlighted: focus.wrappedValue, glowIntensity: 0.26)
+            .overlay {
+                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
         }
         .animation(AppAnimation.chip, value: attachments.count)
     }

@@ -11,8 +11,13 @@ enum ModelCatalog {
     /// 按当前凭据的协议类型给出候选模型；用户自己填过的模型 ID 永远排在第一位。
     static func options(for credential: APICredential, customModels: [CustomModelEntry] = []) -> [Option] {
         var list: [Option]
-        switch credential.format.providerKind {
-        case .openAICompatible:
+        switch credential.format {
+        case .deepseekNative where credential.baseURL.contains("deepseek.com"):
+            list = [
+                Option(id: "deepseek-chat", title: "deepseek-chat · 快速对话"),
+                Option(id: "deepseek-reasoner", title: "deepseek-reasoner · 深度推理")
+            ]
+        case .openAI where credential.baseURL.contains("deepseek.com"):
             list = [
                 Option(id: "deepseek-chat", title: "deepseek-chat · 快速对话"),
                 Option(id: "deepseek-reasoner", title: "deepseek-reasoner · 深度推理")
@@ -22,9 +27,13 @@ enum ModelCatalog {
                 Option(id: "claude-sonnet-4-5", title: "claude-sonnet-4-5"),
                 Option(id: "claude-haiku-4-5", title: "claude-haiku-4-5")
             ]
+        default:
+            list = []
         }
 
-        let extras = customModels.map { Option(id: $0.modelID, title: $0.displayName) }
+        let extras = customModels
+            .filter { $0.format == credential.format && $0.baseURL == credential.baseURL }
+            .map { Option(id: $0.modelID, title: $0.displayName) }
         list.append(contentsOf: extras)
 
         let current = credential.modelID.trimmingCharacters(in: .whitespacesAndNewlines)

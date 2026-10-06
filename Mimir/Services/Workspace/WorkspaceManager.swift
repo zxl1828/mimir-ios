@@ -68,6 +68,22 @@ struct WorkspaceMediaItem: Identifiable, Hashable, Sendable {
     var systemIcon: String = "sparkles"
 }
 
+enum WorkspaceAccessError: LocalizedError {
+    case noFolder
+    case invalidPath
+    case fileTooLarge
+    case unreadableFile
+
+    var errorDescription: String? {
+        switch self {
+        case .noFolder: return "请先选择一个工作区文件夹。"
+        case .invalidPath: return "文件路径超出当前工作区。"
+        case .fileTooLarge: return "Agent 目前只读取或修改小于 256 KB 的文本文件。"
+        case .unreadableFile: return "无法按 UTF-8 文本读取这个文件。"
+        }
+    }
+}
+
 /// 工作区与文件服务管理器（支持 Security-Scoped URL 本地安全挂载与读写）。
 @MainActor
 @Observable
@@ -87,14 +103,11 @@ final class WorkspaceManager {
     var currentCodeContent: String = ""
 
     private let bookmarkStorageKey = "mimir.workspace.bookmarks"
+    private var lastSavedCodeContent = ""
 
     private init() {
-        loadBookmarks()
         loadBuiltinSamples()
-        if let firstCode = allFiles.first(where: { $0.category == .code }) {
-            currentActiveCodeFile = firstCode
-            currentCodeContent = Self.sampleSwiftCode
-        }
+        loadBookmarks()
     }
 
     // MARK: - 过滤文件
@@ -109,15 +122,28 @@ final class WorkspaceManager {
         }
     }
 
+    var sourceFiles: [WorkspaceFileItem] {
+        guard let root = activeWorkspaceURL?.standardizedFileURL.path else { return [] }
+        return allFiles
+            .filter { item in
+                guard !item.isDirectory, let url = item.url else { return false }
+                return url.standardizedFileURL.path.hasPrefix(root + "/")
+                    && Self.editableExtensions.contains(item.fileExtension)
+            }
+            .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+    }
+
+    private static let editableExtensions: Set<String> = [
+        "swift", "m", "mm", "h", "hh", "c", "cc", "cpp", "metal",
+        "json", "yml", "yaml", "plist", "pbxproj", "xcconfig", "entitlements",
+        "strings", "stringsdict", "md", "txt", "sh", "py", "js", "ts", "html", "css"
+    ]
+
     // MARK: - 挂载本地真实项目/文件夹 (Security-Scoped URL)
 
     func mountFolder(url: URL) {
-        guard url.startAccessingSecurityScopedResource() else {
-            // 回退直接访问（某些非沙盒外部目录）
-            addFolderURL(url)
-            return
-        }
-        defer { url.stopAccessingSecurityScopedResource() }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
         do {
             let bookmarkData = try url.bookmarkData(
@@ -143,30 +169,36 @@ final class WorkspaceManager {
 
     /// 扫描挂载目录内容。
     func scanFolder(url: URL) {
-        guard url.startAccessingSecurityScopedResource() else { return }
-        defer { url.stopAccessingSecurityScopedResource() }
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
 
         let fileManager = FileManager.default
-        let keys: [URLResourceKey] = [.nameKey, .isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
+        let keys: [URLResourceKey] = [.nameKey, .isDirectoryKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]
 
         guard let enumerator = fileManager.enumerator(
             at: url,
             includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            options: [.skipsHiddenFiles]
         ) else { return }
 
         var scannedItems: [WorkspaceFileItem] = []
+        let skippedDirectories: Set<String> = [".git", ".build", "Build", "DerivedData", "node_modules", "Pods", "Carthage"]
 
         for case let fileURL as URL in enumerator {
             guard let resourceValues = try? fileURL.resourceValues(forKeys: Set(keys)) else { continue }
             let isDir = resourceValues.isDirectory ?? false
+            if isDir && skippedDirectories.contains(fileURL.lastPathComponent) {
+                enumerator.skipDescendants()
+                continue
+            }
+            if resourceValues.isSymbolicLink == true { continue }
             let name = resourceValues.name ?? fileURL.lastPathComponent
             let size = Int64(resourceValues.fileSize ?? 0)
             let modDate = resourceValues.contentModificationDate ?? Date()
             let ext = fileURL.pathExtension.lowercased()
 
             let category: WorkspaceFileItem.AssetCategory
-            if ["swift", "py", "js", "ts", "html", "css", "json", "yml", "sh", "rs", "cpp", "c", "h"].contains(ext) {
+            if Self.editableExtensions.contains(ext) || ["rs", "go", "rb", "kt", "java"].contains(ext) {
                 category = .code
             } else if ["png", "jpg", "jpeg", "webp", "gif", "svg", "heic"].contains(ext) {
                 category = .media
@@ -190,16 +222,57 @@ final class WorkspaceManager {
             )
         }
 
-        // 合并扫描到的文件，保留内置样例文件
+        let selectedPath = currentActiveCodeFile?.url?.standardizedFileURL.path
         self.allFiles = scannedItems + builtInSamples
+
+        if let selectedPath, let refreshed = scannedItems.first(where: { $0.url?.standardizedFileURL.path == selectedPath }) {
+            currentActiveCodeFile = refreshed
+            if currentCodeContent == lastSavedCodeContent {
+                currentCodeContent = readFileContent(for: refreshed)
+                lastSavedCodeContent = currentCodeContent
+            }
+        } else if currentActiveCodeFile == nil || currentActiveCodeFile?.url == nil {
+            selectCodeFile(scannedItems.first(where: { $0.category == .code && $0.fileExtension == "swift" })
+                ?? scannedItems.first(where: { $0.category == .code }))
+        }
+    }
+
+    func refreshActiveWorkspace() {
+        guard let activeWorkspaceURL else { return }
+        scanFolder(url: activeWorkspaceURL)
+    }
+
+    func refreshCurrentCodeFile() {
+        guard let file = currentActiveCodeFile,
+              let url = file.url,
+              let root = activeWorkspaceURL else { return }
+        let accessing = root.startAccessingSecurityScopedResource()
+        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
+              let modifiedAt = values.contentModificationDate else { return }
+        let size = Int64(values.fileSize ?? 0)
+        guard size != file.size || modifiedAt != file.modifiedAt else { return }
+
+        var refreshed = file
+        refreshed.size = size
+        refreshed.modifiedAt = modifiedAt
+        currentActiveCodeFile = refreshed
+        if let index = allFiles.firstIndex(where: { $0.id == file.id }) {
+            allFiles[index] = refreshed
+        }
+        guard currentCodeContent == lastSavedCodeContent,
+              let path = relativePath(for: refreshed),
+              let text = try? readWorkspaceText(path: path) else { return }
+        currentCodeContent = text
+        lastSavedCodeContent = text
     }
 
     // MARK: - 文件读写（支持直接修改并保存手机上的文件）
 
     func readFileContent(for item: WorkspaceFileItem) -> String {
         if let url = item.url {
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            let accessing = activeWorkspaceURL?.startAccessingSecurityScopedResource() ?? false
+            defer { if accessing { activeWorkspaceURL?.stopAccessingSecurityScopedResource() } }
             if let text = try? String(contentsOf: url, encoding: .utf8) {
                 return text
             }
@@ -213,12 +286,66 @@ final class WorkspaceManager {
     }
 
     func saveFileContent(item: WorkspaceFileItem, newContent: String) throws {
-        if let url = item.url {
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-            try newContent.write(to: url, atomically: true, encoding: .utf8)
-        }
+        guard let path = relativePath(for: item) else { throw WorkspaceAccessError.invalidPath }
+        try writeWorkspaceText(path: path, content: newContent)
         currentCodeContent = newContent
+        lastSavedCodeContent = newContent
+    }
+
+    func selectCodeFile(_ item: WorkspaceFileItem?) {
+        guard let item, item.category == .code, item.url != nil else { return }
+        currentActiveCodeFile = item
+        currentCodeContent = readFileContent(for: item)
+        lastSavedCodeContent = currentCodeContent
+    }
+
+    func relativePath(for item: WorkspaceFileItem) -> String? {
+        guard let root = activeWorkspaceURL?.standardizedFileURL.path,
+              let file = item.url?.standardizedFileURL.path,
+              file.hasPrefix(root + "/") else { return nil }
+        return String(file.dropFirst(root.count + 1))
+    }
+
+    func readWorkspaceText(path: String) throws -> String {
+        guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
+        let accessing = root.startAccessingSecurityScopedResource()
+        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
+        let url = try validatedWorkspaceURL(path: path)
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard values.isRegularFile == true else { throw WorkspaceAccessError.invalidPath }
+        guard (values.fileSize ?? 0) <= 256_000 else { throw WorkspaceAccessError.fileTooLarge }
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { throw WorkspaceAccessError.unreadableFile }
+        return text
+    }
+
+    func writeWorkspaceText(path: String, content: String) throws {
+        guard content.utf8.count <= 256_000 else { throw WorkspaceAccessError.fileTooLarge }
+        guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
+        let accessing = root.startAccessingSecurityScopedResource()
+        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
+        let url = try validatedWorkspaceURL(path: path)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try content.write(to: url, atomically: true, encoding: .utf8)
+        scanFolder(url: root)
+        if let refreshed = allFiles.first(where: { $0.url?.standardizedFileURL == url }) {
+            currentActiveCodeFile = refreshed
+            currentCodeContent = content
+            lastSavedCodeContent = content
+        }
+    }
+
+    private func validatedWorkspaceURL(path: String) throws -> URL {
+        guard let root = activeWorkspaceURL?.standardizedFileURL else { throw WorkspaceAccessError.noFolder }
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+        guard !parts.isEmpty, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            throw WorkspaceAccessError.invalidPath
+        }
+        let candidate = root.appending(path: path).standardizedFileURL
+        guard candidate.path.hasPrefix(root.path + "/"),
+              candidate.resolvingSymlinksInPath().path.hasPrefix(root.resolvingSymlinksInPath().path + "/") else {
+            throw WorkspaceAccessError.invalidPath
+        }
+        return candidate
     }
 
     func createNewFile(name: String, content: String, category: WorkspaceFileItem.AssetCategory) -> WorkspaceFileItem {
@@ -264,6 +391,10 @@ final class WorkspaceManager {
                 bookmarkDataIsStale: &isStale
             ) {
                 mountedWorkspaces.append(resolvedURL)
+                if activeWorkspaceURL == nil {
+                    activeWorkspaceURL = resolvedURL
+                    scanFolder(url: resolvedURL)
+                }
             }
         }
     }
