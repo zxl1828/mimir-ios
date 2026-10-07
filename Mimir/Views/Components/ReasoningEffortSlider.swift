@@ -19,7 +19,7 @@ struct ReasoningEffortCard: View {
                 .foregroundStyle(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(scheme == .dark ? 0.95 : 0.25),
+                            Color(hex: "281F36"),
                             accent,
                             AppUI.neonViolet
                         ],
@@ -27,8 +27,8 @@ struct ReasoningEffortCard: View {
                         endPoint: .bottom
                     )
                 )
-                .shadow(color: accent.opacity(scheme == .dark ? 0.85 : 0.45), radius: 12, y: 0)
-                .shadow(color: AppUI.neonViolet.opacity(scheme == .dark ? 0.55 : 0.25), radius: 22, y: 2)
+                .shadow(color: accent.opacity(0.38), radius: 12, y: 0)
+                .shadow(color: AppUI.neonViolet.opacity(0.20), radius: 22, y: 2)
                 .contentTransition(.numericText())
                 .animation(AppUI.snap, value: level)
 
@@ -61,7 +61,7 @@ struct ReasoningEffortCard: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11.5, weight: .semibold))
                 }
-                .foregroundStyle(AppUI.label2)
+                .foregroundStyle(Color(hex: "51465F"))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
                 .contentShape(Capsule(style: .continuous))
@@ -76,20 +76,35 @@ struct ReasoningEffortCard: View {
         .padding(.top, 16)
         .padding(.bottom, 18)
         .frame(maxWidth: 296)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 22))
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+            shape.fill(.ultraThinMaterial)
+                .overlay {
+                    shape.fill(
+                        scheme == .dark
+                            ? Color(hex: "F8F6FD").opacity(0.90)
+                            : Color.white.opacity(0.85)
+                    )
+                }
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1.1)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.70), accent.opacity(0.24)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
                 .allowsHitTesting(false)
         }
-        .rotatingGlowBorder(cornerRadius: 22, lineWidth: 1.2, isAnimated: true, glowRadius: 26)
-        .interactiveTilt(maxAngle: 6.5, cornerRadius: 22)
         .shadow(
-            color: accent.opacity(scheme == .dark ? 0.36 : 0.18),
+            color: Color(hex: "5A3E85").opacity(scheme == .dark ? 0.22 : 0.07),
             radius: 22,
-            y: 8
+            y: 12
         )
-        .shadow(color: Color(hex: "EADEFA").opacity(0.22), radius: 18, y: 6)
+        .shadow(color: accent.opacity(scheme == .dark ? 0.22 : 0.10), radius: 16, y: 5)
     }
 }
 
@@ -221,29 +236,33 @@ struct ReasoningEffortSlider: View {
 
     private var inactiveTrack: some View {
         Capsule(style: .continuous)
-            .fill(
-                scheme == .dark
-                    ? Color.white.opacity(0.15)
-                    : Color(hex: "F8F6FD").opacity(0.96)
-            )
+            .fill(.ultraThinMaterial)
+            .overlay {
+                Capsule(style: .continuous)
+                    .fill(
+                        scheme == .dark
+                            ? Color(hex: "F8F6FD").opacity(0.90)
+                            : Color.white.opacity(0.85)
+                    )
+            }
             .overlay(alignment: .trailing) {
                 // 右侧微弱算力芯片水印图标（对应实机截图滑轨右侧的暗纹）
                 Image(systemName: "rectangle.portrait.on.rectangle.portrait")
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(
-                        scheme == .dark
-                            ? Color.white.opacity(0.16)
-                            : accent.opacity(0.24)
+                        accent.opacity(0.22)
                     )
                     .padding(.trailing, 20)
             }
             .overlay(
                 Capsule(style: .continuous)
                     .strokeBorder(
-                        scheme == .dark
-                            ? Color.white.opacity(0.18)
-                            : accent.opacity(0.18),
-                        lineWidth: 0.8
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.70), accent.opacity(scheme == .dark ? 0.22 : 0.18)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
                     )
             )
     }
@@ -302,9 +321,7 @@ struct ReasoningEffortSlider: View {
                     .fill(
                         isActive
                             ? Color.white.opacity(isMajor ? 0.88 : 0.55)
-                            : (scheme == .dark
-                                ? Color.white.opacity(isMajor ? 0.36 : 0.22)
-                                : accent.opacity(isMajor ? 0.35 : 0.20))
+                            : accent.opacity(isMajor ? 0.35 : 0.20)
                     )
                     .frame(width: dotSize, height: dotSize)
                     .offset(x: x - dotSize / 2)

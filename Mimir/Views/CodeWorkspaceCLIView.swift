@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// Phone-first source editor and coding agent for a user-selected local project folder.
@@ -12,6 +13,7 @@ struct CodeWorkspaceCLIView: View {
     @State private var showFolderImporter = false
     @State private var showFilePicker = false
     @State private var isLoadingWorkspace = false
+    @State private var isKeyboardVisible = false
     @State private var workspaceLoadError: String?
     @State private var draft = ""
     @State private var saveState = "已保存"
@@ -28,6 +30,12 @@ struct CodeWorkspaceCLIView: View {
     @State private var buildError: String?
     @State private var buildResult: GitHubBuildResult?
     @FocusState private var composerFocused: Bool
+
+    private let codeTabBarClearance: CGFloat = 64 + 12 + 28
+
+    private var composerBottomClearance: CGFloat {
+        isKeyboardVisible ? 10 : codeTabBarClearance
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -60,18 +68,25 @@ struct CodeWorkspaceCLIView: View {
             }
             .padding(.horizontal, 14)
             .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.bottom, composerBottomClearance)
             .frame(maxWidth: 1040)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background {
                 AppUI.ambientBackground(scheme: scheme).ignoresSafeArea()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardVisible = false
+        }
         .fileImporter(
             isPresented: $showFolderImporter,
             allowedContentTypes: [.folder],
             allowsMultipleSelection: false
         ) { result in
+            showFolderImporter = false
             if case .success(let urls) = result, let folder = urls.first {
                 isLoadingWorkspace = true
                 workspaceLoadError = nil

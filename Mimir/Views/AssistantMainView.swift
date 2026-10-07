@@ -61,38 +61,27 @@ public struct AssistantMainView: View {
 
     public var body: some View {
         ZStack(alignment: .top) {
-            // 0. 思考强度选择面板（点击顶栏波形按钮展开；此前只有状态没有 UI）
+            // 0. 思考强度选择面板
             if showReasoningCard {
                 reasoningPanel
                     .padding(.top, 64)
-                    .zIndex(21)
+                    .zIndex(2)
                     .transition(
                         .scale(scale: 0.94, anchor: .topTrailing)
                             .combined(with: .opacity)
                     )
             }
 
-            // 1. 顶部状态栏 96pt 主题色微光流光渐变层
-            topStatusBarAmbientGlow
-                .zIndex(20)
-
-            // 2. 顶部可变模糊遮罩：110pt 内让内容柔和淡出，不再硬撞状态栏
-            topBlurScrim
-                .zIndex(19)
-
-            // 3. 主列布局（顶部 6% 做 alpha 渐隐，配合上面的模糊层）
+            // Status-bar lighting and blur sit behind controls so they never frost the top bar.
             mainColumn
-                .background(AppBackgroundView(background: settings.background))
-                .mask(
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0.0),
-                            .init(color: .white, location: 0.055)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .background {
+                    ZStack(alignment: .top) {
+                        AppBackgroundView(background: settings.background)
+                        topStatusBarAmbientGlow
+                        topBlurScrim
+                    }
+                    .ignoresSafeArea()
+                }
         }
         .task { await bootstrap() }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -225,13 +214,11 @@ public struct AssistantMainView: View {
         }
     }
 
-    // MARK: - 1. 顶部状态栏 96pt 主题色微光流光渐变层
-
     private var isConversationEmpty: Bool {
         chat?.messages.isEmpty ?? true
     }
 
-    // MARK: - 1. 顶部状态栏 120pt 主题色微光流光渐变层 + 高斯模糊毛玻璃羽化
+    // MARK: - Status bar lighting and blur
 
     private var topStatusBarAmbientGlow: some View {
         ZStack(alignment: .top) {
@@ -357,6 +344,7 @@ public struct AssistantMainView: View {
                 .frame(height: 0.8)
                 .allowsHitTesting(false)
         }
+        .padding(.top, 12)
     }
 
     private var currentModelID: String {
@@ -455,13 +443,12 @@ public struct AssistantMainView: View {
     /// 天气 / 日程详情面板（胶囊的流体展开态）。
     /// 思考强度选择面板：点击顶栏波形按钮展开，选中后自动收起。
     ///
-    /// 用与全局一致的原生液态玻璃 + 主题色高亮；当前档位用填充圆点与加粗标注，
-    /// 不做任何黑色/灰色蒙版。
+    /// Pale liquid glass keeps the choices legible in both appearance modes.
     private var reasoningPanel: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("思考强度")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(AppUI.label3)
+                .foregroundStyle(Color(hex: "756A86"))
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
                 .padding(.bottom, 4)
@@ -477,11 +464,11 @@ public struct AssistantMainView: View {
                     HStack(spacing: 10) {
                         Image(systemName: isCurrent ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 15))
-                            .foregroundStyle(isCurrent ? accent : AppUI.label3)
+                            .foregroundStyle(isCurrent ? accent : Color(hex: "8A8098"))
 
                         Text(mode.title)
                             .font(.system(size: 14, weight: isCurrent ? .semibold : .regular))
-                            .foregroundStyle(AppUI.label)
+                            .foregroundStyle(Color(hex: "281F36"))
 
                         Spacer(minLength: 0)
                     }
@@ -499,12 +486,35 @@ public struct AssistantMainView: View {
         }
         .padding(.vertical, 6)
         .frame(width: 220)
-        .liquidGlass(cornerRadius: 20, isHighlighted: true, glowIntensity: 0.35)
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+            shape.fill(.ultraThinMaterial)
+                .overlay {
+                    shape.fill(
+                        scheme == .dark
+                            ? Color(hex: "F8F6FD").opacity(0.90)
+                            : Color.white.opacity(0.85)
+                    )
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.70), accent.opacity(0.24)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+                .allowsHitTesting(false)
+        }
         .padding(.trailing, 16)
         .frame(maxWidth: .infinity, alignment: .trailing)
+        .shadow(color: Color(hex: "5A3E85").opacity(scheme == .dark ? 0.18 : 0.07), radius: 22, y: 12)
     }
 
-    /// 顶部可变模糊遮罩（110pt）。
+    /// Top-edge blur fades out over 48pt.
     ///
     /// 用 `.ultraThinMaterial` 做渐进模糊，再以纯 alpha 蒙版控制淡出。
     /// 向下淡出——不带任何颜色叠加，因此不会产生脏灰块。
@@ -1068,70 +1078,23 @@ private struct CentralAssistantCard: View {
     @State private var coordinator = TabNavigationCoordinator.shared
 
     var body: some View {
+        let orbitalHeight = min(
+            max(isCompact ? 132 : 168, mascotSize * 1.22),
+            max(isCompact ? 144 : 188, mascotSize * 1.38) - 20
+        )
+
         VStack(spacing: isCompact ? 5 : 10) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                accent.opacity(scheme == .dark ? 0.26 : 0.17),
-                                accent.opacity(0.07),
-                                .clear
-                            ],
-                            center: .center,
-                            startRadius: mascotSize * 0.18,
-                            endRadius: mascotSize * 1.22
-                        )
-                    )
-                    .frame(width: mascotSize * 2.65, height: mascotSize * 2.65)
-                    .scaleEffect(isBreathing ? 1.06 : 0.96)
-
-                Circle()
-                    .stroke(
-                        AngularGradient(
-                            colors: [.clear, Color.white.opacity(0.78), accent.opacity(0.74), .clear],
-                            center: .center
-                        ),
-                        style: StrokeStyle(lineWidth: 1.15, dash: [92, 18, 34, 26])
-                    )
-                    .frame(width: mascotSize * 2.10, height: mascotSize * 2.10)
-                    .rotation3DEffect(.degrees(66), axis: (x: 1, y: 0, z: 0))
-                    .rotationEffect(.degrees(isBreathing ? 13 : -7))
-
-                Ellipse()
-                    .stroke(
-                        AngularGradient(
-                            colors: [accent.opacity(0.10), Color.white.opacity(0.72), .clear, accent.opacity(0.62)],
-                            center: .center
-                        ),
-                        style: StrokeStyle(lineWidth: 0.8, dash: [42, 16, 86, 22])
-                    )
-                    .frame(width: mascotSize * 2.45, height: mascotSize * 1.05)
-                    .rotation3DEffect(.degrees(-58), axis: (x: 1, y: 0, z: 0))
-                    .rotationEffect(.degrees(isBreathing ? -8 : 9))
-
-                Circle()
-                    .fill(.clear)
-                    .frame(width: mascotSize * 1.56, height: mascotSize * 1.56)
-                    .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .circle)
-                    .overlay {
-                        Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                    }
-                    .shadow(color: accent.opacity(scheme == .dark ? 0.25 : 0.12), radius: 24)
-
-                TimelineView(.animation(minimumInterval: 1 / 24, paused: coordinator.selectedTab != .assistant)) { timeline in
-                    OrbitParticleCanvas(time: timeline.date.timeIntervalSinceReferenceDate, accent: accent)
-                        .frame(width: mascotSize * 2.65, height: mascotSize * 2.65)
+            MimirMascot(size: mascotSize * 0.92, mood: .calm)
+                .frame(width: mascotSize, height: mascotSize)
+                .background {
+                    orbitalDecorations(height: orbitalHeight)
                 }
-
-                MimirMascot(size: mascotSize * 0.92, mood: .calm)
-                    .shadow(color: accent.opacity(scheme == .dark ? 0.36 : 0.24), radius: mascotSize * 0.2, y: 4)
-                    .scaleEffect(isBreathing ? 1.025 : 0.99, anchor: .center)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.38))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Mimir 猫头鹰助手")
+                .shadow(color: accent.opacity(scheme == .dark ? 0.36 : 0.24), radius: mascotSize * 0.2, y: 4)
+                .scaleEffect(isBreathing ? 1.025 : 0.99, anchor: .center)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.38))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Mimir 猫头鹰助手")
 
             HStack(spacing: 7) {
                 Circle().fill(Color.green).frame(width: 5, height: 5)
@@ -1158,6 +1121,66 @@ private struct CentralAssistantCard: View {
                 isBreathing = true
             }
         }
+    }
+
+    private func orbitalDecorations(height: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            accent.opacity(scheme == .dark ? 0.26 : 0.17),
+                            accent.opacity(0.07),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: mascotSize * 0.18,
+                        endRadius: mascotSize * 1.22
+                    )
+                )
+                .frame(width: mascotSize * 2.15, height: height)
+                .scaleEffect(isBreathing ? 1.06 : 0.96)
+
+            Circle()
+                .stroke(
+                    AngularGradient(
+                        colors: [.clear, Color.white.opacity(0.78), accent.opacity(0.74), .clear],
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 1.15, dash: [92, 18, 34, 26])
+                )
+                .frame(width: mascotSize * 1.80, height: mascotSize * 1.80)
+                .rotation3DEffect(.degrees(66), axis: (x: 1, y: 0, z: 0))
+                .rotationEffect(.degrees(isBreathing ? 13 : -7))
+
+            Ellipse()
+                .stroke(
+                    AngularGradient(
+                        colors: [accent.opacity(0.10), Color.white.opacity(0.72), .clear, accent.opacity(0.62)],
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 0.8, dash: [42, 16, 86, 22])
+                )
+                .frame(width: mascotSize * 2.0, height: height * 0.58)
+                .rotation3DEffect(.degrees(-58), axis: (x: 1, y: 0, z: 0))
+                .rotationEffect(.degrees(isBreathing ? -8 : 9))
+
+            Circle()
+                .fill(.clear)
+                .frame(width: mascotSize * 1.24, height: mascotSize * 1.24)
+                .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .circle)
+                .overlay {
+                    Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                }
+                .shadow(color: accent.opacity(scheme == .dark ? 0.25 : 0.12), radius: 24)
+
+            TimelineView(.animation(minimumInterval: 1 / 24, paused: coordinator.selectedTab != .assistant)) { timeline in
+                OrbitParticleCanvas(time: timeline.date.timeIntervalSinceReferenceDate, accent: accent)
+                    .frame(width: mascotSize * 2.15, height: height)
+            }
+        }
+        .frame(width: mascotSize * 2.15, height: height)
+        .allowsHitTesting(false)
     }
 }
 
