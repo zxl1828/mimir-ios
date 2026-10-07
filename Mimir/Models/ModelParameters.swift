@@ -12,7 +12,7 @@ struct ModelParameters: Codable, Sendable, Equatable {
     var streamsResponse: Bool
 
     init(
-        modelID: String = "deepseek-chat",
+        modelID: String = "gpt-4o-mini",
         temperature: Double = 0.6,
         topP: Double = 1.0,
         maxTokens: Int = 4_096,

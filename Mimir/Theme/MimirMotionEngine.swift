@@ -272,126 +272,6 @@ public struct SharedElementTransitionView<Content: View>: View {
     }
 }
 
-// MARK: - 4. 弹性微缩与超调触觉反馈 (Press Scale & Spring Overshoot)
-
-/// 矩形按钮用居中光学微缩和轻柔弹簧表达触觉反馈。
-public struct PressScaleOvershootButtonStyle: ButtonStyle {
-    public var scale: CGFloat = 0.985
-    public var cornerRadius: CGFloat = 16
-    public var enableHaptics: Bool = true
-
-    public init(scale: CGFloat = 0.985, cornerRadius: CGFloat = 16, enableHaptics: Bool = true) {
-        self.scale = scale
-        self.cornerRadius = cornerRadius
-        self.enableHaptics = enableHaptics
-    }
-
-    public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
-            .overlay {
-                if configuration.isPressed {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
-                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
-            .onChange(of: configuration.isPressed) { _, isPressed in
-                guard enableHaptics else { return }
-                if isPressed {
-                    Haptics.impact(.rigid)
-                } else {
-                    Haptics.impact(.light)
-                }
-            }
-    }
-}
-
-/// 胶囊形态物理弹性按钮样式（用于输入框上方胶囊与 Tab 项）。
-public struct PressScaleOvershootCapsuleButtonStyle: ButtonStyle {
-    public var scale: CGFloat = 0.985
-    public var enableHaptics: Bool = true
-
-    public init(scale: CGFloat = 0.985, enableHaptics: Bool = true) {
-        self.scale = scale
-        self.enableHaptics = enableHaptics
-    }
-
-    public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
-            .overlay {
-                if configuration.isPressed {
-                    Capsule(style: .continuous)
-                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
-                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
-            .onChange(of: configuration.isPressed) { _, isPressed in
-                guard enableHaptics else { return }
-                if isPressed {
-                    Haptics.impact(.rigid)
-                } else {
-                    Haptics.impact(.light)
-                }
-            }
-    }
-}
-
-/// 圆形物理弹性按钮样式（用于顶栏圆钮、语音圆钮与发送圆钮）。
-public struct PressScaleOvershootCircleButtonStyle: ButtonStyle {
-    public var scale: CGFloat = 0.985
-    public var enableHaptics: Bool = true
-
-    public init(scale: CGFloat = 0.985, enableHaptics: Bool = true) {
-        self.scale = scale
-        self.enableHaptics = enableHaptics
-    }
-
-    public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
-            .overlay {
-                if configuration.isPressed {
-                    Circle()
-                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
-                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
-            .onChange(of: configuration.isPressed) { _, isPressed in
-                guard enableHaptics else { return }
-                if isPressed {
-                    Haptics.impact(.rigid)
-                } else {
-                    Haptics.impact(.light)
-                }
-            }
-    }
-}
-
-extension View {
-    /// 添加居中弹性微缩与轻量主题高光。
-    public func pressScaleOvershoot(scale: CGFloat = 0.985, cornerRadius: CGFloat = 16) -> some View {
-        buttonStyle(PressScaleOvershootButtonStyle(scale: scale, cornerRadius: cornerRadius))
-    }
-
-    /// 胶囊形态弹性微缩与触觉反馈。
-    public func pressScaleOvershootCapsule(scale: CGFloat = 0.985) -> some View {
-        buttonStyle(PressScaleOvershootCapsuleButtonStyle(scale: scale))
-    }
-
-    /// 圆形形态弹性微缩与触觉反馈。
-    public func pressScaleOvershootCircle(scale: CGFloat = 0.985) -> some View {
-        buttonStyle(PressScaleOvershootCircleButtonStyle(scale: scale))
-    }
-}
-
 // MARK: - 5. 阻尼弹性速度吸附抽屉 (Velocity-Snapping Bottom Sheet)
 
 /// 支持上下拖拽边缘阻尼拉伸（0.35 延伸系数）与初速度瞬时吸附判定的底部抽屉。
@@ -422,8 +302,8 @@ public struct VelocitySnappingDrawer<Content: View>: View {
     public var body: some View {
         ZStack(alignment: .bottom) {
             if isPresented {
-                (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.09) : accent)
-                    .opacity(scheme == .dark ? 0.48 : 0.18)
+                (scheme == .dark ? Color(hex: "120D1D") : accent)
+                    .opacity(scheme == .dark ? 0.36 : 0.12)
                     .ignoresSafeArea()
                     .onTapGesture { closeWithSpring() }
                     .transition(.opacity)

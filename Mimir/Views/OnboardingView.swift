@@ -10,7 +10,8 @@ struct OnboardingView: View {
     @Environment(AppSettings.self) private var settings
 
     @State private var keyText: String = ""
-    @State private var baseURLText = APIKeyFormat.deepseekNative.defaultBaseURL
+    @State private var selectedFormat = APIKeyFormat.openAI
+    @State private var baseURLText = APIKeyFormat.openAI.defaultBaseURL
     @State private var modelIDText = ""
     @State private var discoveredModels: [String] = []
     @State private var isRevealed: Bool = false
@@ -41,10 +42,24 @@ struct OnboardingView: View {
 
                     keyField
 
+                    Picker("接口协议", selection: $selectedFormat) {
+                        Text("OpenAI 兼容").tag(APIKeyFormat.openAI)
+                        Text("DeepSeek").tag(APIKeyFormat.deepseekNative)
+                        Text("Anthropic").tag(APIKeyFormat.anthropic)
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(phase == .validating)
+                    .padding(.top, 14)
+                    .onChange(of: selectedFormat) { oldFormat, newFormat in
+                        if baseURLText == oldFormat.defaultBaseURL || baseURLText.isEmpty {
+                            baseURLText = newFormat.defaultBaseURL
+                        }
+                    }
+
                     baseURLField
                         .padding(.top, 10)
 
-                    TextField("模型 ID（可留空自动解析）", text: $modelIDText)
+                    TextField("模型 ID（留空尝试读取 /models）", text: $modelIDText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12.5, design: .monospaced))
                         .foregroundStyle(AppColor.primaryText)
@@ -108,8 +123,8 @@ struct OnboardingView: View {
                 .focused($fieldFocused)
                 .disabled(phase == .validating)
                 .onChange(of: keyText) { _, value in
-                    if value.hasPrefix("sk-ant-"), baseURLText == APIKeyFormat.deepseekNative.defaultBaseURL {
-                        baseURLText = APIKeyFormat.anthropic.defaultBaseURL
+                    if value.hasPrefix("sk-ant-") {
+                        selectedFormat = .anthropic
                     }
                     if noticeIsError {
                         noticeText = nil
@@ -324,6 +339,7 @@ struct OnboardingView: View {
         noticeIsError = false
 
         var credential = APICredential.inferred(from: trimmed)
+        credential.format = selectedFormat
         let enteredBaseURL = baseURLText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !enteredBaseURL.isEmpty { credential.baseURL = enteredBaseURL }
         do {

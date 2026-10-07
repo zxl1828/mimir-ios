@@ -12,11 +12,9 @@
 ![Platform](https://img.shields.io/badge/Platform-iOS%2026%2B-lightgrey)
 ![Swift](https://img.shields.io/badge/Swift-6-orange)
 
-本地优先的私人 AI 客户端，SwiftUI + MVVM，最低支持 iOS 26，
-界面采用 Codex 桌面端 Agent Command Center 与 iOS 26 液态玻璃（Liquid Glass + 霓虹紫）设计语言，
-支持星尘阶梯思考滑轨（High / X-High / Max）与浅色 / 深色双模式自适应。
-
-> 非官方项目，与 DeepSeek 官方无隶属或背书关系；「DeepSeek」为相应权利人的商标。
+本地优先、厂商中立的私人 AI 客户端，使用 SwiftUI + MVVM，最低支持 iOS 26。
+用户填写自己的 API Key 与服务地址；Mimir 可读取兼容接口公开的模型目录，也允许手动输入模型 ID，并在会话中切换当前服务提供的模型。
+界面以原生 Liquid Glass、幻光鸢尾紫和可切换的浅色 / 深色主题构建。
 
 > **许可：MIT + Commons Clause** —— 可自由使用、修改、分发，但**不得倒卖**：
 > 不得把本软件或其核心功能包装成收费产品、收费服务提供给第三方。
@@ -31,11 +29,12 @@
 - 对话可导出为长图（浅色 / 深色两种样式），全程本机离屏渲染，
   支持保存到相册或直接分享
 - Markdown 渲染：标题、列表、引用、代码块（可复制）、表格、`$$LaTeX$$` 公式、Mermaid 图表
-- 多模型接入：DeepSeek 原生 / 任何 OpenAI 兼容网关 / Anthropic 协议，
-  根据 API Key 前缀自动识别格式与端点
+- 多模型接入：OpenAI 兼容 Chat Completions 与 Anthropic Messages 协议；
+  可接 OpenAI、DeepSeek、OpenRouter、Ollama、vLLM、LM Studio 等兼容服务，
+  用户填写自己的 API Key、协议和 Base URL，读取 `/models` 目录，或手动输入模型 ID
+- 会话中可切换当前服务商已解析或保存的模型；每个会话保留自己的模型选择
 - 长对话滚动摘要，超出上下文窗口时自动压缩而不是粗暴截断
 - Token 用量统计（消息级与本机累计）
-- **多版本对比**：同一位置保留多次生成的回答，左右切换比对；也可以从任意一条回答「从这里重新生成」
 
 ### 交互
 - **Agent Dock**：输入框上方的智能体胶囊，切换当前对话的智能体上下文
@@ -47,8 +46,6 @@
   点一下跳回原对话并定位到那条消息（快捷键可切换范围与时间筛选）
 - **思考模式滑块**：快速 / 思考 / 专家 / Ultra 四档，冷 → 暖渐变轨道，
   Ultra 档带光晕扩散、呼吸脉冲、流光、粒子与标签扫光
-- **全局搜索**：跨全部对话检索标题、正文、推理过程、智能体与技能标签，
-  命中词高亮、按提问 / 回答与时间范围过滤，点击结果直接跳回并定位到那条消息
 - 侧边栏抽屉：会话记录（搜索 / 重命名 / 置顶 / 复制 / 删除）、智能体、技能、
   设置、记忆浏览器、MCP 服务器、数据流向
 
@@ -73,6 +70,8 @@
 - 对话结束后后台自动提炼长期事实
 - 数据流向面板：逐项说明哪些数据只在本机、哪些会发送到云端
 - 记忆条目可标记「仅本地使用」，标记后不会随对话发送
+- 可设置本地用户名和裁剪头像；头像文件保存在受 iOS 文件保护的数据目录
+- 可开启 Face ID / Touch ID 应用锁，冷启动及从后台返回时重新验证
 
 ### 扩展
 - **MCP**：官方 `modelcontextprotocol/swift-sdk`，支持 HTTP/SSE 多服务器并行连接、
@@ -88,7 +87,7 @@
 | 项目 | 说明 |
 |---|---|
 | 语言 | Swift 6（严格并发检查） |
-| UI | SwiftUI，原生系统风（系统语义色 + SF Symbols）；二级界面保留 Liquid Glass（`glassEffect`） |
+| UI | SwiftUI、SF Symbols、原生 Liquid Glass（`glassEffect`）与动态鸢尾紫光效 |
 | 持久化 | SwiftData |
 | 凭据 | Keychain（API Key 与 MCP Token 均不入 UserDefaults） |
 | 网络 | 自建统一网络层（SSE 流式解析，OpenAI 兼容 + Anthropic 双协议） |
@@ -129,12 +128,14 @@ xcodebuild -project Mimir.xcodeproj -scheme Mimir \
 **会发送到云端**：对话文本、你附加的图片、非「仅本地」的记忆片段、
 以及你为该服务器显式授权「数据可上传」后的 MCP 工具返回值。
 
+Code 页的远程 Xcode 构建只使用用户本人绑定的 GitHub 账号和仓库。用户确认构建后，所选项目会上传到该仓库的临时分支并触发 Actions；公开仓库会在构建期间公开这些源码，任务结束后临时分支自动删除。
+
 ## 已知限制
 
 - MCP 的 `ui://` 交互式表单（MCP Apps）尚未渲染为原生表单
 - MCP OAuth 授权流程尚未接入，目前使用手动填写访问令牌
 - 「任务模式」（先在对话中列任务清单再逐步执行）尚未实现
-- 自定义模型目录的数据结构已就绪，但还没有对应的管理界面
+- 自动模型发现要求服务端提供兼容的 `/models` 列表；聊天请求要求 OpenAI 兼容 Chat Completions 或 Anthropic Messages。其他原生协议需通过兼容网关接入；不提供模型列表的服务可手动填写模型 ID
 - Mermaid 与 KaTeX 渲染依赖 WebView 加载 CDN，离线时回退显示源码
 - stdio 传输的 MCP 服务器在 iOS 上不可用（系统不允许派生子进程），仅支持 HTTP/SSE
 
@@ -172,10 +173,9 @@ OSI 开源定义不允许限制商业使用。除「不得倒卖」这一条外�
 
 ## English
 
-An unofficial, local-first AI client for iOS 26 - works with DeepSeek, any OpenAI-compatible gateway and Anthropic endpoints - built with SwiftUI in a
-native iOS design language (system colors, SF Symbols, capsule controls) with Liquid Glass kept for secondary screens: streaming chat, on-device voice (VAD + speech recognition +
-system TTS), local vector memory, skills, MCP tools,
-App Intents, and a fully custom UI.
+Mimir is a local-first, provider-neutral AI client for iOS 26. Connect your own API key and endpoint using OpenAI-compatible Chat Completions or Anthropic Messages, discover models when the server exposes a compatible `/models` endpoint, or enter a model ID manually. Compatible hosted and self-hosted services include OpenAI, DeepSeek, OpenRouter, Ollama, vLLM and LM Studio. Each conversation can switch among models available from the configured endpoint. Native APIs that use a different protocol need a compatible gateway. Mimir also includes native Liquid Glass, on-device voice and memory, skills, MCP tools, and App Intents.
+
+Remote Xcode builds use only the GitHub account and repository that the user binds. After confirmation, the selected project is uploaded to a temporary branch in that repository and built with Actions. Source files are public during the build when the chosen repository is public; the temporary branch is deleted after the run.
 
 Build with Xcode 26 + [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 

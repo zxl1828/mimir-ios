@@ -465,7 +465,7 @@ struct ReasoningStatusChip: View {
                         RadialGradient(
                             colors: [
                                 Color.white,
-                                scheme == .dark ? Color(white: 0.78) : accent.opacity(0.45)
+                                scheme == .dark ? Color.white.opacity(0.86) : accent.opacity(0.45)
                             ],
                             center: .topLeading,
                             startRadius: 1,
@@ -498,7 +498,7 @@ struct ReasoningStatusChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .pressScaleOvershootCapsule(scale: 0.985)
+        .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel("思考强度与模型：\(ModelCatalog.cardLabel(for: modelID)) \(level.heroTitle)")
     }
 }

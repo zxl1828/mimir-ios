@@ -11,7 +11,7 @@ final class Conversation {
     var isPinned: Bool = false
     var isArchived: Bool = false
     var thinkingModeRaw: String = ThinkingMode.thinking.rawValue
-    var modelID: String = "deepseek-chat"
+    var modelID: String = "gpt-4o-mini"
     /// 长对话超窗时生成的滚动摘要，替代粗暴截断。
     var rollingSummary: String = ""
     var summarizedUpToIndex: Int = -1
@@ -33,7 +33,7 @@ final class Conversation {
         title: String = "新对话",
         createdAt: Date = Date(),
         thinkingMode: ThinkingMode = .thinking,
-        modelID: String = "deepseek-chat"
+        modelID: String = "gpt-4o-mini"
     ) {
         self.id = id
         self.title = title

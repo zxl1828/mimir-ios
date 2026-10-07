@@ -396,8 +396,8 @@ struct CodeBlockView: View {
             RoundedRectangle(cornerRadius: 15, style: .continuous)
                 .fill(
                     scheme == .dark
-                        ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.84)
-                        : Color(red: 0.96, green: 0.95, blue: 0.99)
+                        ? Color(hex: "120D1D").opacity(0.88)
+                        : Color(hex: "F8F6FD")
                 )
         )
         .overlay(
@@ -455,7 +455,7 @@ struct CodeBlockView: View {
                 )
                 .contentShape(Capsule(style: .continuous))
             }
-            .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+            .buttonStyle(StaticButtonFeedbackStyle())
             .animation(.easeInOut(duration: 0.2), value: copied)
         }
         .padding(.horizontal, 12)

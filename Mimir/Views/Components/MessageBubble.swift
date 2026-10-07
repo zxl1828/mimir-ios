@@ -83,7 +83,7 @@ struct MessageBubble: View {
                                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                         )
                 }
-                .buttonStyle(PhysicalElasticButtonStyle(cornerRadius: 16))
+                .buttonStyle(StaticButtonFeedbackStyle())
             }
 
             if !message.text.isEmpty {
@@ -253,7 +253,7 @@ struct MessageBubble: View {
                 .liquidGlass(cornerRadius: 14, isHighlighted: isSpeaking, glowIntensity: 0.5)
                 .contentShape(Circle())
         }
-        .buttonStyle(PhysicalElasticCircleButtonStyle())
+        .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel(isSpeaking ? "停止朗读" : "朗读这条回复")
     }
 

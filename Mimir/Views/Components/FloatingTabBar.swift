@@ -1,11 +1,6 @@
 import SwiftUI
 
-/// 悬浮式 Liquid Glass 四大金刚底栏（Floating Liquid Glass TabBar）。
-///
-/// 悬浮于屏幕底部边缘上方，高度 64pt，两端收圆弧胶囊设计。
-/// 包含 4 个图标项：AI Assistant、Dashboard、Files、Code。
-/// 当前选中项绑定动态主题色微光胶囊（Glow Pill）背景与微跳动量反馈，
-/// 严格维持单色系微阶渐变（Monochromatic Harmony），严禁硬编码静态紫色。
+/// Floating command dock with an expanding active destination.
 struct FloatingTabBar: View {
 
     @Binding var selectedTab: AppTab
@@ -15,23 +10,23 @@ struct FloatingTabBar: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(AppTab.allCases) { tab in
                 tabButton(tab)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(height: 64)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 7)
+        .frame(height: 66)
         .background {
             Capsule(style: .continuous)
                 .fill(
                     scheme == .dark
-                        ? Color(hex: "120D1D").opacity(0.62)
-                        : Color(hex: "F8F6FD").opacity(0.50)
+                        ? Color(hex: "241936").opacity(0.48)
+                        : Color.white.opacity(0.62)
                 )
         }
-        .liquidGlass(.regular, in: .capsule)
+        .liquidGlass(.regular.tint(accent.opacity(0.08)), in: .capsule)
         .overlay {
             Capsule(style: .continuous)
                 .strokeBorder(
@@ -58,27 +53,14 @@ struct FloatingTabBar: View {
                 .padding(.top, 1)
                 .allowsHitTesting(false)
         }
-        .overlay(alignment: .bottom) {
-            Capsule(style: .continuous)
-                .strokeBorder(accent.opacity(scheme == .dark ? 0.24 : 0.14), lineWidth: 0.7)
-                .padding(.horizontal, 1)
-                .padding(.bottom, 1)
-                .allowsHitTesting(false)
-        }
         .shadow(
-            color: accent.opacity(scheme == .dark ? 0.28 : 0.14),
-            radius: 20,
+            color: accent.opacity(scheme == .dark ? 0.24 : 0.12),
+            radius: 24,
             x: 0,
-            y: 8
-        )
-        .shadow(
-            color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.45) : accent.opacity(0.08)),
-            radius: 12,
-            x: 0,
-            y: 4
+            y: 10
         )
         .frame(maxWidth: 480)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
     }
 
     private func tabButton(_ tab: AppTab) -> some View {
@@ -92,53 +74,53 @@ struct FloatingTabBar: View {
                 }
             }
         } label: {
-            VStack(spacing: 3) {
+            HStack(spacing: 7) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: isSelected ? 18 : 17, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(
-                        isSelected
-                            ? accent
-                            : (scheme == .dark ? Color(hex: "9CA3AF") : Color(hex: "5D5870"))
-                    )
-                    .scaleEffect(isSelected ? 1.06 : 1.0)
+                    .font(.system(size: isSelected ? 17 : 18, weight: isSelected ? .semibold : .regular))
+                    .foregroundStyle(isSelected ? accent : inactiveColor)
+                    .frame(width: 20)
 
-                Text(tab.title)
-                    .font(.system(size: 10.5, weight: isSelected ? .bold : .medium, design: .rounded))
-                    .foregroundStyle(
-                        isSelected
-                            ? accent
-                            : (scheme == .dark ? Color(hex: "9CA3AF") : Color(hex: "5D5870"))
-                    )
-                    .lineLimit(1)
+                if isSelected {
+                    Text(tab.title)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                        .lineLimit(1)
+                        .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .leading)))
+                }
             }
-            .frame(maxWidth: .infinity, minHeight: 48, maxHeight: .infinity)
+            .frame(width: isSelected ? 88 : 48, height: 50)
             .background {
                 if isSelected {
                     Capsule(style: .continuous)
-                        .fill(.clear)
-                        .liquidGlass(.regular.tint(accent.opacity(0.32)), in: .capsule)
+                        .fill(accent.opacity(scheme == .dark ? 0.15 : 0.10))
+                        .liquidGlass(.regular.tint(accent.opacity(0.18)), in: .capsule)
                         .overlay {
                             Capsule(style: .continuous)
                                 .fill(
                                     LinearGradient(
-                                        colors: [Color.white.opacity(0.38), .clear],
+                                        colors: [Color.white.opacity(scheme == .dark ? 0.32 : 0.62), .clear],
                                         startPoint: .top,
                                         endPoint: .bottom
                                     )
                                 )
-                                .padding(1)
+                                .padding(0.8)
                         }
                         .overlay(
                             Capsule(style: .continuous)
-                                .strokeBorder(accent.opacity(0.50), lineWidth: 1.0)
+                                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                         )
-                        .shadow(color: accent.opacity(0.35), radius: 8, y: 1)
+                        .shadow(color: accent.opacity(0.18), radius: 9, y: 2)
                         .matchedGeometryEffect(id: "floating.tab.glow.pill", in: tabPillAnimation)
                 }
             }
             .contentShape(Capsule(style: .continuous))
         }
-        .buttonStyle(PressScaleOvershootCapsuleButtonStyle(scale: 0.985))
+        .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel(tab.title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var inactiveColor: Color {
+        scheme == .dark ? Color(hex: "C8BCD9") : Color(hex: "625A72")
     }
 }

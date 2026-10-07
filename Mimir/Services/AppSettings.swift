@@ -83,6 +83,9 @@ final class AppSettings {
         static let cameraAmbientSmoothing = "settings.camera.ambient.smoothing.v1"
         static let githubRepository = "settings.github.repository.v1"
         static let githubAccountLogin = "settings.github.account.login.v1"
+        static let profileName = "settings.profile.name.v1"
+        static let profileAvatarFilename = "settings.profile.avatar-filename.v1"
+        static let biometricLock = "settings.privacy.biometric-lock.v1"
         static let secretAccount = "app.api.key"
         static let webSearchSecretAccount = "websearch.api.key"
         static let githubSecretAccount = "github.actions.token"
@@ -179,6 +182,24 @@ final class AppSettings {
         didSet { defaults.set(githubAccountLogin, forKey: Key.githubAccountLogin) }
     }
 
+    var profileName: String {
+        didSet { defaults.set(profileName, forKey: Key.profileName) }
+    }
+
+    var profileAvatarFilename: String? {
+        didSet {
+            if let profileAvatarFilename {
+                defaults.set(profileAvatarFilename, forKey: Key.profileAvatarFilename)
+            } else {
+                defaults.removeObject(forKey: Key.profileAvatarFilename)
+            }
+        }
+    }
+
+    var biometricLockEnabled: Bool {
+        didSet { defaults.set(biometricLockEnabled, forKey: Key.biometricLock) }
+    }
+
     private(set) var githubTokenIsConfigured: Bool
 
     var hasUsableCredential: Bool {
@@ -223,6 +244,9 @@ final class AppSettings {
         self.cameraAmbientSmoothing = defaults.object(forKey: Key.cameraAmbientSmoothing) as? Double ?? 0.85
         self.githubRepository = defaults.string(forKey: Key.githubRepository) ?? ""
         self.githubAccountLogin = defaults.string(forKey: Key.githubAccountLogin) ?? ""
+        self.profileName = defaults.string(forKey: Key.profileName) ?? ""
+        self.profileAvatarFilename = defaults.string(forKey: Key.profileAvatarFilename)
+        self.biometricLockEnabled = defaults.bool(forKey: Key.biometricLock)
         self.githubTokenIsConfigured = keychain.string(for: Key.githubSecretAccount) != nil
 
         var stored = Self.load(APICredential.self, from: defaults, key: Key.credential)

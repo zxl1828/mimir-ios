@@ -119,73 +119,57 @@ struct DashboardView: View {
     // MARK: - 1. 顶部 Header
 
     private var topHeaderRow: some View {
-        HStack(spacing: 10) {
-            MimirMascot(size: 30, mood: .calm)
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(accent.opacity(scheme == .dark ? 0.18 : 0.10))
+                    .frame(width: 48, height: 48)
+                    .overlay {
+                        Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    }
+                MimirMascot(size: 36, mood: .calm)
+            }
 
-            Text("Mimir")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundStyle(AppUI.textTitle(scheme: scheme))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("MIMIR  /  PERSONAL AI")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(accent)
+                Text(settings.profileName.isEmpty ? "让想法开始流动" : "欢迎回来，\(settings.profileName)")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            // 用户头像
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: "A78BFA"), Color(hex: "7C5CFC")],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 32, height: 32)
-                .overlay {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 30))
-                        .foregroundStyle(Color.white.opacity(0.92))
-                }
-                .overlay {
-                    Circle()
-                        .strokeBorder(Color.white.opacity(0.8), lineWidth: 1.2)
-                }
-                .shadow(color: accent.opacity(0.3), radius: 6)
-
-            // 帮助按钮
             Button {
                 Haptics.impact(.light)
                 showHelpGuide = true
             } label: {
-                Image(systemName: "questionmark.circle")
-                    .font(.system(size: 17, weight: .medium))
+                Image(systemName: "questionmark")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .frame(width: 34, height: 34)
-                    .liquidGlass(.clear, in: .circle)
-                    .overlay {
-                        Circle()
-                            .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
-                            .allowsHitTesting(false)
-                    }
+                    .background(Circle().fill(Color.white.opacity(scheme == .dark ? 0.06 : 0.44)))
+                    .overlay { Circle().strokeBorder(Color.white.opacity(0.62), lineWidth: 0.8) }
             }
-            .buttonStyle(PhysicalElasticCircleButtonStyle())
+            .buttonStyle(StaticButtonFeedbackStyle())
+            .accessibilityLabel("帮助")
 
-            // 设置按钮
             Button {
                 Haptics.impact(.light)
                 showSettings = true
             } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
-                    .frame(width: 34, height: 34)
-                    .liquidGlass(.clear, in: .circle)
-                    .overlay {
-                        Circle()
-                            .strokeBorder(Color.white.opacity(scheme == .dark ? 0.25 : 0.6), lineWidth: 0.8)
-                            .allowsHitTesting(false)
-                    }
+                ProfileAvatarBadge(size: 36)
+                    .frame(width: 40, height: 40)
             }
-            .buttonStyle(PhysicalElasticCircleButtonStyle())
+            .buttonStyle(StaticButtonFeedbackStyle())
+            .accessibilityLabel("个人资料与设置")
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 10)
+        .softGlassCard(cornerRadius: 24)
     }
 
     private var workflowOverview: some View {
@@ -218,7 +202,7 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 15)
-        .correctedLiquidGlassCard(cornerRadius: 24, interactive: false)
+        .softGlassCard(cornerRadius: 24)
     }
 
     private func overviewMetric(value: Int, label: String, icon: String) -> some View {
@@ -290,10 +274,9 @@ struct DashboardView: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .correctedLiquidGlassCard(cornerRadius: 18)
+                .softGlassCard(cornerRadius: 18)
             }
             .buttonStyle(.plain)
-            .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
 
             // 卡片 2: Library
             Button {
@@ -311,10 +294,9 @@ struct DashboardView: View {
                 }
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
-                .correctedLiquidGlassCard(cornerRadius: 18)
+                .softGlassCard(cornerRadius: 18)
             }
             .buttonStyle(.plain)
-            .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
 
             // 卡片 3: My Projects
             Button {
@@ -333,10 +315,9 @@ struct DashboardView: View {
                 }
                 .padding(.vertical, 14)
                 .frame(maxWidth: .infinity)
-                .correctedLiquidGlassCard(cornerRadius: 18)
+                .softGlassCard(cornerRadius: 18)
             }
             .buttonStyle(.plain)
-            .interactiveTilt(maxAngle: 5.5, cornerRadius: 18)
         }
     }
 
@@ -421,7 +402,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .correctedLiquidGlassCard(cornerRadius: 18)
+        .softGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -439,7 +420,6 @@ struct DashboardView: View {
                 showAgentManager = true
             }
         )
-        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
     }
 
     // MARK: - 3.2 技能工具箱卡片
@@ -489,7 +469,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .correctedLiquidGlassCard(cornerRadius: 18)
+        .softGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -507,7 +487,6 @@ struct DashboardView: View {
                 showSkillManager = true
             }
         )
-        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
     }
 
     // MARK: - 3.3 定时任务与项目卡片
@@ -557,7 +536,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .correctedLiquidGlassCard(cornerRadius: 18)
+        .softGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -575,7 +554,6 @@ struct DashboardView: View {
                 showScheduledTasks = true
             }
         )
-        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
     }
 
     // MARK: - 3.4 知识与记忆检索卡片
@@ -625,7 +603,7 @@ struct DashboardView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 148, alignment: .topLeading)
-        .correctedLiquidGlassCard(cornerRadius: 18)
+        .softGlassCard(cornerRadius: 18)
         .interactiveGlassCard(
             cornerRadius: 18,
             actions: [
@@ -643,7 +621,6 @@ struct DashboardView: View {
                 showGlobalSearch = true
             }
         )
-        .interactiveTilt(maxAngle: 5.0, cornerRadius: 18)
     }
 
     // MARK: - 5. 进行中的会话与任务流 (Current Conversations)
@@ -730,12 +707,11 @@ struct DashboardView: View {
                     }
                     .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.16), radius: 10, y: 3)
                 }
-                .pressScaleOvershootCapsule(scale: 0.985)
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .padding(.top, 4)
             }
             .padding(16)
-            .correctedLiquidGlassCard(cornerRadius: 22)
-            .interactiveTilt(maxAngle: 4.5, cornerRadius: 22)
+            .softGlassCard(cornerRadius: 22)
         }
     }
 

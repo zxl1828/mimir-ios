@@ -31,7 +31,7 @@ struct CodeWorkspaceCLIView: View {
     @State private var buildResult: GitHubBuildResult?
     @FocusState private var composerFocused: Bool
 
-    private let codeTabBarClearance: CGFloat = 64 + 12 + 28
+    private let codeTabBarClearance: CGFloat = 66 + 12 + 28
 
     private var composerBottomClearance: CGFloat {
         isKeyboardVisible ? 10 : codeTabBarClearance
@@ -81,26 +81,11 @@ struct CodeWorkspaceCLIView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
-        .fileImporter(
-            isPresented: $showFolderImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            showFolderImporter = false
-            if case .success(let urls) = result, let folder = urls.first {
-                isLoadingWorkspace = true
-                workspaceLoadError = nil
-                Task {
-                    defer { isLoadingWorkspace = false }
-                    do {
-                        try await workspace.mountFolder(url: folder)
-                        workspace.selectCodeFile(workspace.sourceFiles.first)
-                        saveState = "已载入工作区"
-                    } catch {
-                        workspaceLoadError = error.localizedDescription
-                    }
-                }
+        .sheet(isPresented: $showFolderImporter) {
+            WorkspaceFolderPicker(isPresented: $showFolderImporter) { folder in
+                loadWorkspace(from: folder)
             }
+            .ignoresSafeArea()
         }
         .sheet(isPresented: $showFilePicker) {
             sourceFilePicker
@@ -144,14 +129,29 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
+    private func loadWorkspace(from folder: URL) {
+        isLoadingWorkspace = true
+        workspaceLoadError = nil
+        Task {
+            defer { isLoadingWorkspace = false }
+            do {
+                try await workspace.mountFolder(url: folder)
+                workspace.selectCodeFile(workspace.sourceFiles.first)
+                saveState = "已载入工作区"
+            } catch {
+                workspaceLoadError = error.localizedDescription
+            }
+        }
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("CODE / AGENT WORKSPACE")
+                    Text("CODE / LIVE WORKSPACE")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundStyle(accent)
-                    Text("代码 Agent")
+                    Text("代码工坊")
                         .font(.system(size: 23, weight: .bold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 }
@@ -188,7 +188,7 @@ struct CodeWorkspaceCLIView: View {
                         .liquidGlass(.regular, in: .circle)
                         .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
-                .buttonStyle(PhysicalElasticCircleButtonStyle())
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isLoadingWorkspace)
                 .accessibilityLabel("选择项目文件夹")
 
@@ -202,7 +202,7 @@ struct CodeWorkspaceCLIView: View {
                         .liquidGlass(.regular, in: .circle)
                         .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
-                .buttonStyle(PhysicalElasticCircleButtonStyle())
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .accessibilityLabel("选择源码文件")
 
                 Button(action: beginRemoteBuild) {
@@ -218,14 +218,14 @@ struct CodeWorkspaceCLIView: View {
                     .background(Capsule().fill(accent))
                     .overlay { Capsule().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8) }
                 }
-                .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isBuilding || workspace.activeWorkspaceURL == nil)
                 .accessibilityLabel("通过 GitHub Actions 编译此项目")
             }
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 12)
-        .correctedLiquidGlassCard(cornerRadius: 22, interactive: false)
+        .softGlassCard(cornerRadius: 22)
     }
 
     private var buildStatusBar: some View {
@@ -254,17 +254,18 @@ struct CodeWorkspaceCLIView: View {
     private func editorPanel(height: CGFloat) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Image(systemName: workspace.currentActiveCodeFile?.systemIcon ?? "doc.text")
-                    .font(.system(size: 12, weight: .semibold))
+                Circle()
+                    .fill(Color.green.opacity(workspace.currentActiveCodeFile == nil ? 0.35 : 0.92))
+                    .frame(width: 5, height: 5)
+                Text("LIVE SOURCE")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundStyle(accent)
-                Text(workspace.currentActiveCodeFile.flatMap(workspace.relativePath(for:)) ?? "未选择源码")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                    .lineLimit(1)
-                    .truncationMode(.head)
+                Text(workspace.currentActiveCodeFile?.fileExtension.uppercased() ?? "PROJECT")
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
                 Spacer(minLength: 4)
                 Text(saveState)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
                     .lineLimit(1)
                 Button {
@@ -278,18 +279,31 @@ struct CodeWorkspaceCLIView: View {
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(width: 30, height: 30)
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 28, height: 28)
                         .contentShape(Circle())
                 }
-                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.985))
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .accessibilityLabel("重新载入文件")
             }
             .padding(.horizontal, 12)
-            .frame(height: 42)
+            .frame(height: 34)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(AppUI.refractionEdge(accent, scheme: scheme).opacity(0.6)).frame(height: 0.6)
             }
+
+            HStack(spacing: 8) {
+                Image(systemName: workspace.currentActiveCodeFile?.systemIcon ?? "doc.text")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(accent)
+                Text(workspace.currentActiveCodeFile.flatMap(workspace.relativePath(for:)) ?? "未选择源码")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                    .lineLimit(1)
+                    .truncationMode(.head)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 34)
 
             if workspace.currentActiveCodeFile != nil {
                 TextEditor(text: Binding(
@@ -304,7 +318,7 @@ struct CodeWorkspaceCLIView: View {
                 .padding(.horizontal, 7)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(scheme == .dark ? AppUI.baseDarkDeepPurple.opacity(0.72) : AppUI.baseLightWhite.opacity(0.88))
+                .background(scheme == .dark ? Color(hex: "241936").opacity(0.55) : Color.white.opacity(0.58))
             } else {
                 VStack(spacing: 9) {
                     Image(systemName: "folder.badge.questionmark")
@@ -319,16 +333,21 @@ struct CodeWorkspaceCLIView: View {
                         .tint(accent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(scheme == .dark ? AppUI.baseDarkDeepPurple.opacity(0.72) : AppUI.baseLightWhite.opacity(0.88))
+                .background(scheme == .dark ? Color(hex: "241936").opacity(0.55) : Color.white.opacity(0.58))
             }
         }
         .frame(height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         }
+        .shadow(color: accent.opacity(scheme == .dark ? 0.13 : 0.09), radius: 20, y: 9)
     }
 
     private var agentPanel: some View {
@@ -382,7 +401,7 @@ struct CodeWorkspaceCLIView: View {
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(accent))
                 }
-                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.985))
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(agent.isWorking || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .padding(.trailing, 5)
                 .accessibilityLabel("发送给代码 Agent")

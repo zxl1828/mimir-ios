@@ -188,7 +188,7 @@ enum ScheduledTaskRunner {
 
     private static func resolvedModelID() -> String {
         let stored = AppSettings().credential.modelID
-        return stored.isEmpty ? "deepseek-chat" : stored
+        return stored.isEmpty ? APIKeyFormat.openAI.defaultModelID : stored
     }
 
     /// 最近一次将要触发的任务时间，用来安排后台唤醒。

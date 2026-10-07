@@ -9,6 +9,10 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var settings = AppSettings()
     @State private var isReady = false
+    @State private var isUnlocked = true
+    @State private var isAuthenticating = false
+    @State private var lockError: String?
+    @State private var didEnterBackground = false
 
     var body: some View {
         Group {
@@ -27,13 +31,32 @@ struct RootView: View {
         .environment(\.appBackground, settings.background)
         .preferredColorScheme(settings.appearance.colorScheme)
         .tint(settings.accent.color)
+        .overlay {
+            if isReady,
+               settings.hasCompletedOnboarding,
+               settings.hasUsableCredential,
+               settings.biometricLockEnabled,
+               !isUnlocked {
+                PrivacyLockView(
+                    isAuthenticating: isAuthenticating,
+                    errorMessage: lockError,
+                    onUnlock: { Task { await requestPrivacyUnlock() } }
+                )
+                .transition(.opacity)
+                .zIndex(100)
+            }
+        }
         .task {
             ThemeManager.shared.accent = settings.accent
             ThemeManager.shared.appearance = settings.appearance
             ThemeManager.shared.background = settings.background
             StartupCoordinator.seedIfNeeded(context: modelContext)
             StartupCoordinator.refreshScheduledTasks(context: modelContext)
+            isUnlocked = !settings.biometricLockEnabled
             isReady = true
+            if settings.biometricLockEnabled {
+                Task { await requestPrivacyUnlock() }
+            }
             // Gemini Spark：启动即拉起常驻灵动岛（已存在则复用，不会重复请求）
             await MimirSparkManager.shared.bootstrap()
         }
@@ -46,12 +69,31 @@ struct RootView: View {
         .onChange(of: settings.background) { _, newBg in
             ThemeManager.shared.background = newBg
         }
+        .onChange(of: settings.biometricLockEnabled) { _, enabled in
+            if enabled && settings.hasCompletedOnboarding && settings.hasUsableCredential {
+                isUnlocked = false
+                Task { await requestPrivacyUnlock() }
+            } else if !enabled {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                    isUnlocked = true
+                }
+                lockError = nil
+            }
+        }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .background {
+                didEnterBackground = true
+                if settings.biometricLockEnabled { isUnlocked = false }
                 StartupCoordinator.performMaintenance(context: modelContext, settings: settings)
             } else if newPhase == .active {
                 // 回到前台：常驻活动若被系统回收就重建
                 Task { await MimirSparkManager.shared.resumeIfNeeded() }
+                if didEnterBackground {
+                    didEnterBackground = false
+                    if settings.biometricLockEnabled {
+                        Task { await requestPrivacyUnlock() }
+                    }
+                }
             }
         }
         // 点按灵动岛的输入入口 → 回到助手页并聚焦输入框
@@ -60,6 +102,25 @@ struct RootView: View {
             let coordinator = TabNavigationCoordinator.shared
             coordinator.selectedTab = .assistant
             coordinator.pendingPromptToChat = ""
+        }
+    }
+
+    @MainActor
+    private func requestPrivacyUnlock() async {
+        guard settings.biometricLockEnabled,
+              settings.hasCompletedOnboarding,
+              settings.hasUsableCredential,
+              !isAuthenticating else { return }
+        isAuthenticating = true
+        lockError = nil
+        let authenticated = await BiometricAuthenticator.authenticate()
+        isAuthenticating = false
+        if authenticated {
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                isUnlocked = true
+            }
+        } else {
+            lockError = "身份验证未完成，请重试或使用设备密码。"
         }
     }
 }

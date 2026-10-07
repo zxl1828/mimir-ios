@@ -24,6 +24,27 @@ struct SettingsView: View {
 
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        ProfileSettingsView()
+                    } label: {
+                        HStack(spacing: 13) {
+                            ProfileAvatarBadge(size: 46)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(settings.profileName.isEmpty ? "个人资料" : settings.profileName)
+                                    .font(AppUI.rowTitle)
+                                    .foregroundStyle(AppUI.label)
+                                    .lineLimit(1)
+                                Text("名称与头像")
+                                    .font(AppUI.caption)
+                                    .foregroundStyle(AppUI.label2)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+
                 // 分组 1：个性化与功能
                 Section {
                     NavigationLink {
@@ -866,6 +887,16 @@ private struct GeneralSettingsView: View {
         @Bindable var settings = settings
 
         List {
+            Section {
+                Toggle(isOn: $settings.biometricLockEnabled) {
+                    Label("Face ID / Touch ID", systemImage: "faceid")
+                }
+            } header: {
+                Text("隐私锁")
+            } footer: {
+                Text("开启后，冷启动和从后台返回时需要通过生物识别或设备密码解锁。")
+            }
+
             Section {
                 Picker("对话保留", selection: $settings.retention) {
                     ForEach(RetentionPolicy.allCases) { policy in

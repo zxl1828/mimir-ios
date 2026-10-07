@@ -45,74 +45,6 @@ public struct CorrectedSoftVerticalFadeMaskModifier: ViewModifier {
     }
 }
 
-// MARK: - 2. 纯净 Liquid Glass 卡片修饰器（单层 1pt 微光折射描边）
-
-public struct CorrectedLiquidGlassCardModifier: ViewModifier {
-    public var cornerRadius: CGFloat
-    public var interactive: Bool
-
-    @Environment(\.appAccent) private var accent
-    @Environment(\.colorScheme) private var scheme
-
-    public init(cornerRadius: CGFloat = 20, interactive: Bool = true) {
-        self.cornerRadius = cornerRadius
-        self.interactive = interactive
-    }
-
-    public func body(content: Content) -> some View {
-        content
-            // Keep a translucent theme base beneath native glass refraction.
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(
-                        scheme == .dark
-                            ? Color(hex: "120D1D").opacity(0.52)
-                            : Color(hex: "F8F6FD").opacity(0.68)
-                    )
-            }
-            .liquidGlass(
-                interactive ? .regular.tint(accent.opacity(0.18)) : .regular,
-                in: .rect(cornerRadius: cornerRadius)
-            )
-            .overlay {
-                // 单层 1pt 迎光面半透明白、背光面主题色微散射描边
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(scheme == .dark ? 0.50 : 0.80),
-                                accent.opacity(scheme == .dark ? 0.35 : 0.20)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.0
-                    )
-                    .allowsHitTesting(false)
-            }
-            .overlay(alignment: .top) {
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(scheme == .dark ? 0.20 : 0.55),
-                        Color.white.opacity(scheme == .dark ? 0.06 : 0.18),
-                        Color.clear
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .allowsHitTesting(false)
-            }
-            .shadow(
-                color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
-                radius: 16,
-                x: 0,
-                y: 8
-            )
-    }
-}
-
 // MARK: - 3. 悬浮天气与日程胶囊（Floating Weather Capsule）
 
 public struct FloatingWeatherAgendaCapsule: View {
@@ -178,7 +110,7 @@ public struct FloatingWeatherAgendaCapsule: View {
             )
             .shadow(color: accent.opacity(scheme == .dark ? 0.22 : 0.08), radius: 8, y: 2)
         }
-        .buttonStyle(PressScaleOvershootCapsuleButtonStyle(scale: 0.985))
+        .buttonStyle(StaticButtonFeedbackStyle())
     }
 }
 
@@ -188,8 +120,4 @@ extension View {
         modifier(CorrectedSoftVerticalFadeMaskModifier(topFade: topFade, bottomFade: bottomFade))
     }
 
-    /// 应用单层 1pt 纯净 Liquid Glass 卡片材质（杜绝双重边框冲突）。
-    public func correctedLiquidGlassCard(cornerRadius: CGFloat = 20, interactive: Bool = true) -> some View {
-        modifier(CorrectedLiquidGlassCardModifier(cornerRadius: cornerRadius, interactive: interactive))
-    }
 }

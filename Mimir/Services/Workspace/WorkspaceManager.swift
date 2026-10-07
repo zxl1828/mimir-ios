@@ -58,16 +58,6 @@ struct WorkspaceFileItem: Identifiable, Hashable, Sendable {
     }
 }
 
-/// 知识资产与多模态媒体模型。
-struct WorkspaceMediaItem: Identifiable, Hashable, Sendable {
-    var id = UUID()
-    var title: String
-    var prompt: String
-    var createdAt: Date
-    var imageAssetName: String?
-    var systemIcon: String = "sparkles"
-}
-
 enum WorkspaceAccessError: LocalizedError, Sendable {
     case noFolder
     case accessDenied
@@ -156,7 +146,6 @@ final class WorkspaceManager {
     var mountedWorkspaces: [URL] = []
     var activeWorkspaceURL: URL?
     var allFiles: [WorkspaceFileItem] = []
-    var mediaItems: [WorkspaceMediaItem] = []
     var selectedCategory: WorkspaceFileItem.AssetCategory = .all
     var searchText: String = ""
 
@@ -168,7 +157,6 @@ final class WorkspaceManager {
     private var lastSavedCodeContent = ""
 
     private init() {
-        loadBuiltinSamples()
         loadBookmarks()
     }
 
@@ -242,7 +230,7 @@ final class WorkspaceManager {
         let selectionBelongsToWorkspace = activeRoot.map { root in
             selectedPath?.hasPrefix(root + "/") == true
         } ?? false
-        self.allFiles = scannedItems + builtInSamples
+        self.allFiles = scannedItems
 
         if let selectedPath, let refreshed = scannedItems.first(where: { $0.url?.standardizedFileURL.path == selectedPath }) {
             currentActiveCodeFile = refreshed
@@ -303,11 +291,6 @@ final class WorkspaceManager {
                 return text
             }
         }
-        // 内置样例回退文本
-        if item.name.contains("Swift") { return Self.sampleSwiftCode }
-        if item.name.contains(".html") { return Self.sampleHTMLCode }
-        if item.name.contains(".py") { return Self.samplePythonCode }
-        if item.name.contains(".md") { return Self.sampleMarkdownNote }
         return "// 文件内容为空或二进制不可读"
     }
 
@@ -445,205 +428,4 @@ final class WorkspaceManager {
         }
     }
 
-    // MARK: - 内置样本数据初始化
-
-    private var builtInSamples: [WorkspaceFileItem] = []
-
-    private func loadBuiltinSamples() {
-        let now = Date()
-        builtInSamples = [
-            WorkspaceFileItem(
-                name: "AgentRunner.swift",
-                path: "/workspace/Mimir/AgentRunner.swift",
-                isDirectory: false,
-                size: 4_280,
-                modifiedAt: now.addingTimeInterval(-3600 * 2),
-                fileExtension: "swift",
-                url: nil,
-                category: .code
-            ),
-            WorkspaceFileItem(
-                name: "NeuralVisualizer.html",
-                path: "/workspace/Web/NeuralVisualizer.html",
-                isDirectory: false,
-                size: 8_192,
-                modifiedAt: now.addingTimeInterval(-3600 * 5),
-                fileExtension: "html",
-                url: nil,
-                category: .code
-            ),
-            WorkspaceFileItem(
-                name: "DataPipeline.py",
-                path: "/workspace/Scripts/DataPipeline.py",
-                isDirectory: false,
-                size: 3_120,
-                modifiedAt: now.addingTimeInterval(-3600 * 18),
-                fileExtension: "py",
-                url: nil,
-                category: .code
-            ),
-            WorkspaceFileItem(
-                name: "DeepSeekReasoningSpec.md",
-                path: "/workspace/Docs/DeepSeekReasoningSpec.md",
-                isDirectory: false,
-                size: 12_400,
-                modifiedAt: now.addingTimeInterval(-3600 * 24),
-                fileExtension: "md",
-                url: nil,
-                category: .document
-            ),
-            WorkspaceFileItem(
-                name: "OrbitalDynamicsPrompt.md",
-                path: "/workspace/Prompts/OrbitalDynamicsPrompt.md",
-                isDirectory: false,
-                size: 1_860,
-                modifiedAt: now.addingTimeInterval(-3600 * 48),
-                fileExtension: "md",
-                url: nil,
-                category: .prompt
-            ),
-            WorkspaceFileItem(
-                name: "NebulaTreeArtwork.png",
-                path: "/workspace/Assets/NebulaTreeArtwork.png",
-                isDirectory: false,
-                size: 1_048_576,
-                modifiedAt: now.addingTimeInterval(-3600 * 72),
-                fileExtension: "png",
-                url: nil,
-                category: .media
-            )
-        ]
-        allFiles = builtInSamples
-
-        mediaItems = [
-            WorkspaceMediaItem(
-                title: "星穹神树·深度思考",
-                prompt: "A bioluminescent sacred cosmic tree rooted in deep nebula space, stars orbiting branches, 8k cinematic render",
-                createdAt: now.addingTimeInterval(-3600 * 3),
-                imageAssetName: nil
-            ),
-            WorkspaceMediaItem(
-                title: "赛博猫头鹰观测台",
-                prompt: "Futuristic crystal owl perched on floating glass pedestal overlooking neon cyberpunk metropolis at twilight",
-                createdAt: now.addingTimeInterval(-3600 * 26),
-                imageAssetName: nil
-            )
-        ]
-    }
-
-    // MARK: - 代码样例常量
-
-    static let sampleSwiftCode = """
-    import Foundation
-    import SwiftUI
-
-    /// Mimir 异步多智能体执行管线
-    public final class AgentPipeline: Sendable {
-        public let identifier: String
-        public let executionMode: String
-
-        public init(identifier: String = "mimir.pipeline.core", mode: String = "Ultra") {
-            self.identifier = identifier
-            self.executionMode = mode
-        }
-
-        public func executeTask(query: String) async throws -> String {
-            // 调度端侧向量召回与云端推理
-            try await Task.sleep(for: .milliseconds(400))
-            return "Task executed successfully under \\(executionMode) mode: \\(query)"
-        }
-    }
-    """
-
-    static let sampleHTMLCode = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Mimir Neural Visualizer</title>
-      <style>
-        body { margin: 0; background: #0D0B18; color: #FFF; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        canvas { background: radial-gradient(circle at center, #1E1738 0%, #08060F 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(124, 92, 252, 0.3); }
-        .label { margin-top: 15px; color: #A78BFA; font-size: 14px; letter-spacing: 1px; }
-      </style>
-    </head>
-    <body>
-      <canvas id="neuralCanvas" width="340" height="260"></canvas>
-      <div class="label">● MIMIR NEURAL MATRIX LIVE RUNTIME</div>
-      <script>
-        const canvas = document.getElementById('neuralCanvas');
-        const ctx = canvas.getContext('2d');
-        let particles = [];
-        for (let i = 0; i < 28; i++) {
-          particles.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            vx: (Math.random() - 0.5) * 1.5,
-            vy: (Math.random() - 0.5) * 1.5,
-            radius: Math.random() * 2.5 + 1.5
-          });
-        }
-        function draw() {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.strokeStyle = 'rgba(124, 92, 252, 0.25)';
-          ctx.fillStyle = '#C4B5FD';
-          for (let i = 0; i < particles.length; i++) {
-            let p = particles[i];
-            p.x += p.vx; p.y += p.vy;
-            if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-            if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            ctx.fill();
-            for (let j = i + 1; j < particles.length; j++) {
-              let p2 = particles[j];
-              let dist = Math.hypot(p.x - p2.x, p.y - p2.y);
-              if (dist < 70) {
-                ctx.beginPath();
-                ctx.moveTo(p.x, p.y);
-                ctx.lineTo(p2.x, p2.y);
-                ctx.stroke();
-              }
-            }
-          }
-          requestAnimationFrame(draw);
-        }
-        draw();
-      </script>
-    </body>
-    </html>
-    """
-
-    static let samplePythonCode = """
-    # Mimir Local Data Transformer
-    import json
-    from typing import Dict, Any
-
-    def transform_metrics(raw_data: Dict[str, Any]) -> Dict[str, float]:
-        tokens = raw_data.get("tokens", 0)
-        duration_sec = raw_data.get("duration", 1.0)
-        speed = round(tokens / max(duration_sec, 0.001), 2)
-        return {
-            "tokens_per_second": speed,
-            "latency_ms": round(duration_sec * 1000, 1),
-            "efficiency_ratio": round(speed / 45.0, 3)
-        }
-
-    if __name__ == "__main__":
-        result = transform_metrics({"tokens": 1280, "duration": 2.4})
-        print(json.dumps(result, indent=2))
-    """
-
-    static let sampleMarkdownNote = """
-    # 空间轨道力学推理提示词规范 (Orbital Dynamics)
-
-    ## 目标
-    用于引导大模型对霍曼转移轨道（Hohmann Transfer）与二阶引力摄动计算进行分步数学推导。
-
-    ## 核心系统约束
-    1. 必须优先使用极坐标系与拉格朗日乘子表达动能与势能方程式。
-    2. 输出公式必须格式化为 LaTeX 块级公式（使用 `$$` 语法）。
-    3. 在 Ultra 思考档位下，验证角动量守恒定理的边界条件。
-    """
 }

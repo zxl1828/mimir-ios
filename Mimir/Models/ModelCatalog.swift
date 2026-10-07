@@ -68,7 +68,7 @@ enum ModelCatalog {
         case "claude-haiku-4-5": return "Claude-Haiku-4.5"
         default:
             let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? "DeepSeek-Chat" : trimmed
+            return trimmed.isEmpty ? "AI Model" : trimmed
         }
     }
 }

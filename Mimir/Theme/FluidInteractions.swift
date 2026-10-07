@@ -1,194 +1,6 @@
 import SwiftUI
 import UIKit
 
-// MARK: - 1. 遵循三阶段规范的 3D 透视倾斜与镜像反射流光 (Interactive 3D Perspective Tilt & Specular Sheen)
-
-/// 遵循严格三阶段渲染管线的 3D 物理透视倾斜与流光卡片修饰器：
-/// Stage 1: 内部材质与表面高光流光 (Specular Sheen Overlay - RadialGradient 严格基于容器尺寸)
-/// Stage 2: 强硬圆角裁剪 (.clipShape + .contentShape)，死死锁定所有内部渐变与反射层，100% 杜绝溢出
-/// Stage 3: 外部环境阴影 (.shadow) -> 栅格化合成组 (.compositingGroup()) -> 3D 透视倾斜与弹性微缩
-struct TiltGlareCardModifier: ViewModifier {
-
-    var maxAngle: CGFloat
-    var cornerRadius: CGFloat
-    var showsSpecularSheen: Bool
-    var hasAmbientBacklight: Bool
-    var scaleOnPress: CGFloat
-
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.appAccent) private var accent
-
-    @State private var pitch: CGFloat = 0  // 绕 X 轴旋转 (-1...1)
-    @State private var roll: CGFloat = 0   // 绕 Y 轴旋转 (-1...1)
-    @State private var touchPoint: CGPoint = .zero
-    @State private var isTouching: Bool = false
-    @State private var viewSize: CGSize = .zero
-
-    init(
-        maxAngle: CGFloat = 7.0,
-        cornerRadius: CGFloat = AppUI.cardRadius,
-        showsSpecularSheen: Bool = true,
-        hasAmbientBacklight: Bool = false,
-        scaleOnPress: CGFloat = 0.985
-    ) {
-        self.maxAngle = maxAngle
-        self.cornerRadius = cornerRadius
-        self.showsSpecularSheen = showsSpecularSheen
-        self.hasAmbientBacklight = hasAmbientBacklight
-        self.scaleOnPress = scaleOnPress
-    }
-
-    func body(content: Content) -> some View {
-        content
-            // 1. 按压/交互微光反馈（彻底废除纯黑与暗灰：浅色为淡紫微光，深色为亮紫流光）
-            .overlay {
-                if isTouching {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(
-                            scheme == .dark
-                                ? accent.opacity(0.16)
-                                : Color.white.opacity(0.30)
-                        )
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                }
-            }
-            // 1.5 镜面流光：跟随手指的径向高光（深色下叠加提亮呈白/浅紫，浅色下柔和提亮）
-            .overlay {
-                if showsSpecularSheen, isTouching, viewSize.width > 0, viewSize.height > 0 {
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(scheme == .dark ? 0.32 : 0.42),
-                            accent.opacity(scheme == .dark ? 0.18 : 0.10),
-                            Color.clear
-                        ],
-                        center: UnitPoint(
-                            x: min(max(touchPoint.x / viewSize.width, 0), 1),
-                            y: min(max(touchPoint.y / viewSize.height, 0), 1)
-                        ),
-                        startRadius: 0,
-                        endRadius: max(viewSize.width, viewSize.height) * 0.62
-                    )
-                    .blendMode(scheme == .dark ? .plusLighter : .normal)
-                    .allowsHitTesting(false)
-                }
-            }
-            .background {
-                GeometryReader { proxy in
-                    Color.clear
-                        .onAppear { viewSize = proxy.size }
-                        .onChange(of: proxy.size) { _, newSize in viewSize = newSize }
-                }
-            }
-            // 2. 强硬圆角裁剪：统一收拢在最外层
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .background {
-                if hasAmbientBacklight {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(accent.opacity(scheme == .dark ? 0.22 : 0.10))
-                        .blur(radius: 24)
-                        .scaleEffect(x: 1.02, y: 1.08)
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(.easeInOut(duration: 0.24), value: isTouching)
-            // 3. 静态主题环境阴影（固定半径，杜绝每帧离屏重算）
-            .shadow(
-                color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
-                radius: isTouching ? 16 : 10,
-                x: 0,
-                y: isTouching ? 8 : 4
-            )
-            // 4. 关键：在 3D 变换前建立复合图层，避免每帧触发离屏渲染树全量重构
-            .compositingGroup()
-            // 5. 触控物理微缩
-            .scaleEffect(isTouching ? scaleOnPress : 1.0, anchor: .center)
-            // 6. 3D 透视手势旋转
-            .rotation3DEffect(
-                .degrees(-Double(pitch * maxAngle)),
-                axis: (x: 1.0, y: 0.0, z: 0.0),
-                perspective: 0.50
-            )
-            .rotation3DEffect(
-                .degrees(Double(roll * maxAngle)),
-                axis: (x: 0.0, y: 1.0, z: 0.0),
-                perspective: 0.50
-            )
-            // 7. 局部手势绑定
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        guard viewSize.width > 0, viewSize.height > 0 else { return }
-                        let x = value.location.x
-                        let y = value.location.y
-                        touchPoint = value.location
-                        let halfW = viewSize.width / 2
-                        let halfH = viewSize.height / 2
-                        let r = min(max((x - halfW) / halfW, -1.0), 1.0)
-                        let p = min(max((y - halfH) / halfH, -1.0), 1.0)
-                        if !isTouching {
-                            Haptics.impact(.light)
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.80)) {
-                                isTouching = true
-                            }
-                        }
-                        withAnimation(.interactiveSpring(response: 0.18, dampingFraction: 0.86)) {
-                            roll = r
-                            pitch = p
-                        }
-                    }
-                    .onEnded { _ in
-                        withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
-                            pitch = 0
-                            roll = 0
-                            isTouching = false
-                        }
-                    }
-            )
-    }
-}
-
-typealias InteractivePerspectiveTiltModifier = TiltGlareCardModifier
-
-extension View {
-    /// 遵循三阶段规范的 3D 透视倾斜与流光卡片修饰器（防溢出裁切 + 合成栅格化 + 呼吸背光）。
-    func tiltGlareCard(
-        maxAngle: CGFloat = 7.0,
-        cornerRadius: CGFloat = AppUI.cardRadius,
-        showsSpecularSheen: Bool = true,
-        hasAmbientBacklight: Bool = false,
-        scaleOnPress: CGFloat = 0.985
-    ) -> some View {
-        modifier(
-            TiltGlareCardModifier(
-                maxAngle: maxAngle,
-                cornerRadius: cornerRadius,
-                showsSpecularSheen: showsSpecularSheen,
-                hasAmbientBacklight: hasAmbientBacklight,
-                scaleOnPress: scaleOnPress
-            )
-        )
-    }
-
-    /// 为卡片添加跟随触摸的 3D 透视倾斜与镜像反射流光，松手带 spring 阻尼回正。
-    func interactiveTilt(
-        maxAngle: CGFloat = 7.0,
-        cornerRadius: CGFloat = AppUI.cardRadius,
-        showsSpecularSheen: Bool = true,
-        hasAmbientBacklight: Bool = false
-    ) -> some View {
-        modifier(
-            TiltGlareCardModifier(
-                maxAngle: maxAngle,
-                cornerRadius: cornerRadius,
-                showsSpecularSheen: showsSpecularSheen,
-                hasAmbientBacklight: hasAmbientBacklight
-            )
-        )
-    }
-}
-
 // MARK: - 2. 胶囊按钮向弹窗面板的流体形态变换 (Fluid Morph from Capsule to Panel)
 
 /// 胶囊按钮与弹出面板之间的流体形态过渡容器。
@@ -333,8 +145,8 @@ struct FluidRubberBandDrawer<Content: View>: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             if isPresented {
-                (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.09) : accent)
-                    .opacity(scheme == .dark ? 0.48 : 0.18)
+                (scheme == .dark ? Color(hex: "120D1D") : accent)
+                    .opacity(scheme == .dark ? 0.36 : 0.12)
                     .ignoresSafeArea()
                     .onTapGesture { closeWithAnimation() }
                     .transition(.opacity)
@@ -509,83 +321,14 @@ extension View {
     }
 }
 
-// MARK: - 7. 居中光学微缩与触觉反馈
+// MARK: - 7. Static button feedback
 
-/// 矩形按钮用轻微居中压缩与弹簧回弹表达按压。
-struct PhysicalElasticButtonStyle: ButtonStyle {
-
-    var scale: CGFloat = 0.985
-    var cornerRadius: CGFloat = 16
-    var enableHaptic: Bool = true
-
+struct StaticButtonFeedbackStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
-            .overlay {
-                if configuration.isPressed {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
-                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
+            .brightness(configuration.isPressed ? 0.035 : 0)
             .onChange(of: configuration.isPressed) { _, isPressed in
-                if isPressed && enableHaptic {
-                    Haptics.impact(.light)
-                }
-            }
-    }
-}
-
-/// 胶囊按钮使用统一的轻量玻璃按压反馈。
-struct PhysicalElasticCapsuleButtonStyle: ButtonStyle {
-
-    var scale: CGFloat = 0.985
-    var enableHaptic: Bool = true
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
-            .overlay {
-                if configuration.isPressed {
-                    Capsule(style: .continuous)
-                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
-                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
-            .onChange(of: configuration.isPressed) { _, isPressed in
-                if isPressed && enableHaptic {
-                    Haptics.impact(.light)
-                }
-            }
-    }
-}
-
-/// 圆形按钮物理弹性样式（UIBarButton / 语音/发送圆形按钮专用）。
-struct PhysicalElasticCircleButtonStyle: ButtonStyle {
-
-    var scale: CGFloat = 0.985
-    var enableHaptic: Bool = true
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
-            .overlay {
-                if configuration.isPressed {
-                    Circle()
-                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
-                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
-                        .allowsHitTesting(false)
-                }
-            }
-            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
-            .onChange(of: configuration.isPressed) { _, isPressed in
-                if isPressed && enableHaptic {
-                    Haptics.impact(.light)
-                }
+                if isPressed { Haptics.impact(.light) }
             }
     }
 }
@@ -624,7 +367,6 @@ struct GlassCardInteractiveModifier: ViewModifier {
     var actions: [GlassCardAction]
     var onPrimaryTap: (() -> Void)?
 
-    @State private var isPressed: Bool = false
     @State private var showActionOverlay: Bool = false
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
@@ -641,8 +383,6 @@ struct GlassCardInteractiveModifier: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
-            .scaleEffect(isPressed ? 0.985 : 1.0, anchor: .center)
-            .animation(.spring(response: 0.28, dampingFraction: 0.70), value: isPressed)
             .overlay {
                 if showActionOverlay && !actions.isEmpty {
                     actionOverlay
@@ -654,14 +394,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
                         )
                 }
             }
-            .onLongPressGesture(minimumDuration: 0.42, pressing: { pressing in
-                if pressing != isPressed {
-                    isPressed = pressing
-                    if pressing {
-                        Haptics.impact(.light)
-                    }
-                }
-            }) {
+            .onLongPressGesture(minimumDuration: 0.42) {
                 Haptics.impact(.medium)
                 withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
                     showActionOverlay.toggle()
@@ -751,7 +484,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
                                 .lineLimit(1)
                         }
                     }
-                    .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.985))
+                    .buttonStyle(StaticButtonFeedbackStyle())
                 }
             }
             .padding(.horizontal, 10)

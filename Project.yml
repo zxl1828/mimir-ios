@@ -46,6 +46,7 @@ targets:
         NSCameraUsageDescription: 用于拍照提问和扫描文档，图片只在你的设备上处理。
         NSPhotoLibraryUsageDescription: 用于从相册选取图片提问。
         NSPhotoLibraryAddUsageDescription: 用于把生成的图片保存到相册。
+        NSFaceIDUsageDescription: 用于保护 Mimir 中的私人对话和本地项目。
         NSCalendarsUsageDescription: 用于读取当天日程、创建你说要加的日程。
         NSCalendarsFullAccessUsageDescription: 用于读取当天日程、创建你说要加的日程。
         NSRemindersUsageDescription: 用于把你说的事项写进系统「提醒事项」。

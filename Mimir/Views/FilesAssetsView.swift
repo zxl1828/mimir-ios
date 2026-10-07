@@ -156,7 +156,7 @@ struct FilesAssetsView: View {
                                 .allowsHitTesting(false)
                         }
                 }
-                .buttonStyle(PhysicalElasticButtonStyle())
+                .buttonStyle(StaticButtonFeedbackStyle())
             }
 
             HStack(spacing: 7) {
@@ -174,8 +174,9 @@ struct FilesAssetsView: View {
                     .monospacedDigit()
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 3)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .softGlassCard(cornerRadius: 24)
     }
 
     // MARK: - 2. 搜索与分类过滤栏
@@ -249,7 +250,7 @@ struct FilesAssetsView: View {
                                     .allowsHitTesting(false)
                             )
                         }
-                        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+                        .buttonStyle(StaticButtonFeedbackStyle())
                     }
                 }
                 .padding(.horizontal, 2)
@@ -310,12 +311,11 @@ struct FilesAssetsView: View {
                             .allowsHitTesting(false)
                     )
             }
-            .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+            .buttonStyle(StaticButtonFeedbackStyle())
             .disabled(isMountingWorkspace)
         }
         .padding(12)
         .softGlassCard(cornerRadius: 18)
-        .interactiveTilt(maxAngle: 4.0, cornerRadius: 18)
     }
 
     private func mountWorkspace(urls: [URL]) {
@@ -419,8 +419,7 @@ struct FilesAssetsView: View {
                 }
             }
         }
-        .buttonStyle(PhysicalElasticButtonStyle())
-        .interactiveTilt(maxAngle: 5.5, cornerRadius: 16)
+        .buttonStyle(StaticButtonFeedbackStyle())
         .interactiveGlassCard(
             cornerRadius: 16,
             actions: [
@@ -505,27 +504,58 @@ struct FilesAssetsView: View {
                     .padding(12)
                     .softGlassCard(cornerRadius: 14)
                 }
-                .buttonStyle(PhysicalElasticButtonStyle())
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .staggeredSlideEntrance(index: index)
             }
         }
     }
 
     private var emptyStateCard: some View {
+        let isSearching = !workspace.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         VStack(spacing: 12) {
-            Image(systemName: "folder.badge.questionmark")
-                .font(.system(size: 38, weight: .light))
-                .foregroundStyle(AppUI.textCaption(scheme: scheme))
-            Text("未找到相关文件")
-                .font(.system(size: 15, weight: .semibold))
+            ZStack {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(accent.opacity(scheme == .dark ? 0.16 : 0.09))
+                    .frame(width: 76, height: 76)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    }
+                Image(systemName: isSearching ? "doc.text.magnifyingglass" : "folder.badge.plus")
+                    .font(.system(size: 27, weight: .medium))
+                    .foregroundStyle(accent.gradient)
+            }
+            .padding(.bottom, 3)
+
+            Text(isSearching ? "没有匹配项目" : "资料空间为空")
+                .font(.system(size: 19, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.textTitle(scheme: scheme))
-            Text("尝试更换搜索词，或点击右下角「+」导入/新建文档。")
-                .font(.system(size: 12))
+            Text(isSearching ? "0 个匹配项目" : "LOCAL LIBRARY  ·  0 ITEMS")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+            if !isSearching {
+                Text("文件留存在本机")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+            }
+            if !isSearching && workspace.activeWorkspaceURL == nil {
+                Button {
+                    showFolderImporter = true
+                } label: {
+                    Label("选择项目文件夹", systemImage: "folder.badge.plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 15)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(accent)
+                .padding(.top, 4)
+            }
         }
-        .padding(32)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 30)
         .frame(maxWidth: .infinity)
-        .softGlassCard(cornerRadius: 18)
+        .softGlassCard(cornerRadius: 26)
     }
 
     // MARK: - 5. 浮动操作按钮 (FAB)
@@ -576,7 +606,7 @@ struct FilesAssetsView: View {
                     .shadow(color: accent.opacity(0.55), radius: 12, y: 5)
                     .rotationEffect(.degrees(showFABMenu ? 90 : 0))
             }
-            .buttonStyle(PhysicalElasticCircleButtonStyle())
+            .buttonStyle(StaticButtonFeedbackStyle())
         }
     }
 
@@ -603,7 +633,7 @@ struct FilesAssetsView: View {
             }
             .shadow(color: accent.opacity(scheme == .dark ? 0.20 : 0.08), radius: 8, y: 3)
         }
-        .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+        .buttonStyle(StaticButtonFeedbackStyle())
     }
 
     // MARK: - 6. 底部“送入当前对话上下文”浮动条
@@ -650,7 +680,7 @@ struct FilesAssetsView: View {
                 }
                 .shadow(color: accent.opacity(0.4), radius: 6, y: 2)
             }
-            .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+            .buttonStyle(StaticButtonFeedbackStyle())
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -726,7 +756,11 @@ struct FilesAssetsView: View {
                         .font(.system(size: 13, design: .monospaced))
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(hex: "171424").opacity(scheme == .dark ? 0.95 : 0.08))
+                        .background(
+                            scheme == .dark
+                                ? Color(hex: "120D1D").opacity(0.96)
+                                : Color(hex: "F8F6FD")
+                        )
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .padding(16)

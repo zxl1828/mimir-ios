@@ -1,9 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// 原生风格与 Codex 液态玻璃统一设计令牌。
-///
-/// 整体背景采用纯黑（Dark）或纯白（Light），所有界面元素全面采用液态玻璃（Liquid Glass + 霓虹紫）设计语言。
+/// Mimir 的原生 Liquid Glass 设计令牌与自适应色彩基础。
 enum AppUI {
 
     // MARK: - 尺寸
@@ -25,12 +23,12 @@ enum AppUI {
     static let baseLightWhite = Color.white
     static let baseLightLavender = Color(hex: "F8F6FD")
     static let baseDarkDeepPurple = Color(hex: "120D1D")
-    static let baseDarkPlum = Color(hex: "1A122B")
+    static let baseDarkPlum = Color(hex: "120D1D")
     static let pressSheenLight = Color(hex: "EADEFA")
 
     // MARK: - 颜色（纯白/极淡紫与极深紫基准 + 系统语义色）
 
-    /// 画布主背景：深色下极深紫夜（#120D1D），浅色下极淡薰衣草紫（#F8F6FD）。
+    /// 画布主背景：深色使用梅子紫夜色，浅色使用纯白与淡薰衣草紫。
     static var canvas: Color {
         Color.adaptive(
             light: UIColor(red: 0.973, green: 0.965, blue: 0.992, alpha: 1.0),
@@ -38,25 +36,25 @@ enum AppUI {
         )
     }
 
-    /// 分组背景：深色下极深紫李（#1A122B），浅色下纯白（#FFFFFF）。
+    /// 分组背景 follows the app's light lavender and deep plum foundations.
     static var groupCanvas: Color {
         Color.adaptive(
-            light: UIColor.white,
-            dark: UIColor(red: 0.102, green: 0.071, blue: 0.169, alpha: 1.0)
+            light: UIColor(red: 0.973, green: 0.965, blue: 0.992, alpha: 1.0),
+            dark: UIColor(red: 0.071, green: 0.051, blue: 0.114, alpha: 1.0)
         )
     }
 
     static var secondary: Color {
         Color.adaptive(
-            light: UIColor(white: 0.94, alpha: 1.0),
-            dark: UIColor(red: 0.11, green: 0.10, blue: 0.15, alpha: 1.0)
+            light: UIColor(red: 0.973, green: 0.965, blue: 0.992, alpha: 1.0),
+            dark: UIColor(red: 0.141, green: 0.098, blue: 0.212, alpha: 1.0)
         )
     }
 
     static var fill: Color {
         Color.adaptive(
-            light: UIColor(white: 0.90, alpha: 0.8),
-            dark: UIColor(white: 0.18, alpha: 0.6)
+            light: UIColor(red: 0.965, green: 0.953, blue: 0.992, alpha: 0.84),
+            dark: UIColor(red: 0.18, green: 0.13, blue: 0.27, alpha: 0.68)
         )
     }
 
@@ -65,12 +63,12 @@ enum AppUI {
     static var label3: Color { Color(uiColor: .tertiaryLabel) }
     static var separator: Color {
         Color.adaptive(
-            light: UIColor(white: 0.86, alpha: 0.7),
-            dark: UIColor(white: 0.22, alpha: 0.5)
+            light: UIColor(red: 0.86, green: 0.82, blue: 0.93, alpha: 0.7),
+            dark: UIColor(red: 0.60, green: 0.50, blue: 0.72, alpha: 0.42)
         )
     }
 
-    /// 品牌紫：浅色模式下足够深（白字压得住），深色模式下自动提亮（纯黑底上通透高光）。
+    /// 品牌紫：浅色模式下足够深，深色模式下在深梅紫上提亮。
     static let brandPurple = Color.adaptive(
         light: UIColor(red: 0.50, green: 0.31, blue: 0.96, alpha: 1),
         dark: UIColor(red: 0.68, green: 0.51, blue: 1.00, alpha: 1)
@@ -139,7 +137,7 @@ enum AppUI {
         )
     }
 
-    /// 液态玻璃表面底衬色：纯黑 OLED 底上带微弱紫夜磨砂，纯白底上带通透珠光。
+    /// 液态玻璃表面底衬色：深色使用紫夜基底，浅色使用通透珠光。
     static func glassTint(scheme: ColorScheme, isHighlighted: Bool = false) -> Color {
         if scheme == .dark {
             return Color(red: 0.10, green: 0.08, blue: 0.18)
@@ -185,7 +183,7 @@ enum AppUI {
         }
     }
 
-    /// 规范软玻璃卡片 1pt 半透明浅白微光描边（迎光面半透明白，背光面主题色微散射）。
+    /// 软玻璃卡片的 1pt 双向微光描边。
     static func softGlassCardBorder(accent: Color = brandPurple, scheme: ColorScheme) -> LinearGradient {
         LinearGradient(
             colors: [
@@ -198,7 +196,7 @@ enum AppUI {
     }
 }
 
-/// 软玻璃拟态卡片修饰器（全原生 iOS 27 Liquid Glass + 保护性文本清晰度底衬）。
+/// 软玻璃卡片：保留文本清晰度，同时让表面透出环境色与边缘折射。
 struct SoftGlassCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 20
     @Environment(\.colorScheme) private var scheme
@@ -206,26 +204,26 @@ struct SoftGlassCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // 文本可读性保护底衬（WCAG AAA 级对比度保障，杜绝背景穿透文字发虚）
+            // A translucent theme wash keeps copy legible without turning glass opaque.
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(
                         scheme == .dark
-                            ? Color(hex: "120D1D").opacity(0.80)
-                            : Color.white.opacity(0.85)
+                            ? Color(hex: "241936").opacity(0.55)
+                            : Color.white.opacity(0.62)
                     )
             }
-            .liquidGlass(.regular, in: .rect(cornerRadius: cornerRadius))
+            .liquidGlass(.regular.tint(accent.opacity(0.08)), in: .rect(cornerRadius: cornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(AppUI.softGlassCardBorder(accent: accent, scheme: scheme), lineWidth: 1)
                     .allowsHitTesting(false)
             }
             .shadow(
-                color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
-                radius: 14,
+                color: accent.opacity(scheme == .dark ? 0.17 : 0.09),
+                radius: 22,
                 x: 0,
-                y: 6
+                y: 10
             )
     }
 }
@@ -456,7 +454,7 @@ struct UIBarButton: View {
                 )
                 .contentShape(Circle())
         }
-        .pressScaleOvershootCircle(scale: 0.985)
+        .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel(label)
     }
 }
@@ -512,7 +510,7 @@ struct UIQuickChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .pressScaleOvershootCapsule(scale: 0.985)
+        .buttonStyle(StaticButtonFeedbackStyle())
     }
 }
 
@@ -567,7 +565,7 @@ struct LiquidGlassModifier: ViewModifier {
                 y: 5
             )
             .shadow(
-                color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.46) : accent.opacity(0.08)),
+                color: (scheme == .dark ? Color(hex: "120D1D").opacity(0.32) : accent.opacity(0.08)),
                 radius: 10,
                 y: 4
             )

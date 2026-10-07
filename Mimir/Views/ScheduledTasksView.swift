@@ -140,7 +140,7 @@ struct ScheduledTasksView: View {
                     .padding(.vertical, 6)
                     .background(Capsule().fill(AppColor.accentGradient))
                 }
-                .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+                .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(runningTaskID != nil)
 
                 Button {

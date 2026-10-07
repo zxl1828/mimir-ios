@@ -1,7 +1,6 @@
 import Foundation
 
-/// 云端 API 的接入格式。根据 Key 前缀自动识别，
-/// 识别后自动配置 base URL 与请求头。
+/// 云端 API 的协议类型。密钥前缀只用于辅助识别；兼容服务商由用户填写 Base URL。
 enum APIKeyFormat: String, Codable, CaseIterable, Identifiable, Sendable {
     case deepseekNative
     case openAI
@@ -12,7 +11,7 @@ enum APIKeyFormat: String, Codable, CaseIterable, Identifiable, Sendable {
     var displayName: String {
         switch self {
         case .deepseekNative: return "DeepSeek 原生"
-        case .openAI: return "OpenAI 格式"
+        case .openAI: return "OpenAI 兼容"
         case .anthropic: return "Anthropic 格式"
         }
     }
@@ -20,31 +19,31 @@ enum APIKeyFormat: String, Codable, CaseIterable, Identifiable, Sendable {
     var detail: String {
         switch self {
         case .deepseekNative: return "直接调用 DeepSeek 官方接口"
-        case .openAI: return "任何 OpenAI 兼容网关（含自建、聚合服务）"
+        case .openAI: return "OpenAI 兼容接口，可自定义服务商地址并读取模型目录"
         case .anthropic: return "Anthropic Messages 接口"
         }
     }
 
-    /// 根据前缀识别格式。
+    /// 识别 Anthropic 常见密钥；其余密钥默认使用通用 OpenAI 兼容协议。
     static func detect(from key: String) -> APIKeyFormat {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("sk-ant-") { return .anthropic }
-        if trimmed.hasPrefix("sk-") { return .openAI }
-        return .deepseekNative
+        return .openAI
     }
 
-    /// 默认服务地址。OpenAI 格式默认走 DeepSeek 的兼容端点，
-    /// 用户可在设置里改成任意兼容网关。
+    /// 默认服务地址；兼容服务商可以在接入时换成自己的 API Base URL。
     var defaultBaseURL: String {
         switch self {
-        case .deepseekNative, .openAI: return "https://api.deepseek.com/v1"
+        case .deepseekNative: return "https://api.deepseek.com/v1"
+        case .openAI: return "https://api.openai.com/v1"
         case .anthropic: return "https://api.anthropic.com/v1"
         }
     }
 
     var defaultModelID: String {
         switch self {
-        case .deepseekNative, .openAI: return "deepseek-chat"
+        case .deepseekNative: return "deepseek-chat"
+        case .openAI: return "gpt-4o-mini"
         case .anthropic: return "claude-sonnet-4-5"
         }
     }
@@ -105,5 +104,5 @@ struct APICredential: Codable, Sendable, Equatable {
         return "\(prefix)••••\(suffix)"
     }
 
-    static let placeholder = APICredential(key: "", format: .deepseekNative)
+    static let placeholder = APICredential(key: "", format: .openAI)
 }

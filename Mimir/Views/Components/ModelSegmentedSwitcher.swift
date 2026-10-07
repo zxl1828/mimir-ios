@@ -1,10 +1,6 @@
 import SwiftUI
 
-/// 顶部命令胶囊滑块（Codex 桌面端风格）。
-///
-/// 所有候选模型并排放在一条液态玻璃胶囊槽里，当前选中项用一枚
-/// 紫色发光胶囊标出，切换时用 `matchedGeometryEffect` 平滑滑动。
-/// 选项过多时整条可以横向滚动。
+/// Provider model switcher on a bright liquid-glass rail.
 struct ModelSegmentedSwitcher: View {
 
     let options: [ModelCatalog.Option]
@@ -28,13 +24,17 @@ struct ModelSegmentedSwitcher: View {
             .padding(2)
         }
         .scrollClipDisabled()
-        .liquidGlass(.regular, in: .capsule)
+        .background {
+            Capsule(style: .continuous)
+                .fill(Color(hex: "F8F6FD").opacity(scheme == .dark ? 0.96 : 0.82))
+        }
+        .liquidGlass(.ultraThin, in: .capsule)
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         )
-        .shadow(color: accent.opacity(scheme == .dark ? 0.25 : 0.08), radius: 8, y: 3)
+        .shadow(color: accent.opacity(scheme == .dark ? 0.20 : 0.09), radius: 14, y: 6)
         .contextMenu {
             Button {
                 onOpenSettings()
@@ -56,7 +56,7 @@ struct ModelSegmentedSwitcher: View {
         } label: {
             Text(ModelCatalog.shortLabel(for: option.id))
                 .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? Color.white : AppUI.label2)
+                .foregroundStyle(isSelected ? Color.white : Color(hex: "5F566F"))
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .frame(height: 30)
@@ -64,16 +64,16 @@ struct ModelSegmentedSwitcher: View {
                 .background {
                     if isSelected {
                         Capsule(style: .continuous)
-                            .fill(.clear)
-                            .liquidGlass(.regular.tint(accent.opacity(0.85)), in: .capsule)
+                            .fill(accent.opacity(0.94))
+                            .liquidGlass(.regular.tint(accent.opacity(0.20)), in: .capsule)
                             .overlay(
                                 Capsule(style: .continuous)
                                     .strokeBorder(
-                                        Color.white.opacity(0.40),
+                                        Color.white.opacity(0.74),
                                         lineWidth: 1
                                     )
                             )
-                            .shadow(color: accent.opacity(0.55), radius: 9)
+                            .shadow(color: accent.opacity(0.28), radius: 8, y: 2)
                             .matchedGeometryEffect(id: Self.pillID, in: pill)
                     }
                 }

@@ -277,12 +277,17 @@ public struct AssistantMainView: View {
 
     private var topBar: some View {
         HStack(spacing: 8) {
-            UIBarButton(icon: "line.3.horizontal", label: "全局设置与中心") {
+            Button {
                 if showReasoningCard {
                     withAnimation(AppUI.snap) { showReasoningCard = false }
                 }
                 showSettings = true
+            } label: {
+                ProfileAvatarBadge(size: 34)
+                    .frame(width: 40, height: 40)
             }
+            .buttonStyle(StaticButtonFeedbackStyle())
+            .accessibilityLabel("个人资料与设置")
             .contextMenu {
                 Button {
                     Haptics.impact(.light)
@@ -328,23 +333,28 @@ public struct AssistantMainView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .liquidGlass(.regular, in: .rect)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(scheme == .dark ? 0.25 : 0.60),
-                            accent.opacity(0.35)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 0.8)
+        .liquidGlass(.regular, in: .rect(cornerRadius: 22))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         }
-        .padding(.top, 12)
+        .overlay(alignment: .top) {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(scheme == .dark ? 0.20 : 0.50), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(height: 24)
+                .padding(.horizontal, 1)
+                .allowsHitTesting(false)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(.horizontal, 8)
+        .padding(.top, 22)
     }
 
     private var currentModelID: String {
@@ -561,7 +571,7 @@ public struct AssistantMainView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .correctedLiquidGlassCard(cornerRadius: 18)
+        .softGlassCard(cornerRadius: 18)
         .accessibilityElement(children: .contain)
     }
 
@@ -906,7 +916,7 @@ public struct AssistantMainView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
         }
-        .pressScaleOvershoot(scale: 0.985, cornerRadius: 14)
+        .buttonStyle(StaticButtonFeedbackStyle())
     }
 
     // MARK: - 辅助状态与逻辑
@@ -1074,6 +1084,7 @@ private struct CentralAssistantCard: View {
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
+    @Environment(AppSettings.self) private var settings
     @State private var isBreathing = false
     @State private var coordinator = TabNavigationCoordinator.shared
 
@@ -1103,10 +1114,12 @@ private struct CentralAssistantCard: View {
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
             }
 
-            Text("你好，我是 Mimir")
+            Text(greeting)
                 .font(.system(size: isCompact ? 18 : 22, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.label)
-                .lineLimit(1)
+                .lineLimit(2)
+                .minimumScaleFactor(0.88)
+                .multilineTextAlignment(.center)
 
             Text("把复杂问题，一步一步想清楚。")
                 .font(.system(size: isCompact ? 11 : 13, weight: .medium))
@@ -1121,6 +1134,11 @@ private struct CentralAssistantCard: View {
                 isBreathing = true
             }
         }
+    }
+
+    private var greeting: String {
+        let name = settings.profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "你好，我是 Mimir" : "你好，\(name)，我是 Mimir"
     }
 
     private func orbitalDecorations(height: CGFloat) -> some View {
@@ -1140,6 +1158,12 @@ private struct CentralAssistantCard: View {
                 )
                 .frame(width: mascotSize * 2.15, height: height)
                 .scaleEffect(isBreathing ? 1.06 : 0.96)
+
+            AmbientBreathingParticles(
+                width: mascotSize * 2.05,
+                height: height,
+                accent: accent
+            )
 
             Circle()
                 .stroke(
@@ -1181,6 +1205,45 @@ private struct CentralAssistantCard: View {
         }
         .frame(width: mascotSize * 2.15, height: height)
         .allowsHitTesting(false)
+    }
+}
+
+private struct AmbientBreathingParticles: View {
+    let width: CGFloat
+    let height: CGFloat
+    let accent: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24)) { timeline in
+            Canvas { context, size in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                for index in 0..<14 {
+                    let phase = Double(index) * 0.57 + time * 0.12
+                    let breathe = 0.5 + 0.5 * sin(time * 0.72 + Double(index) * 0.83)
+                    let orbitX = size.width * (0.25 + 0.025 * sin(phase * 0.7))
+                    let orbitY = size.height * (0.27 + 0.025 * cos(phase * 0.6))
+                    let point = CGPoint(
+                        x: size.width / 2 + cos(phase) * orbitX,
+                        y: size.height / 2 + sin(phase * 1.13) * orbitY
+                    )
+                    let radius = 0.75 + breathe * 0.9
+                    let particle = Path(ellipseIn: CGRect(
+                        x: point.x - radius,
+                        y: point.y - radius,
+                        width: radius * 2,
+                        height: radius * 2
+                    ))
+                    context.fill(particle, with: .color(Color.white.opacity(0.28 + breathe * 0.54)))
+                    context.drawLayer { glow in
+                        glow.addFilter(.blur(radius: 3.2))
+                        glow.fill(particle, with: .color(accent.opacity(0.08 + breathe * 0.16)))
+                    }
+                }
+            }
+        }
+        .frame(width: width, height: height)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
