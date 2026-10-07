@@ -1054,9 +1054,9 @@ public struct AssistantMainView: View {
     }
 }
 
-// MARK: - 中央助手大卡片（3 层扁平架构 + 纯白/极深紫基准 + 局部变换隔离）
+// MARK: - 猫头鹰能量舞台
 
-/// 中央助手交互大卡片：严格遵循三层扁平架构、纯白/极深紫色彩基准与局部变换矩阵隔离。
+/// 无卡片边界的光学舞台：轨道、粒子与环境辉光围绕猫头鹰构成纵深焦点。
 private struct CentralAssistantCard: View {
 
     let mascotSize: CGFloat
@@ -1064,58 +1064,125 @@ private struct CentralAssistantCard: View {
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
-
-    /// 卡片圆角 / 倾斜上限（统一常量，避免散落魔法数字）。
-    private static let cornerRadius: CGFloat = 32
-    private static let maxTiltAngle: CGFloat = 7.0
+    @State private var isBreathing = false
+    @State private var coordinator = TabNavigationCoordinator.shared
 
     var body: some View {
-        VStack(spacing: isCompact ? 7 : 12) {
-            MimirMascot(size: mascotSize, mood: .calm)
-                .shadow(color: accent.opacity(scheme == .dark ? 0.22 : 0.14), radius: mascotSize * 0.16, y: 2)
-                .padding(.bottom, isCompact ? 0 : 2)
+        VStack(spacing: isCompact ? 5 : 10) {
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                accent.opacity(scheme == .dark ? 0.26 : 0.17),
+                                accent.opacity(0.07),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: mascotSize * 0.18,
+                            endRadius: mascotSize * 1.22
+                        )
+                    )
+                    .frame(width: mascotSize * 2.65, height: mascotSize * 2.65)
+                    .scaleEffect(isBreathing ? 1.06 : 0.96)
+
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [.clear, Color.white.opacity(0.78), accent.opacity(0.74), .clear],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 1.15, dash: [92, 18, 34, 26])
+                    )
+                    .frame(width: mascotSize * 2.10, height: mascotSize * 2.10)
+                    .rotation3DEffect(.degrees(66), axis: (x: 1, y: 0, z: 0))
+                    .rotationEffect(.degrees(isBreathing ? 13 : -7))
+
+                Ellipse()
+                    .stroke(
+                        AngularGradient(
+                            colors: [accent.opacity(0.10), Color.white.opacity(0.72), .clear, accent.opacity(0.62)],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 0.8, dash: [42, 16, 86, 22])
+                    )
+                    .frame(width: mascotSize * 2.45, height: mascotSize * 1.05)
+                    .rotation3DEffect(.degrees(-58), axis: (x: 1, y: 0, z: 0))
+                    .rotationEffect(.degrees(isBreathing ? -8 : 9))
+
+                Circle()
+                    .fill(.clear)
+                    .frame(width: mascotSize * 1.56, height: mascotSize * 1.56)
+                    .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .circle)
+                    .overlay {
+                        Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                    }
+                    .shadow(color: accent.opacity(scheme == .dark ? 0.25 : 0.12), radius: 24)
+
+                TimelineView(.animation(minimumInterval: 1 / 24, paused: coordinator.selectedTab != .assistant)) { timeline in
+                    OrbitParticleCanvas(time: timeline.date.timeIntervalSinceReferenceDate, accent: accent)
+                        .frame(width: mascotSize * 2.65, height: mascotSize * 2.65)
+                }
+
+                MimirMascot(size: mascotSize * 0.92, mood: .calm)
+                    .shadow(color: accent.opacity(scheme == .dark ? 0.36 : 0.24), radius: mascotSize * 0.2, y: 4)
+                    .scaleEffect(isBreathing ? 1.025 : 0.99, anchor: .center)
+            }
+            .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.38))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Mimir 猫头鹰助手")
+
+            HStack(spacing: 7) {
+                Circle().fill(Color.green).frame(width: 5, height: 5)
+                Text("MIMIR · READY")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+            }
 
             Text("你好，我是米米")
-                .font(.system(size: isCompact ? 17 : 19, weight: .bold, design: .rounded))
+                .font(.system(size: isCompact ? 18 : 22, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.label)
                 .lineLimit(1)
 
             Text("把复杂问题，一步一步想清楚。")
-                .font(.system(size: isCompact ? 11 : 12.5, weight: .medium))
-                .foregroundStyle(accent)
+                .font(.system(size: isCompact ? 11 : 13, weight: .medium))
+                .foregroundStyle(AppUI.label2)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
-        .padding(.horizontal, isCompact ? 12 : 20)
-        .padding(.vertical, isCompact ? 8 : 18)
-        // 底色层：浅色纯白 / 深色极深紫
-        .background {
-            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-                .fill(
-                    scheme == .dark
-                        ? Color(hex: "120D1D").opacity(0.85)
-                        : Color.white.opacity(0.85)
-                )
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, isCompact ? 10 : 20)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                isBreathing = true
+            }
         }
-        // 原生 Liquid Glass 材质
-        .liquidGlass(.regular, in: .rect(cornerRadius: Self.cornerRadius))
-        // 1pt 双色渐变描边（迎光面白，背光面主题色）
-        .overlay {
-            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-                .strokeBorder(
-                    AppUI.refractionEdge(accent, scheme: scheme),
-                    lineWidth: 1.0
+    }
+}
+
+private struct OrbitParticleCanvas: View {
+    let time: TimeInterval
+    let accent: Color
+
+    var body: some View {
+        Canvas { context, size in
+            for index in 0..<22 {
+                let seed = Double(index) / 22
+                let angle = time * (index.isMultiple(of: 2) ? 0.16 : -0.12) + seed * .pi * 2
+                let radiusX = size.width * (index.isMultiple(of: 3) ? 0.43 : 0.36)
+                let radiusY = size.height * (index.isMultiple(of: 3) ? 0.23 : 0.34)
+                let point = CGPoint(
+                    x: size.width * 0.5 + cos(angle) * radiusX,
+                    y: size.height * 0.5 + sin(angle) * radiusY
                 )
-                .allowsHitTesting(false)
+                let diameter = index.isMultiple(of: 5) ? 3.0 : 1.4
+                let rect = CGRect(x: point.x - diameter / 2, y: point.y - diameter / 2, width: diameter, height: diameter)
+                context.fill(
+                    Path(ellipseIn: rect),
+                    with: .color(index.isMultiple(of: 4) ? .white.opacity(0.76) : accent.opacity(0.55))
+                )
+            }
         }
-        // 3D 透视倾斜 + 镜像反射流光 + 呼吸背光（统一修饰器）：
-        // 内含圆角裁切（绝不溢出边框）、合成栅格化与按真实尺寸计算的倾角，
-        // 取代此前内联实现里写死 160/140 中心点的版本。
-        .tiltGlareCard(
-            maxAngle: Self.maxTiltAngle,
-            cornerRadius: Self.cornerRadius,
-            showsSpecularSheen: true,
-            hasAmbientBacklight: true
-        )
+        .allowsHitTesting(false)
     }
 }

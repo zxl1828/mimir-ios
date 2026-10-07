@@ -98,71 +98,86 @@ struct CodeWorkspaceCLIView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 7) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("CODE / AGENT WORKSPACE")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accent)
                     Text("代码 Agent")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 23, weight: .bold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                }
+                Spacer(minLength: 4)
+                HStack(spacing: 6) {
                     Circle()
                         .fill(agent.isWorking ? accent : Color.green)
-                        .frame(width: 7, height: 7)
-                        .shadow(color: accent.opacity(agent.isWorking ? 0.7 : 0), radius: 5)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: accent.opacity(agent.isWorking ? 0.65 : 0), radius: 5)
                     Text(agent.isWorking ? "处理中" : "就绪")
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                        .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                 }
-                Text(workspace.activeWorkspaceURL?.lastPathComponent ?? "选择一个项目文件夹")
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(accent.opacity(scheme == .dark ? 0.15 : 0.09)))
+            }
+
+            HStack(spacing: 8) {
+                Label(workspace.activeWorkspaceURL?.lastPathComponent ?? "选择项目文件夹", systemImage: "folder")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
                     .lineLimit(1)
-            }
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 4)
-
-            Button {
-                showFolderImporter = true
-            } label: {
-                Image(systemName: "folder.badge.plus")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 38, height: 38)
-                    .contentShape(Circle())
-                    .liquidGlass(.regular, in: .circle)
-                    .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
-            }
-            .buttonStyle(PhysicalElasticCircleButtonStyle())
-            .accessibilityLabel("选择项目文件夹")
-
-            Button {
-                showFilePicker = true
-            } label: {
-                Image(systemName: "chevron.left.forwardslash.chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 38, height: 38)
-                    .contentShape(Circle())
-                    .liquidGlass(.regular, in: .circle)
-                    .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
-            }
-            .buttonStyle(PhysicalElasticCircleButtonStyle())
-            .accessibilityLabel("选择源码文件")
-
-            Button(action: beginRemoteBuild) {
-                HStack(spacing: 5) {
-                    Image(systemName: isBuilding ? "hourglass" : "hammer.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text(isBuilding ? "构建中" : "编译")
-                        .font(.system(size: 11, weight: .semibold))
+                Button {
+                    showFolderImporter = true
+                } label: {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(width: 38, height: 38)
+                        .contentShape(Circle())
+                        .liquidGlass(.regular, in: .circle)
+                        .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
-                .foregroundStyle(Color.white)
-                .padding(.horizontal, 11)
-                .frame(height: 38)
-                .background(Capsule().fill(accent))
-                .overlay { Capsule().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8) }
+                .buttonStyle(PhysicalElasticCircleButtonStyle())
+                .accessibilityLabel("选择项目文件夹")
+
+                Button {
+                    showFilePicker = true
+                } label: {
+                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(width: 38, height: 38)
+                        .contentShape(Circle())
+                        .liquidGlass(.regular, in: .circle)
+                        .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
+                }
+                .buttonStyle(PhysicalElasticCircleButtonStyle())
+                .accessibilityLabel("选择源码文件")
+
+                Button(action: beginRemoteBuild) {
+                    HStack(spacing: 5) {
+                        Image(systemName: isBuilding ? "hourglass" : "hammer.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(isBuilding ? "构建中" : "编译")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundStyle(Color.white)
+                    .padding(.horizontal, 11)
+                    .frame(height: 38)
+                    .background(Capsule().fill(accent))
+                    .overlay { Capsule().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8) }
+                }
+                .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+                .disabled(isBuilding || workspace.activeWorkspaceURL == nil)
+                .accessibilityLabel("通过 GitHub Actions 编译此项目")
             }
-            .buttonStyle(PhysicalElasticCapsuleButtonStyle())
-            .disabled(isBuilding || workspace.activeWorkspaceURL == nil)
-            .accessibilityLabel("通过 GitHub Actions 编译此项目")
         }
+        .padding(.horizontal, 13)
+        .padding(.vertical, 12)
+        .correctedLiquidGlassCard(cornerRadius: 22, interactive: false)
     }
 
     private var buildStatusBar: some View {

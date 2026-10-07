@@ -91,6 +91,37 @@ public struct CorrectedLiquidGlassCardModifier: ViewModifier {
                     )
                     .allowsHitTesting(false)
             }
+            .overlay(alignment: .top) {
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(scheme == .dark ? 0.20 : 0.55),
+                        Color.white.opacity(scheme == .dark ? 0.06 : 0.18),
+                        Color.clear
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 52)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .allowsHitTesting(false)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(scheme == .dark ? 0.22 : 0.42),
+                                Color.clear,
+                                accent.opacity(scheme == .dark ? 0.16 : 0.10)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.45
+                    )
+                    .padding(1)
+                    .allowsHitTesting(false)
+            }
             .shadow(
                 color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
                 radius: 16,

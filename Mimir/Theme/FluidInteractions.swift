@@ -673,7 +673,7 @@ struct GlassCardAction: Identifiable, Sendable {
 
 /// 交互式磨砂卡片修饰器：
 /// - 按压时触发 scaleEffect(0.96) 物理弹性压缩与触感反馈；
-/// - 长按或触发时弹起黑色磨砂玻璃操作蒙版（Color.black.opacity(0.35) + 极细紫白折射微光高亮描边）；
+/// - 长按或触发时弹起主题色液态玻璃操作蒙版与极细折射描边；
 /// - 展示操作图标按钮，点击后平滑收起或点击外部收起。
 struct GlassCardInteractiveModifier: ViewModifier {
 

@@ -67,6 +67,29 @@ struct MessageInputBar: View {
                     .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                     .allowsHitTesting(false)
             }
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(focus.wrappedValue ? 0.36 : 0.22),
+                                Color.white.opacity(0.06),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: 25)
+                    .padding(.horizontal, 1)
+                    .allowsHitTesting(false)
+            }
+            .shadow(
+                color: accent.opacity(focus.wrappedValue ? (scheme == .dark ? 0.30 : 0.17) : 0.06),
+                radius: focus.wrappedValue ? 18 : 8,
+                y: 3
+            )
+            .animation(.spring(response: 0.32, dampingFraction: 0.84), value: focus.wrappedValue)
         }
         .animation(AppAnimation.chip, value: attachments.count)
     }

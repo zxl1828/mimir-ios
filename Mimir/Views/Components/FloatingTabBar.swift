@@ -27,8 +27,8 @@ struct FloatingTabBar: View {
             Capsule(style: .continuous)
                 .fill(
                     scheme == .dark
-                        ? Color(red: 0.10, green: 0.08, blue: 0.18).opacity(0.38)
-                        : Color.white.opacity(0.42)
+                        ? Color(hex: "120D1D").opacity(0.62)
+                        : Color(hex: "F8F6FD").opacity(0.50)
                 )
         }
         .liquidGlass(.regular, in: .capsule)
@@ -38,6 +38,31 @@ struct FloatingTabBar: View {
                     AppUI.refractionEdge(accent, scheme: scheme),
                     lineWidth: 1.0
                 )
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .top) {
+            Capsule(style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(scheme == .dark ? 0.34 : 0.82),
+                            Color.white.opacity(scheme == .dark ? 0.09 : 0.28),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(height: 22)
+                .padding(.horizontal, 1)
+                .padding(.top, 1)
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .bottom) {
+            Capsule(style: .continuous)
+                .strokeBorder(accent.opacity(scheme == .dark ? 0.24 : 0.14), lineWidth: 0.7)
+                .padding(.horizontal, 1)
+                .padding(.bottom, 1)
                 .allowsHitTesting(false)
         }
         .shadow(
@@ -92,6 +117,17 @@ struct FloatingTabBar: View {
                     Capsule(style: .continuous)
                         .fill(.clear)
                         .liquidGlass(.regular.tint(accent.opacity(0.32)), in: .capsule)
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.38), .clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .padding(1)
+                        }
                         .overlay(
                             Capsule(style: .continuous)
                                 .strokeBorder(accent.opacity(0.50), lineWidth: 1.0)

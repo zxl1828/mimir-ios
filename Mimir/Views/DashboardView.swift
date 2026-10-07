@@ -45,17 +45,20 @@ struct DashboardView: View {
                 topHeaderRow
                     .staggerCascade(index: 0)
 
+                workflowOverview
+                    .staggerCascade(index: 1)
+
                 // 2. 顶部快捷指令行（Quick Tools Grid）
                 quickToolsRow
-                    .staggerCascade(index: 1)
+                    .staggerCascade(index: 2)
 
                 // 3. 四大核心业务工作区（智能体中心、技能工具箱、定时任务与项目、知识与记忆检索）
                 coreWorkspaceCardsSection
-                    .staggerCascade(index: 2)
+                    .staggerCascade(index: 3)
 
                 // 4. 进行中的会话与任务流（CURRENT CONVERSATIONS）
                 currentConversationsSection
-                    .staggerCascade(index: 3)
+                    .staggerCascade(index: 4)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -183,6 +186,63 @@ struct DashboardView: View {
             .buttonStyle(PhysicalElasticCircleButtonStyle())
         }
         .padding(.vertical, 4)
+    }
+
+    private var workflowOverview: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("MIMIR / WORKSPACE")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accent)
+                    Text("工作流概览")
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                }
+                Spacer()
+                HStack(spacing: 5) {
+                    Circle().fill(Color.green).frame(width: 5, height: 5)
+                    Text("本机空间")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                }
+            }
+
+            HStack(spacing: 0) {
+                overviewMetric(value: agents.count, label: "AGENTS", icon: "sparkles")
+                metricDivider
+                overviewMetric(value: skills.count, label: "SKILLS", icon: "square.grid.2x2")
+                metricDivider
+                overviewMetric(value: conversations.count, label: "THREADS", icon: "bubble.left.and.bubble.right")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
+        .correctedLiquidGlassCard(cornerRadius: 24, interactive: false)
+    }
+
+    private func overviewMetric(value: Int, label: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(accent)
+            Text(value, format: .number)
+                .font(.system(size: 21, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(AppUI.textTitle(scheme: scheme))
+            Text(label)
+                .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                .foregroundStyle(AppUI.textCaption(scheme: scheme))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var metricDivider: some View {
+        Rectangle()
+            .fill(AppUI.separator.opacity(0.55))
+            .frame(width: 1, height: 44)
+            .padding(.horizontal, 12)
     }
 
     // MARK: - 2. 顶部快捷指令行 (Quick Tools Grid)

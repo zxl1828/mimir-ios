@@ -118,39 +118,56 @@ struct FilesAssetsView: View {
     // MARK: - 1. 顶部 Header
 
     private var headerBar: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("知识资产库")
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                Text("Files & Context Assets")
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
-            }
-
-            Spacer()
-
-            // 网格 / 列表切换按钮
-            Button {
-                Haptics.impact(.light)
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                    isGridView.toggle()
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("FILES / LIBRARY")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accent)
+                    Text("知识资产库")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
                 }
-            } label: {
-                Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
-                    .frame(width: 36, height: 36)
-                    .liquidGlass(.clear, in: .rect(cornerRadius: 12))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                            .allowsHitTesting(false)
+                Spacer(minLength: 8)
+                Button {
+                    Haptics.impact(.light)
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        isGridView.toggle()
                     }
+                } label: {
+                    Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                        .frame(width: 36, height: 36)
+                        .liquidGlass(.clear, in: .rect(cornerRadius: 12))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                                .allowsHitTesting(false)
+                        }
+                }
+                .buttonStyle(PhysicalElasticButtonStyle())
             }
-            .buttonStyle(PhysicalElasticButtonStyle())
+
+            HStack(spacing: 7) {
+                Image(systemName: workspace.activeWorkspaceURL == nil ? "externaldrive" : "externaldrive.fill.badge.checkmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(workspace.activeWorkspaceURL == nil ? AppUI.textCaption(scheme: scheme) : accent)
+                Text(workspace.activeWorkspaceURL?.lastPathComponent ?? "本机资料与项目文件")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                    .lineLimit(1)
+                Spacer(minLength: 6)
+                Text("\(workspace.filteredFiles.count) ITEMS")
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                    .monospacedDigit()
+            }
         }
-        .padding(.vertical, 4)
+        .padding(.top, 8)
+        .padding(.bottom, 3)
     }
 
     // MARK: - 2. 搜索与分类过滤栏
