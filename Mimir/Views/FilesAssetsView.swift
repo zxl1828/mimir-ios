@@ -18,6 +18,8 @@ struct FilesAssetsView: View {
     @State private var showFABMenu = false
     @State private var selectedFileForAction: WorkspaceFileItem?
     @State private var previewFileItem: WorkspaceFileItem?
+    @State private var isMountingWorkspace = false
+    @State private var workspaceImportError: String?
     @State private var newDocTitle = ""
     @State private var newDocContent = ""
 
@@ -87,7 +89,7 @@ struct FilesAssetsView: View {
             switch result {
             case .success(let urls):
                 if let folder = urls.first {
-                    workspace.mountFolder(url: folder)
+                    mountWorkspace(urls: [folder])
                 }
             case .failure:
                 break
@@ -100,9 +102,7 @@ struct FilesAssetsView: View {
         ) { result in
             switch result {
             case .success(let urls):
-                for url in urls {
-                    workspace.mountFolder(url: url)
-                }
+                mountWorkspace(urls: urls)
             case .failure:
                 break
             }
@@ -112,6 +112,14 @@ struct FilesAssetsView: View {
         }
         .sheet(item: $previewFileItem) { item in
             fileDetailSheet(item)
+        }
+        .alert("无法读取所选位置", isPresented: Binding(
+            get: { workspaceImportError != nil },
+            set: { if !$0 { workspaceImportError = nil } }
+        )) {
+            Button("好", role: .cancel) { workspaceImportError = nil }
+        } message: {
+            Text(workspaceImportError ?? "")
         }
     }
 
@@ -287,7 +295,7 @@ struct FilesAssetsView: View {
                 Haptics.impact(.light)
                 showFolderImporter = true
             } label: {
-                Text(workspace.activeWorkspaceURL == nil ? "选择目录" : "重新选择")
+                Text(isMountingWorkspace ? "正在读取…" : (workspace.activeWorkspaceURL == nil ? "选择目录" : "重新选择"))
                     .font(.system(size: 11.5, weight: .bold))
                     .foregroundStyle(accent)
                     .padding(.horizontal, 10)
@@ -303,10 +311,27 @@ struct FilesAssetsView: View {
                     )
             }
             .buttonStyle(PhysicalElasticCapsuleButtonStyle())
+            .disabled(isMountingWorkspace)
         }
         .padding(12)
         .softGlassCard(cornerRadius: 18)
         .interactiveTilt(maxAngle: 4.0, cornerRadius: 18)
+    }
+
+    private func mountWorkspace(urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        isMountingWorkspace = true
+        workspaceImportError = nil
+        Task {
+            defer { isMountingWorkspace = false }
+            do {
+                for url in urls {
+                    try await workspace.mountFolder(url: url)
+                }
+            } catch {
+                workspaceImportError = error.localizedDescription
+            }
+        }
     }
 
     // MARK: - 4. 网格视图

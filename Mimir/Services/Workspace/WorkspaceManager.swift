@@ -68,8 +68,9 @@ struct WorkspaceMediaItem: Identifiable, Hashable, Sendable {
     var systemIcon: String = "sparkles"
 }
 
-enum WorkspaceAccessError: LocalizedError {
+enum WorkspaceAccessError: LocalizedError, Sendable {
     case noFolder
+    case accessDenied
     case invalidPath
     case fileTooLarge
     case unreadableFile
@@ -77,10 +78,71 @@ enum WorkspaceAccessError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noFolder: return "请先选择一个工作区文件夹。"
+        case .accessDenied: return "无法访问所选项目。请重新选择文件夹并允许 Mimir 读取。"
         case .invalidPath: return "文件路径超出当前工作区。"
         case .fileTooLarge: return "Agent 目前只读取或修改小于 256 KB 的文本文件。"
         case .unreadableFile: return "无法按 UTF-8 文本读取这个文件。"
         }
+    }
+}
+
+private enum WorkspaceFileTypes {
+    static let editable: Set<String> = [
+        "swift", "m", "mm", "h", "hh", "c", "cc", "cpp", "metal",
+        "json", "yml", "yaml", "plist", "pbxproj", "xcconfig", "entitlements",
+        "strings", "stringsdict", "md", "txt", "sh", "py", "js", "ts", "html", "css"
+    ]
+
+    static func category(for name: String, extension ext: String) -> WorkspaceFileItem.AssetCategory {
+        if editable.contains(ext) || ["rs", "go", "rb", "kt", "java"].contains(ext) {
+            return .code
+        }
+        if ["png", "jpg", "jpeg", "webp", "gif", "svg", "heic"].contains(ext) {
+            return .media
+        }
+        if name.localizedCaseInsensitiveContains("prompt") || ext == "prompt" {
+            return .prompt
+        }
+        return .document
+    }
+}
+
+private enum WorkspaceFolderScanner {
+    static func scan(_ url: URL) -> [WorkspaceFileItem] {
+        let keys: [URLResourceKey] = [
+            .nameKey, .isDirectoryKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey
+        ]
+        guard let enumerator = FileManager.default.enumerator(
+            at: url,
+            includingPropertiesForKeys: keys,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        let skippedDirectories: Set<String> = [".git", ".build", "Build", "DerivedData", "node_modules", "Pods", "Carthage"]
+        var items: [WorkspaceFileItem] = []
+        for case let fileURL as URL in enumerator {
+            guard let values = try? fileURL.resourceValues(forKeys: Set(keys)) else { continue }
+            let isDirectory = values.isDirectory ?? false
+            if isDirectory && skippedDirectories.contains(fileURL.lastPathComponent) {
+                enumerator.skipDescendants()
+                continue
+            }
+            guard values.isSymbolicLink != true else { continue }
+
+            let name = values.name ?? fileURL.lastPathComponent
+            let ext = fileURL.pathExtension.lowercased()
+            items.append(WorkspaceFileItem(
+                name: name,
+                path: fileURL.path,
+                isDirectory: isDirectory,
+                size: Int64(values.fileSize ?? 0),
+                modifiedAt: values.contentModificationDate ?? Date(),
+                fileExtension: ext,
+                url: fileURL,
+                category: WorkspaceFileTypes.category(for: name, extension: ext)
+            ))
+        }
+        return items
     }
 }
 
@@ -128,36 +190,32 @@ final class WorkspaceManager {
             .filter { item in
                 guard !item.isDirectory, let url = item.url else { return false }
                 return url.standardizedFileURL.path.hasPrefix(root + "/")
-                    && Self.editableExtensions.contains(item.fileExtension)
+                    && WorkspaceFileTypes.editable.contains(item.fileExtension)
             }
             .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
     }
 
-    private static let editableExtensions: Set<String> = [
-        "swift", "m", "mm", "h", "hh", "c", "cc", "cpp", "metal",
-        "json", "yml", "yaml", "plist", "pbxproj", "xcconfig", "entitlements",
-        "strings", "stringsdict", "md", "txt", "sh", "py", "js", "ts", "html", "css"
-    ]
-
     // MARK: - 挂载本地真实项目/文件夹 (Security-Scoped URL)
 
-    func mountFolder(url: URL) {
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-
-        do {
-            let bookmarkData = try url.bookmarkData(
-                options: [],
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-            saveBookmark(bookmarkData, for: url)
-            addFolderURL(url)
-            scanFolder(url: url)
-        } catch {
-            addFolderURL(url)
-            scanFolder(url: url)
+    func mountFolder(url: URL) async throws {
+        guard url.startAccessingSecurityScopedResource() else {
+            throw WorkspaceAccessError.accessDenied
         }
+        defer { url.stopAccessingSecurityScopedResource() }
+
+        // iOS persists document-picker access in the bookmark itself; .withSecurityScope is macOS-only.
+        let bookmarkData = try url.bookmarkData(
+            options: [],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        saveBookmark(bookmarkData, for: url)
+        addFolderURL(url)
+        let scannedItems = await Task.detached(priority: .userInitiated) {
+            WorkspaceFolderScanner.scan(url)
+        }.value
+        guard activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL else { return }
+        applyScannedItems(scannedItems)
     }
 
     private func addFolderURL(_ url: URL) {
@@ -168,61 +226,22 @@ final class WorkspaceManager {
     }
 
     /// 扫描挂载目录内容。
-    func scanFolder(url: URL) {
-        let accessed = url.startAccessingSecurityScopedResource()
-        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+    func scanFolder(url: URL) async {
+        guard url.startAccessingSecurityScopedResource() else { return }
+        defer { url.stopAccessingSecurityScopedResource() }
+        let scannedItems = await Task.detached(priority: .userInitiated) {
+            WorkspaceFolderScanner.scan(url)
+        }.value
+        guard activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL else { return }
+        applyScannedItems(scannedItems)
+    }
 
-        let fileManager = FileManager.default
-        let keys: [URLResourceKey] = [.nameKey, .isDirectoryKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]
-
-        guard let enumerator = fileManager.enumerator(
-            at: url,
-            includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles]
-        ) else { return }
-
-        var scannedItems: [WorkspaceFileItem] = []
-        let skippedDirectories: Set<String> = [".git", ".build", "Build", "DerivedData", "node_modules", "Pods", "Carthage"]
-
-        for case let fileURL as URL in enumerator {
-            guard let resourceValues = try? fileURL.resourceValues(forKeys: Set(keys)) else { continue }
-            let isDir = resourceValues.isDirectory ?? false
-            if isDir && skippedDirectories.contains(fileURL.lastPathComponent) {
-                enumerator.skipDescendants()
-                continue
-            }
-            if resourceValues.isSymbolicLink == true { continue }
-            let name = resourceValues.name ?? fileURL.lastPathComponent
-            let size = Int64(resourceValues.fileSize ?? 0)
-            let modDate = resourceValues.contentModificationDate ?? Date()
-            let ext = fileURL.pathExtension.lowercased()
-
-            let category: WorkspaceFileItem.AssetCategory
-            if Self.editableExtensions.contains(ext) || ["rs", "go", "rb", "kt", "java"].contains(ext) {
-                category = .code
-            } else if ["png", "jpg", "jpeg", "webp", "gif", "svg", "heic"].contains(ext) {
-                category = .media
-            } else if name.contains("prompt") || ext == "prompt" {
-                category = .prompt
-            } else {
-                category = .document
-            }
-
-            scannedItems.append(
-                WorkspaceFileItem(
-                    name: name,
-                    path: fileURL.path,
-                    isDirectory: isDir,
-                    size: size,
-                    modifiedAt: modDate,
-                    fileExtension: ext,
-                    url: fileURL,
-                    category: category
-                )
-            )
-        }
-
+    private func applyScannedItems(_ scannedItems: [WorkspaceFileItem]) {
         let selectedPath = currentActiveCodeFile?.url?.standardizedFileURL.path
+        let activeRoot = activeWorkspaceURL?.standardizedFileURL.path
+        let selectionBelongsToWorkspace = activeRoot.map { root in
+            selectedPath?.hasPrefix(root + "/") == true
+        } ?? false
         self.allFiles = scannedItems + builtInSamples
 
         if let selectedPath, let refreshed = scannedItems.first(where: { $0.url?.standardizedFileURL.path == selectedPath }) {
@@ -231,15 +250,15 @@ final class WorkspaceManager {
                 currentCodeContent = readFileContent(for: refreshed)
                 lastSavedCodeContent = currentCodeContent
             }
-        } else if currentActiveCodeFile == nil || currentActiveCodeFile?.url == nil {
+        } else if !selectionBelongsToWorkspace {
             selectCodeFile(scannedItems.first(where: { $0.category == .code && $0.fileExtension == "swift" })
                 ?? scannedItems.first(where: { $0.category == .code }))
         }
     }
 
-    func refreshActiveWorkspace() {
+    func refreshActiveWorkspace() async {
         guard let activeWorkspaceURL else { return }
-        scanFolder(url: activeWorkspaceURL)
+        await scanFolder(url: activeWorkspaceURL)
     }
 
     func refreshCurrentCodeFile() {
@@ -247,6 +266,7 @@ final class WorkspaceManager {
               let url = file.url,
               let root = activeWorkspaceURL else { return }
         let accessing = root.startAccessingSecurityScopedResource()
+        guard accessing else { return }
         defer { if accessing { root.stopAccessingSecurityScopedResource() } }
         guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
               let modifiedAt = values.contentModificationDate else { return }
@@ -270,9 +290,15 @@ final class WorkspaceManager {
     // MARK: - 文件读写（支持直接修改并保存手机上的文件）
 
     func readFileContent(for item: WorkspaceFileItem) -> String {
-        if let url = item.url {
-            let accessing = activeWorkspaceURL?.startAccessingSecurityScopedResource() ?? false
-            defer { if accessing { activeWorkspaceURL?.stopAccessingSecurityScopedResource() } }
+        if let url = item.url,
+           let root = activeWorkspaceURL,
+           root.startAccessingSecurityScopedResource() {
+            defer { root.stopAccessingSecurityScopedResource() }
+            if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+               let size = values.fileSize,
+               size > 256_000 {
+                return "// 文件超过 256 KB，当前编辑器不会加载它"
+            }
             if let text = try? String(contentsOf: url, encoding: .utf8) {
                 return text
             }
@@ -293,7 +319,13 @@ final class WorkspaceManager {
     }
 
     func selectCodeFile(_ item: WorkspaceFileItem?) {
-        guard let item, item.category == .code, item.url != nil else { return }
+        guard let item else {
+            currentActiveCodeFile = nil
+            currentCodeContent = ""
+            lastSavedCodeContent = ""
+            return
+        }
+        guard item.category == .code, item.url != nil else { return }
         currentActiveCodeFile = item
         currentCodeContent = readFileContent(for: item)
         lastSavedCodeContent = currentCodeContent
@@ -309,6 +341,7 @@ final class WorkspaceManager {
     func readWorkspaceText(path: String) throws -> String {
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
         let accessing = root.startAccessingSecurityScopedResource()
+        guard accessing else { throw WorkspaceAccessError.accessDenied }
         defer { if accessing { root.stopAccessingSecurityScopedResource() } }
         let url = try validatedWorkspaceURL(path: path)
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
@@ -322,16 +355,29 @@ final class WorkspaceManager {
         guard content.utf8.count <= 256_000 else { throw WorkspaceAccessError.fileTooLarge }
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
         let accessing = root.startAccessingSecurityScopedResource()
+        guard accessing else { throw WorkspaceAccessError.accessDenied }
         defer { if accessing { root.stopAccessingSecurityScopedResource() } }
         let url = try validatedWorkspaceURL(path: path)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try content.write(to: url, atomically: true, encoding: .utf8)
-        scanFolder(url: root)
-        if let refreshed = allFiles.first(where: { $0.url?.standardizedFileURL == url }) {
-            currentActiveCodeFile = refreshed
-            currentCodeContent = content
-            lastSavedCodeContent = content
+        let updated = WorkspaceFileItem(
+            name: url.lastPathComponent,
+            path: url.path,
+            isDirectory: false,
+            size: Int64(content.utf8.count),
+            modifiedAt: Date(),
+            fileExtension: url.pathExtension.lowercased(),
+            url: url,
+            category: WorkspaceFileTypes.category(for: url.lastPathComponent, extension: url.pathExtension.lowercased())
+        )
+        if let index = allFiles.firstIndex(where: { $0.url?.standardizedFileURL == url }) {
+            allFiles[index] = updated
+        } else {
+            allFiles.insert(updated, at: 0)
         }
+        currentActiveCodeFile = updated
+        currentCodeContent = content
+        lastSavedCodeContent = content
     }
 
     private func validatedWorkspaceURL(path: String) throws -> URL {
@@ -365,8 +411,8 @@ final class WorkspaceManager {
 
     func deleteFile(_ item: WorkspaceFileItem) {
         if let url = item.url {
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            guard url.startAccessingSecurityScopedResource() else { return }
+            defer { url.stopAccessingSecurityScopedResource() }
             try? FileManager.default.removeItem(at: url)
         }
         allFiles.removeAll { $0.id == item.id }
@@ -393,7 +439,7 @@ final class WorkspaceManager {
                 mountedWorkspaces.append(resolvedURL)
                 if activeWorkspaceURL == nil {
                     activeWorkspaceURL = resolvedURL
-                    scanFolder(url: resolvedURL)
+                    Task { await scanFolder(url: resolvedURL) }
                 }
             }
         }

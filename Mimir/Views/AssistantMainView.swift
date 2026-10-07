@@ -87,7 +87,7 @@ public struct AssistantMainView: View {
                     LinearGradient(
                         stops: [
                             .init(color: .clear, location: 0.0),
-                            .init(color: .black, location: 0.055)
+                            .init(color: .white, location: 0.055)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -506,7 +506,7 @@ public struct AssistantMainView: View {
 
     /// 顶部可变模糊遮罩（110pt）。
     ///
-    /// 用 `.ultraThinMaterial` 做渐进模糊，再以**纯 alpha 蒙版**（断点只有 `.clear` 与 `.black`）
+    /// 用 `.ultraThinMaterial` 做渐进模糊，再以纯 alpha 蒙版控制淡出。
     /// 向下淡出——不带任何颜色叠加，因此不会产生脏灰块。
     /// 遮罩 `allowsHitTesting(false)`，完全不影响顶栏按钮的点击。
     private var topBlurScrim: some View {
@@ -516,8 +516,8 @@ public struct AssistantMainView: View {
             .mask(
                 LinearGradient(
                     stops: [
-                        .init(color: .black, location: 0.0),
-                        .init(color: .black, location: 0.62),
+                        .init(color: .white, location: 0.0),
+                        .init(color: .white, location: 0.62),
                         .init(color: .clear, location: 1.0)
                     ],
                     startPoint: .top,
@@ -896,7 +896,7 @@ public struct AssistantMainView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
         }
-        .pressScaleOvershoot(scale: 0.94, cornerRadius: 14)
+        .pressScaleOvershoot(scale: 0.985, cornerRadius: 14)
     }
 
     // MARK: - 辅助状态与逻辑
@@ -1128,6 +1128,7 @@ private struct CentralAssistantCard: View {
                     .shadow(color: accent.opacity(scheme == .dark ? 0.36 : 0.24), radius: mascotSize * 0.2, y: 4)
                     .scaleEffect(isBreathing ? 1.025 : 0.99, anchor: .center)
             }
+            .frame(maxWidth: .infinity, alignment: .center)
             .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.38))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Mimir 猫头鹰助手")
@@ -1139,7 +1140,7 @@ private struct CentralAssistantCard: View {
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
             }
 
-            Text("你好，我是米米")
+            Text("你好，我是 Mimir")
                 .font(.system(size: isCompact ? 18 : 22, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.label)
                 .lineLimit(1)

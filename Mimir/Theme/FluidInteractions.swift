@@ -509,46 +509,27 @@ extension View {
     }
 }
 
-// MARK: - 7. scale(0.96) 物理弹性压缩与深度内阴影，释放触发 spring overshoot (Physical Elastic Button Styles)
+// MARK: - 7. 居中光学微缩与触觉反馈
 
-/// 矩形 / 卡片按钮物理弹性样式：按压时 scale(0.96) 压缩并叠加密度内阴影，释放时触发 spring overshoot 超调回弹。
+/// 矩形按钮用轻微居中压缩与弹簧回弹表达按压。
 struct PhysicalElasticButtonStyle: ButtonStyle {
 
-    var scale: CGFloat = 0.96
+    var scale: CGFloat = 0.985
     var cornerRadius: CGFloat = 16
     var enableHaptic: Bool = true
 
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.appAccent) private var accent
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
             .overlay {
                 if configuration.isPressed {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
-                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
-                                    Color.clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 2.0
-                        )
-                        .blur(radius: 0.8)
+                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
+                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
                         .allowsHitTesting(false)
                 }
             }
-            .animation(
-                configuration.isPressed
-                    ? .easeOut(duration: 0.10)
-                    : .spring(response: 0.30, dampingFraction: 0.58), // overshoot on release!
-                value: configuration.isPressed
-            )
+            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed && enableHaptic {
                     Haptics.impact(.light)
@@ -557,43 +538,24 @@ struct PhysicalElasticButtonStyle: ButtonStyle {
     }
 }
 
-/// 胶囊按钮物理弹性样式（UIQuickChip / ReasoningStatusChip 专用）。
+/// 胶囊按钮使用统一的轻量玻璃按压反馈。
 struct PhysicalElasticCapsuleButtonStyle: ButtonStyle {
 
-    var scale: CGFloat = 0.96
+    var scale: CGFloat = 0.985
     var enableHaptic: Bool = true
-
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.appAccent) private var accent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
             .overlay {
                 if configuration.isPressed {
                     Capsule(style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
-                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
-                                    Color.clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 2.0
-                        )
-                        .blur(radius: 0.8)
+                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
+                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
                         .allowsHitTesting(false)
                 }
             }
-            .animation(
-                configuration.isPressed
-                    ? .easeOut(duration: 0.10)
-                    : .spring(response: 0.30, dampingFraction: 0.58), // overshoot on release!
-                value: configuration.isPressed
-            )
+            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed && enableHaptic {
                     Haptics.impact(.light)
@@ -605,40 +567,21 @@ struct PhysicalElasticCapsuleButtonStyle: ButtonStyle {
 /// 圆形按钮物理弹性样式（UIBarButton / 语音/发送圆形按钮专用）。
 struct PhysicalElasticCircleButtonStyle: ButtonStyle {
 
-    var scale: CGFloat = 0.94
+    var scale: CGFloat = 0.985
     var enableHaptic: Bool = true
-
-    @Environment(\.colorScheme) private var scheme
-    @Environment(\.appAccent) private var accent
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0)
+            .scaleEffect(configuration.isPressed ? scale : 1.0, anchor: .center)
             .overlay {
                 if configuration.isPressed {
                     Circle()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    accent.opacity(scheme == .dark ? 0.45 : 0.35),
-                                    accent.opacity(scheme == .dark ? 0.20 : 0.12),
-                                    Color.clear
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 2.0
-                        )
-                        .blur(radius: 0.8)
+                        .strokeBorder(Color(hex: "EADEFA").opacity(0.25), lineWidth: 1.0)
+                        .shadow(color: Color(hex: "EADEFA").opacity(0.25), radius: 6)
                         .allowsHitTesting(false)
                 }
             }
-            .animation(
-                configuration.isPressed
-                    ? .easeOut(duration: 0.10)
-                    : .spring(response: 0.30, dampingFraction: 0.58), // overshoot on release!
-                value: configuration.isPressed
-            )
+            .animation(.spring(response: 0.24, dampingFraction: 0.84), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed && enableHaptic {
                     Haptics.impact(.light)
@@ -647,7 +590,7 @@ struct PhysicalElasticCircleButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - 8. 真实卡片交互与暗色磨砂玻璃操作蒙版 (Interactive Glass Card & Dark Glass Action Overlay)
+// MARK: - 8. 真实卡片交互与液态玻璃操作层 (Interactive Glass Card & Action Overlay)
 
 /// 卡片浮动操作按钮定义。
 struct GlassCardAction: Identifiable, Sendable {
@@ -672,7 +615,7 @@ struct GlassCardAction: Identifiable, Sendable {
 }
 
 /// 交互式磨砂卡片修饰器：
-/// - 按压时触发 scaleEffect(0.96) 物理弹性压缩与触感反馈；
+/// - 按压时触发居中光学微缩与触感反馈；
 /// - 长按或触发时弹起主题色液态玻璃操作蒙版与极细折射描边；
 /// - 展示操作图标按钮，点击后平滑收起或点击外部收起。
 struct GlassCardInteractiveModifier: ViewModifier {
@@ -698,11 +641,11 @@ struct GlassCardInteractiveModifier: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
-            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .scaleEffect(isPressed ? 0.985 : 1.0, anchor: .center)
             .animation(.spring(response: 0.28, dampingFraction: 0.70), value: isPressed)
             .overlay {
                 if showActionOverlay && !actions.isEmpty {
-                    darkActionOverlay
+                    actionOverlay
                         .transition(
                             .asymmetric(
                                 insertion: .opacity.combined(with: .scale(scale: 0.92)),
@@ -738,12 +681,15 @@ struct GlassCardInteractiveModifier: ViewModifier {
             )
     }
 
-    private var darkActionOverlay: some View {
+    private var actionOverlay: some View {
         ZStack {
             // 紫色通透半透明液态磨砂玻璃底（彻底清除黑色）
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(accent.opacity(scheme == .dark ? 0.35 : 0.20))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                .fill(scheme == .dark ? Color(hex: "120D1D").opacity(0.78) : Color(hex: "F8F6FD").opacity(0.96))
+                .overlay {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color(hex: "EADEFA").opacity(0.16))
+                }
                 .overlay {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .strokeBorder(
@@ -777,7 +723,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
                                     .fill(
                                         item.role == .destructive
                                             ? Color.red.opacity(0.28)
-                                            : Color.white.opacity(0.18)
+                                            : (scheme == .dark ? Color.white.opacity(0.18) : accent.opacity(0.12))
                                     )
                                     .frame(width: 38, height: 38)
                                     .overlay {
@@ -785,7 +731,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
                                             .strokeBorder(
                                                 item.role == .destructive
                                                     ? Color.red.opacity(0.60)
-                                                    : Color.white.opacity(0.40),
+                                                    : (scheme == .dark ? Color.white.opacity(0.40) : accent.opacity(0.32)),
                                                 lineWidth: 0.8
                                             )
                                     }
@@ -795,17 +741,17 @@ struct GlassCardInteractiveModifier: ViewModifier {
                                     .foregroundStyle(
                                         item.role == .destructive
                                             ? Color.red
-                                            : Color.white
+                                            : (scheme == .dark ? Color.white : accent)
                                     )
                             }
 
                             Text(item.title)
                                 .font(.system(size: 10, weight: .medium, design: .rounded))
-                                .foregroundStyle(Color.white.opacity(0.92))
+                                .foregroundStyle(scheme == .dark ? Color.white.opacity(0.92) : AppUI.label)
                                 .lineLimit(1)
                         }
                     }
-                    .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.90))
+                    .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.985))
                 }
             }
             .padding(.horizontal, 10)
@@ -820,7 +766,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
 }
 
 extension View {
-    /// 为卡片添加 0.96 物理弹性按压触感与长按弹出的深色磨砂玻璃操作蒙版。
+    /// 为卡片添加轻微物理按压触感与长按弹出的浅紫液态玻璃操作层。
     func interactiveGlassCard(
         cornerRadius: CGFloat = AppUI.cardRadius,
         actions: [GlassCardAction] = [],

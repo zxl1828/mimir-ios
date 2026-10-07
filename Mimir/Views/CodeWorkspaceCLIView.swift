@@ -11,6 +11,8 @@ struct CodeWorkspaceCLIView: View {
     @State private var settings = AppSettings()
     @State private var showFolderImporter = false
     @State private var showFilePicker = false
+    @State private var isLoadingWorkspace = false
+    @State private var workspaceLoadError: String?
     @State private var draft = ""
     @State private var saveState = "已保存"
     @State private var saveError: String?
@@ -31,6 +33,27 @@ struct CodeWorkspaceCLIView: View {
         GeometryReader { geometry in
             VStack(spacing: 10) {
                 header
+                if isLoadingWorkspace {
+                    HStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        Text("正在读取项目文件…")
+                    }
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(accent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if let workspaceLoadError {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text(workspaceLoadError)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        Button("关闭") { self.workspaceLoadError = nil }
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 editorPanel(height: min(max(geometry.size.height * 0.44, 230), 410))
                 if !buildMessage.isEmpty { buildStatusBar }
                 agentPanel
@@ -50,9 +73,18 @@ struct CodeWorkspaceCLIView: View {
             allowsMultipleSelection: false
         ) { result in
             if case .success(let urls) = result, let folder = urls.first {
-                workspace.mountFolder(url: folder)
-                workspace.selectCodeFile(workspace.sourceFiles.first)
-                saveState = "已载入工作区"
+                isLoadingWorkspace = true
+                workspaceLoadError = nil
+                Task {
+                    defer { isLoadingWorkspace = false }
+                    do {
+                        try await workspace.mountFolder(url: folder)
+                        workspace.selectCodeFile(workspace.sourceFiles.first)
+                        saveState = "已载入工作区"
+                    } catch {
+                        workspaceLoadError = error.localizedDescription
+                    }
+                }
             }
         }
         .sheet(isPresented: $showFilePicker) {
@@ -111,10 +143,10 @@ struct CodeWorkspaceCLIView: View {
                 Spacer(minLength: 4)
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(agent.isWorking ? accent : Color.green)
+                        .fill(agent.isWorking || isLoadingWorkspace ? accent : Color.green)
                         .frame(width: 6, height: 6)
-                        .shadow(color: accent.opacity(agent.isWorking ? 0.65 : 0), radius: 5)
-                    Text(agent.isWorking ? "处理中" : "就绪")
+                        .shadow(color: accent.opacity(agent.isWorking || isLoadingWorkspace ? 0.65 : 0), radius: 5)
+                    Text(isLoadingWorkspace ? "读取项目" : (agent.isWorking ? "处理中" : "就绪"))
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                 }
@@ -142,6 +174,7 @@ struct CodeWorkspaceCLIView: View {
                         .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
                 .buttonStyle(PhysicalElasticCircleButtonStyle())
+                .disabled(isLoadingWorkspace)
                 .accessibilityLabel("选择项目文件夹")
 
                 Button {
@@ -220,9 +253,12 @@ struct CodeWorkspaceCLIView: View {
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
                     .lineLimit(1)
                 Button {
-                    workspace.refreshActiveWorkspace()
-                    if let file = workspace.currentActiveCodeFile {
-                        workspace.selectCodeFile(file)
+                    Task {
+                        saveState = "正在扫描"
+                        await workspace.refreshActiveWorkspace()
+                        if let file = workspace.currentActiveCodeFile {
+                            workspace.selectCodeFile(file)
+                        }
                         saveState = "已重新载入"
                     }
                 } label: {
@@ -231,7 +267,7 @@ struct CodeWorkspaceCLIView: View {
                         .frame(width: 30, height: 30)
                         .contentShape(Circle())
                 }
-                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.92))
+                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.985))
                 .accessibilityLabel("重新载入文件")
             }
             .padding(.horizontal, 12)
@@ -331,7 +367,7 @@ struct CodeWorkspaceCLIView: View {
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(accent))
                 }
-                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.92))
+                .buttonStyle(PhysicalElasticCircleButtonStyle(scale: 0.985))
                 .disabled(agent.isWorking || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .padding(.trailing, 5)
                 .accessibilityLabel("发送给代码 Agent")

@@ -140,7 +140,7 @@ xcodebuild -project Mimir.xcodeproj -scheme Mimir \
 
 ## 品牌
 
-吉祥物叫**米米（Cyber-Owl）**，是悬浮在全息液态玻璃球中的赛博猫头鹰：用 `Canvas` 矢量绘制
+吉祥物是悬浮在全息液态玻璃球中的 **Mimir Cyber-Owl**：用 `Canvas` 矢量绘制
 （`Mimir/Views/Components/MimirMascot.swift`，设计稿 100 × 100，与 App 图标同源几何），
 带双同心倾斜星轨逆向旋转、2.2s 呼吸光晕与眨眼动画，并按场景切换三档情绪 ——
 `.calm` 空对话页 / `.thinking` 生成中（星轨加速 + 思考星尘）/ `.happy` 引导页连接成功（月牙笑眼 + 四角星闪光）。
@@ -150,7 +150,7 @@ App 图标在 `Mimir/Resources/Assets.xcassets/AppIcon.appiconset`，
 改色改形后重跑 `python tools/icon/generate_icon.py` 即可重新生成，无需设计稿。
 
 <p align="center">
-  <img src="docs/brand/mascot.png" width="620" alt="赛博猫头鹰米米在浅色与深色背景下的效果">
+  <img src="docs/brand/mascot.png" width="620" alt="Mimir 赛博猫头鹰在浅色与深色背景下的效果">
 </p>
 
 ## 许可

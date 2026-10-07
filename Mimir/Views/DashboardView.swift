@@ -730,7 +730,7 @@ struct DashboardView: View {
                     }
                     .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.16), radius: 10, y: 3)
                 }
-                .pressScaleOvershootCapsule(scale: 0.96)
+                .pressScaleOvershootCapsule(scale: 0.985)
                 .padding(.top, 4)
             }
             .padding(16)

@@ -3,8 +3,7 @@ import SwiftUI
 // MARK: - 纯净 Alpha 遮罩与通透 Liquid Glass 修正修饰器
 //
 // 彻底根除浅色背景下的灰黑发脏与双重边框冲突：
-// 1. 纯净 Alpha 遮罩：遮罩必须仅使用 LinearGradient 控制透明通道，严格使用 `.clear` 与 `.black`
-//    标准断点，杜绝任何 `Color.black.opacity(...)` 参与表面混合。
+// 1. 纯净 Alpha 遮罩：LinearGradient 只控制透明度，不参与表面颜色混合。
 // 2. 纯净单层 Liquid Glass 卡片：去除多层 strokeBorder 嵌套，保证清透通透度与自适应高度。
 
 // MARK: - 1. 纯净 Alpha 垂直双向渐隐遮罩
@@ -62,13 +61,13 @@ public struct CorrectedLiquidGlassCardModifier: ViewModifier {
 
     public func body(content: Content) -> some View {
         content
-            // 文本可读性保护底衬（WCAG AAA 对比度保障，采用纯白与极深紫基准）
+            // Keep a translucent theme base beneath native glass refraction.
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(
                         scheme == .dark
-                            ? Color(hex: "120D1D").opacity(0.80)
-                            : Color.white.opacity(0.85)
+                            ? Color(hex: "120D1D").opacity(0.52)
+                            : Color(hex: "F8F6FD").opacity(0.68)
                     )
             }
             .liquidGlass(
@@ -104,23 +103,6 @@ public struct CorrectedLiquidGlassCardModifier: ViewModifier {
                 .frame(height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .allowsHitTesting(false)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(scheme == .dark ? 0.22 : 0.42),
-                                Color.clear,
-                                accent.opacity(scheme == .dark ? 0.16 : 0.10)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.45
-                    )
-                    .padding(1)
-                    .allowsHitTesting(false)
             }
             .shadow(
                 color: accent.opacity(scheme == .dark ? 0.20 : 0.08),
@@ -196,7 +178,7 @@ public struct FloatingWeatherAgendaCapsule: View {
             )
             .shadow(color: accent.opacity(scheme == .dark ? 0.22 : 0.08), radius: 8, y: 2)
         }
-        .buttonStyle(PressScaleOvershootCapsuleButtonStyle(scale: 0.96))
+        .buttonStyle(PressScaleOvershootCapsuleButtonStyle(scale: 0.985))
     }
 }
 

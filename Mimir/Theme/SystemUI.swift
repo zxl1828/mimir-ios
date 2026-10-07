@@ -456,7 +456,7 @@ struct UIBarButton: View {
                 )
                 .contentShape(Circle())
         }
-        .pressScaleOvershootCircle(scale: 0.94)
+        .pressScaleOvershootCircle(scale: 0.985)
         .accessibilityLabel(label)
     }
 }
@@ -512,7 +512,7 @@ struct UIQuickChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .pressScaleOvershootCapsule(scale: 0.96)
+        .pressScaleOvershootCapsule(scale: 0.985)
     }
 }
 

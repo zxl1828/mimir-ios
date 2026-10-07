@@ -89,11 +89,7 @@ struct ReasoningEffortCard: View {
             radius: 22,
             y: 8
         )
-        .shadow(
-            color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.55) : accent.opacity(0.12)),
-            radius: 16,
-            y: 6
-        )
+        .shadow(color: Color(hex: "EADEFA").opacity(0.22), radius: 18, y: 6)
     }
 }
 
@@ -147,7 +143,7 @@ struct ReasoningEffortSlider: View {
             let activeWidth = thumbDiameter + currentOffset
 
             ZStack(alignment: .leading) {
-                // 1. 未激活底轨（半透明磨砂深灰/浅灰底衬）
+                // 1. 未激活底轨（透光白紫玻璃）
                 inactiveTrack
 
                 // 2. 左侧电光紫激活段 + 星尘与星座连线纹理
@@ -189,11 +185,12 @@ struct ReasoningEffortSlider: View {
                             dragProgress = nil
                             return
                         }
-                        let touchOffset = value.location.x - horizontalPadding - (thumbDiameter / 2)
+                        let momentum = (value.predictedEndTranslation.width - value.translation.width) * 0.12
+                        let touchOffset = value.location.x + momentum - horizontalPadding - (thumbDiameter / 2)
                         let clampedOffset = min(max(touchOffset, 0), maxOffset)
                         let normalizedProgress = clampedOffset / maxOffset
                         let snapped = Self.nearest(normalizedProgress)
-                        withAnimation(AppUI.snap) {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.84)) {
                             level = snapped
                             dragProgress = nil
                         }
@@ -226,8 +223,8 @@ struct ReasoningEffortSlider: View {
         Capsule(style: .continuous)
             .fill(
                 scheme == .dark
-                    ? Color.white.opacity(0.12)
-                    : accent.opacity(0.10)
+                    ? Color.white.opacity(0.15)
+                    : Color(hex: "F8F6FD").opacity(0.96)
             )
             .overlay(alignment: .trailing) {
                 // 右侧微弱算力芯片水印图标（对应实机截图滑轨右侧的暗纹）
@@ -325,10 +322,8 @@ struct ReasoningEffortSlider: View {
                 Circle()
                     .strokeBorder(Color.white.opacity(0.95), lineWidth: 1)
             )
-            .shadow(color: (scheme == .dark ? Color(red: 0.05, green: 0.04, blue: 0.10).opacity(0.40) : accent.opacity(0.18)), radius: 4, x: 0, y: 1)
+            .shadow(color: accent.opacity(0.16), radius: 4, x: 0, y: 1)
             .shadow(color: accent.opacity(0.45), radius: 8, x: 0, y: 0)
-            .scaleEffect(dragProgress == nil ? 1.0 : 1.06)
-            .animation(AppUI.snap, value: dragProgress == nil)
     }
 }
 
@@ -486,7 +481,7 @@ struct ReasoningStatusChip: View {
             )
             .contentShape(Capsule(style: .continuous))
         }
-        .pressScaleOvershootCapsule(scale: 0.96)
+        .pressScaleOvershootCapsule(scale: 0.985)
         .accessibilityLabel("思考强度与模型：\(ModelCatalog.cardLabel(for: modelID)) \(level.heroTitle)")
     }
 }

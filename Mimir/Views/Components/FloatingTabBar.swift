@@ -138,7 +138,7 @@ struct FloatingTabBar: View {
             }
             .contentShape(Capsule(style: .continuous))
         }
-        .buttonStyle(PressScaleOvershootCapsuleButtonStyle(scale: 0.94))
+        .buttonStyle(PressScaleOvershootCapsuleButtonStyle(scale: 0.985))
         .accessibilityLabel(tab.title)
     }
 }

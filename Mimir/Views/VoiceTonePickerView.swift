@@ -26,7 +26,7 @@ struct VoiceTonePickerView: View {
                         trailing: nil
                     ) {
                         settings.voice.systemVoiceIdentifier = nil
-                        previewTone(id: "system-auto", text: "你好，我是米米，这是当前的系统音色。")
+                        previewTone(id: "system-auto", text: "你好，我是 Mimir，这是当前的系统音色。")
                     }
 
                     ForEach(systemVoices.chinese, id: \.identifier) { voice in
@@ -75,7 +75,7 @@ struct VoiceTonePickerView: View {
             trailing: previewingID == voice.identifier ? "正在试听" : nil
         ) {
             settings.voice.systemVoiceIdentifier = voice.identifier
-            previewTone(id: voice.identifier, text: "你好，我是米米，这是当前的音色。")
+            previewTone(id: voice.identifier, text: "你好，我是 Mimir，这是当前的音色。")
         }
     }
 

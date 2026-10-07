@@ -1,4 +1,4 @@
-"""生成 Mimir 的 App 图标与品牌图（吉祥物「米米」：全息玻璃球里的赛博猫头鹰 Cyber-Owl）。
+"""生成 Mimir 的 App 图标与品牌图（全息玻璃球里的赛博猫头鹰 Cyber-Owl）。
 
 用法：
     python tools/icon/generate_icon.py
