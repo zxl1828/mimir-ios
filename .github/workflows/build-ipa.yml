@@ -133,14 +133,6 @@ jobs:
           echo "name=$APP_NAME" >> "$GITHUB_OUTPUT"
           echo "path=$IPA_PATH" >> "$GITHUB_OUTPUT"
 
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.package.outputs.name }}-ipa
-          path: ${{ steps.package.outputs.path }}
-          if-no-files-found: error
-          retention-days: 30
-
       - name: Publish Mimir release
         if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.project_path == '')
         env:
@@ -152,7 +144,7 @@ jobs:
           TAG="build-$(date -u +%Y%m%d-%H%M%S)"
           gh release create "$TAG" "$IPA_PATH" \
             --title "Mimir iOS $TAG" \
-            --notes "Automated unsigned IPA build from $GITHUB_SHA"
+            --notes "Direct standalone unsigned IPA for signing tools: download Mimir-unsigned.ipa from this release. Do not rename the ZIP downloaded from GitHub Actions Artifacts. Built from $GITHUB_SHA."
 
   cleanup:
     if: always() && github.event_name == 'workflow_dispatch' && inputs.project_path != '' && startsWith(github.ref_name, 'mimir-code-build-')
