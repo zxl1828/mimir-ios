@@ -28,7 +28,7 @@ struct ModelSegmentedSwitcher: View {
             Capsule(style: .continuous)
                 .fill(Color(hex: "F8F6FD").opacity(scheme == .dark ? 0.96 : 0.82))
         }
-        .liquidGlass(.ultraThin, in: .capsule)
+        .liquidGlass(.regular, in: .capsule)
         .overlay(
             Capsule(style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)

@@ -512,7 +512,7 @@ struct FilesAssetsView: View {
 
     private var emptyStateCard: some View {
         let isSearching = !workspace.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        VStack(spacing: 12) {
+        return VStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(accent.opacity(scheme == .dark ? 0.16 : 0.09))

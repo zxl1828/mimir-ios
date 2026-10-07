@@ -74,7 +74,7 @@ struct ProfileSettingsView: View {
                     } catch {
                         errorMessage = "头像保存失败，请重试。"
                     }
-                    cropSource = nil
+                    self.cropSource = nil
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
