@@ -120,7 +120,9 @@ echo "==> [4/5] 打包（-y 保留符号链接 / -X 不写扩展属性 / -q 静�
 rm -f "$OUTPUT_IPA"
 (
   cd "$WORK_DIR"
-  zip -r -y -X -q "$OUTPUT_IPA" Payload
+  # Keep the slash: some on-device signers inspect the first directory entry
+  # literally and reject archives assembled from a bare `Payload` path.
+  zip -r -y -X -q "$OUTPUT_IPA" Payload/
 )
 
 # ---------------------------------------------------------------- 5. 结构自检
@@ -138,6 +140,13 @@ ENTRIES="$(unzip -Z1 "$OUTPUT_IPA")"
 ROOTS="$(echo "$ENTRIES" | awk -F/ 'NF && $1 != "" {print $1}' | sort -u)"
 if [ "$ROOTS" != "Payload" ]; then
   echo "错误：压缩包顶层不是唯一的 Payload 目录（实际：$ROOTS）" >&2
+  exit 1
+fi
+
+# A valid unsigned IPA has no signing artifacts, but it must still contain a
+# complete app bundle and a directly readable plist for mobile signers.
+if [ ! -f "$APP_PATH/Info.plist" ] || [ ! -f "$APP_PATH/$EXECUTABLE" ]; then
+  echo "错误：App bundle 缺少 Info.plist 或主程序" >&2
   exit 1
 fi
 

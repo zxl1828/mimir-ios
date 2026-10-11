@@ -6,6 +6,16 @@ enum ModelCatalog {
     struct Option: Identifiable, Hashable {
         var id: String
         var title: String
+        /// Whether the configured provider/model exposes an image-generation capability.
+        /// DeepSeek chat and reasoning models are text-only and must never show image actions.
+        var supportsImageGeneration: Bool
+
+        init(id: String, title: String, supportsImageGeneration: Bool? = nil) {
+            self.id = id
+            self.title = title
+            self.supportsImageGeneration = supportsImageGeneration ??
+                !["deepseek-chat", "deepseek-reasoner"].contains(id)
+        }
     }
 
     /// 按当前凭据的协议类型给出候选模型；用户自己填过的模型 ID 永远排在第一位。

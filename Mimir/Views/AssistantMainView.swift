@@ -136,7 +136,7 @@ public struct AssistantMainView: View {
         }
         .fullScreenCover(isPresented: $showVoiceMode) {
             if let chat {
-                VoiceModeView(chat: chat)
+                VoiceConversationView(chat: chat)
             }
         }
         .sheet(isPresented: $showMemoryBrowser) {
@@ -313,17 +313,7 @@ public struct AssistantMainView: View {
 
             Spacer(minLength: 2)
 
-            // 右侧：思考档位脉冲触发圆钮
-            UIBarButton(
-                icon: "waveform.path.ecg",
-                label: "思考强度：\(chat?.thinkingMode.heroTitle ?? "High")",
-                isHighlighted: showReasoningCard
-            ) {
-                withAnimation(AppUI.snap) {
-                    showReasoningCard.toggle()
-                }
-            }
-
+            // 思考强度只在底部 reasoning capsule 中调整，顶部保持平衡。
             UIBarButton(icon: "square.and.pencil", label: "新建对话") {
                 if showReasoningCard {
                     withAnimation(AppUI.snap) { showReasoningCard = false }
@@ -770,8 +760,10 @@ public struct AssistantMainView: View {
                     .frame(width: 1, height: 18)
                     .padding(.horizontal, 2)
 
-                UIQuickChip(icon: "photo", title: "生成图片") {
-                    insertPrompt("画一张图片，画面是：")
+                if currentModelOptions.first(where: { $0.id == currentModelID })?.supportsImageGeneration == true {
+                    UIQuickChip(icon: "photo", title: "生成图片") {
+                        insertPrompt("画一张图片，画面是：")
+                    }
                 }
 
                 UIQuickChip(icon: "pencil", title: "撰写或编辑") {
