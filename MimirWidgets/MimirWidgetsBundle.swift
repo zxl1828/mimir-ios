@@ -5,5 +5,6 @@ import SwiftUI
 struct MimirWidgetsBundle: WidgetBundle {
     var body: some Widget {
         ChatLiveActivityWidget()
+        MimirLiveActivityWidget()
     }
 }

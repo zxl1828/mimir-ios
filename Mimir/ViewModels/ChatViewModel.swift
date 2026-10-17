@@ -867,4 +867,89 @@ final class ChatViewModel {
         }
     }
 
+    // MARK: - Task 3: Split-Prism Arena (Dual-Stream Model Comparison)
+
+    var isDualStreamMode: Bool = false
+    var dualStreamModelA: String = "Claude 3.5 Sonnet"
+    var dualStreamModelB: String = "GPT-4o Mini"
+    var dualStreamResponseA: String = ""
+    var dualStreamResponseB: String = ""
+    var isDualStreaming: Bool = false
+    var showPrismArena: Bool = false
+
+    /// 触发并发双流模型对比（TaskGroup 并发）
+    func triggerDualStreamComparison(prompt: String) {
+        guard let conversation, settings.hasUsableCredential else { return }
+        let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        dualStreamResponseA = ""
+        dualStreamResponseB = ""
+        isDualStreaming = true
+        showPrismArena = true
+
+        let credential = settings.resolvedCredential
+        dualStreamModelA = credential.modelID
+        dualStreamModelB = credential.modelID.contains("gpt") ? "claude-3-5-sonnet" : "gpt-4o-mini"
+
+        let client = LLMClientFactory.make(for: credential)
+        var paramA = settings.parameters
+        paramA.modelID = dualStreamModelA
+        paramA.temperature = 0.7
+
+        var paramB = settings.parameters
+        paramB.modelID = dualStreamModelB
+        paramB.temperature = 0.3
+
+        let messages = [LLMChatMessage(role: .user, text: trimmed)]
+
+        Task {
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { @MainActor [weak self] in
+                    guard let self else { return }
+                    let streamA = client.streamChat(messages: messages, parameters: paramA, credential: credential, tools: [])
+                    do {
+                        for try await event in streamA {
+                            if case .textDelta(let text) = event {
+                                self.dualStreamResponseA += text
+                            }
+                        }
+                    } catch {}
+                }
+
+                group.addTask { @MainActor [weak self] in
+                    guard let self else { return }
+                    let streamB = client.streamChat(messages: messages, parameters: paramB, credential: credential, tools: [])
+                    do {
+                        for try await event in streamB {
+                            if case .textDelta(let text) = event {
+                                self.dualStreamResponseB += text
+                            }
+                        }
+                    } catch {}
+                }
+            }
+
+            self.isDualStreaming = false
+        }
+    }
+
+    /// 确认胜出模型分支并保存
+    func commitWinningBranch(model: String, response: String) {
+        guard let conversation else { return }
+        let winningMessage = ChatMessage(
+            role: .assistant,
+            text: response,
+            orderIndex: conversation.nextOrderIndex,
+            thinkingMode: thinkingMode
+        )
+        winningMessage.agentName = "Prism Winner: \(model)"
+        modelContext.insert(winningMessage)
+        winningMessage.conversation = conversation
+        conversation.updatedAt = Date()
+        persist(force: true)
+        showPrismArena = false
+    }
+
 }
+

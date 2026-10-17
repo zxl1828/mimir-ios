@@ -21,6 +21,8 @@ struct DashboardView: View {
     private var mcpConfigs: [MCPServerConfig]
     @Query
     private var memories: [MemoryEntry]
+    @Query
+    private var scheduledTasks: [ScheduledTask]
 
     @State private var showSettings = false
     @State private var showHelpGuide = false
@@ -36,6 +38,12 @@ struct DashboardView: View {
 
     private var coordinator: TabNavigationCoordinator {
         TabNavigationCoordinator.shared
+    }
+
+    private var imageGenerationAvailable: Bool {
+        settings.credential.format == .openAI
+            && !settings.credential.baseURL.lowercased().contains("deepseek.com")
+            && !settings.imageGenerationModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -233,9 +241,9 @@ struct DashboardView: View {
 
     private var quickToolsRow: some View {
         HStack(spacing: 12) {
-            // 卡片 1: 图像生成
+                // 图像生成使用单独的服务商模型配置，不依赖当前聊天模型。
             Button {
-                coordinator.navigateToAssistant(withPrompt: "画一张图片，画面是：")
+                coordinator.navigateToAssistantForImageGeneration()
             } label: {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 6) {
@@ -249,7 +257,7 @@ struct DashboardView: View {
                                     .fill(accent.opacity(0.14))
                             )
 
-                        Text("图像生成")
+                        Text(imageGenerationAvailable ? "图像生成" : "配置图像模型")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(AppUI.textTitle(scheme: scheme))
                             .lineLimit(1)
@@ -371,7 +379,7 @@ struct DashboardView: View {
 
                 Spacer()
 
-                Text("\(max(agents.count, 1)) 智能体")
+                Text("\(agents.count) 智能体")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(accent)
                     .padding(.horizontal, 6)
@@ -505,12 +513,12 @@ struct DashboardView: View {
 
                 Spacer()
 
-                Text("调度中")
+                Text(scheduledTasks.contains(where: \.isEnabled) ? "已启用" : "未启用")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color(hex: "34D399"))
+                    .foregroundStyle(scheduledTasks.contains(where: \.isEnabled) ? Color(hex: "34D399") : AppUI.textCaption(scheme: scheme))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(hex: "34D399").opacity(0.12)))
+                    .background(Capsule().fill(Color(hex: "34D399").opacity(scheduledTasks.contains(where: \.isEnabled) ? 0.12 : 0.06)))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -526,9 +534,9 @@ struct DashboardView: View {
 
             HStack(spacing: 5) {
                 Circle()
-                    .fill(Color(hex: "34D399"))
+                    .fill(scheduledTasks.contains(where: \.isEnabled) ? Color(hex: "34D399") : AppUI.textCaption(scheme: scheme))
                     .frame(width: 6, height: 6)
-                Text("后台自动化流程活跃")
+                Text(scheduledTasks.contains(where: \.isEnabled) ? "后台任务已启用" : "尚无启用的定时任务")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .lineLimit(1)
@@ -633,42 +641,22 @@ struct DashboardView: View {
                 .padding(.horizontal, 4)
 
             VStack(spacing: 12) {
-                // 如果本地有真实会话，展示真实会话；否则展示精美预设会话
+                // 只展示真实会话，不注入演示数据。
                 if !conversations.isEmpty {
                     ForEach(Array(conversations.prefix(4).enumerated()), id: \.element.id) { index, convo in
                         realConversationRow(convo)
                             .staggerCascade(index: index)
                     }
                 } else {
-                    conversationRow(
-                        title: "Space Exploration AI Prompt",
-                        subtitle: "Refining orbital dynamics query & Lagrange equations...",
-                        time: "2 hrs ago",
-                        onTap: {
-                            coordinator.navigateToAssistant(withPrompt: "继续推进太空轨道力学推导：")
-                        }
-                    )
-                    .staggerCascade(index: 0)
-
-                    conversationRow(
-                        title: "The Future of AI in Healthcare",
-                        subtitle: "Analyzing current trends and automated clinical trials...",
-                        time: "Yesterday",
-                        onTap: {
-                            coordinator.navigateToAssistant(withPrompt: "回顾医疗 AI 预测分析：")
-                        }
-                    )
-                    .staggerCascade(index: 1)
-
-                    conversationRow(
-                        title: "Creative Copy for Marketing",
-                        subtitle: "Generating slogans for the new liquid glass product line...",
-                        time: "2 days ago",
-                        onTap: {
-                            coordinator.navigateToAssistant(withPrompt: "撰写液态玻璃主题创意文案：")
-                        }
-                    )
-                    .staggerCascade(index: 2)
+                    Button { coordinator.startNewChat() } label: {
+                        Label("新建一段对话", systemImage: "plus.bubble")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .softGlassCard(cornerRadius: 16)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 // 底部固定官方液态玻璃发光胶囊按钮：START NEW CHAT

@@ -121,6 +121,21 @@ final class VoiceSessionViewModel {
     func end() {
         stopAll()
         state = .idle
+        ChatActivityManager.endAudioActivity()
+    }
+
+    func enterBackground() {
+        guard isActive else { return }
+        let sessionID = conversation?.id.uuidString ?? UUID().uuidString
+        ChatActivityManager.startAudioActivity(
+            sessionID: sessionID,
+            title: conversation?.title ?? "Mimir 实时录音",
+            enabled: settings.liveActivitiesEnabled
+        )
+    }
+
+    func enterForeground() {
+        ChatActivityManager.endAudioActivity()
     }
 
     // MARK: - 采集与识别

@@ -49,6 +49,9 @@ public struct AssistantMainView: View {
     @State private var previewImage: UIImage?
     @State private var showToolsDrawer = false
     @State private var showWeatherDetail = false
+    @State private var isImageGenerationMode = false
+    @State private var isGeneratingImage = false
+    @State private var imageGenerationTask: Task<Void, Never>?
 
     @State private var coordinator = TabNavigationCoordinator.shared
     @FocusState private var isFieldFocused: Bool
@@ -70,6 +73,26 @@ public struct AssistantMainView: View {
                         .scale(scale: 0.94, anchor: .topTrailing)
                             .combined(with: .opacity)
                     )
+            }
+
+            // Task 3: Split-Prism Arena 对比浮层
+            if let chat, chat.showPrismArena {
+                SplitPrismArenaView(
+                    modelAName: chat.dualStreamModelA,
+                    modelBName: chat.dualStreamModelB,
+                    responseA: chat.dualStreamResponseA,
+                    responseB: chat.dualStreamResponseB,
+                    isStreaming: chat.isDualStreaming,
+                    onSelectWinner: { model, text in
+                        chat.commitWinningBranch(model: model, response: text)
+                    },
+                    onDismiss: {
+                        chat.showPrismArena = false
+                    }
+                )
+                .padding(.top, 64)
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
+                .zIndex(150)
             }
 
             // Status-bar lighting and blur sit behind controls so they never frost the top bar.
@@ -112,6 +135,20 @@ public struct AssistantMainView: View {
                 chat?.inputText = newPrompt
                 coordinator.pendingPromptToChat = nil
                 isFieldFocused = true
+            }
+        }
+        .onChange(of: coordinator.pendingAttachedFile) { _, file in
+            if let file { attachWorkspaceFileContext(file) }
+        }
+        .onChange(of: coordinator.pendingImageGenerationPromptToChat) { _, prompt in
+            guard let prompt else { return }
+            isImageGenerationMode = true
+            chat?.inputText = prompt
+            coordinator.pendingImageGenerationPromptToChat = nil
+            isFieldFocused = true
+            if !imageGenerationAvailable {
+                showToast("请先在设置中配置图像生成模型。")
+                showSettings = true
             }
         }
         .onChange(of: coordinator.shouldStartNewChat) { _, shouldStart in
@@ -591,8 +628,8 @@ public struct AssistantMainView: View {
 
                 Spacer(minLength: 8)
 
-                // 2. 中央大卡片：严格遵循极简三层架构、标准 32pt 圆角裁切与局部变换隔离
-                CentralAssistantCard(mascotSize: mascotSize, isCompact: isCompact)
+                // 2. 中央猫头鹰 RAG 知识共振轨道与状态
+                CyberOwlHeaderView(mascotSize: mascotSize, isCompact: isCompact)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 16)
 
@@ -633,15 +670,22 @@ public struct AssistantMainView: View {
                     set: { chat?.attachedImages = $0 }
                 ),
                 focus: $isFieldFocused,
-                isGenerating: chat?.isGenerating ?? false,
+                isGenerating: (chat?.isGenerating ?? false) || isGeneratingImage,
                 placeholder: "询问 Mimir…",
                 onSend: {
                     if showReasoningCard {
                         withAnimation(AppUI.snap) { showReasoningCard = false }
                     }
-                    chat?.send()
+                    if isImageGenerationMode {
+                        generateImage()
+                    } else {
+                        chat?.send()
+                    }
                 },
-                onStop: { chat?.stopGenerating() },
+                onStop: {
+                    if isGeneratingImage { imageGenerationTask?.cancel() }
+                    else { chat?.stopGenerating() }
+                },
                 showAttachMenu: $showAttachmentOptions,
                 onPickPhoto: { showPhotoPicker = true },
                 onCamera: { showCamera = true },
@@ -756,9 +800,10 @@ public struct AssistantMainView: View {
                     .frame(width: 1, height: 18)
                     .padding(.horizontal, 2)
 
-                if currentModelOptions.first(where: { $0.id == currentModelID })?.supportsImageGeneration == true {
+                if imageGenerationAvailable {
                     UIQuickChip(icon: "photo", title: "生成图片") {
-                        insertPrompt("画一张图片，画面是：")
+                        isImageGenerationMode = true
+                        insertPrompt("描述你想生成的图片：")
                     }
                 }
 
@@ -935,6 +980,111 @@ public struct AssistantMainView: View {
     private func insertPrompt(_ text: String) {
         chat?.inputText = text
         isFieldFocused = true
+    }
+
+    private func attachWorkspaceFileContext(_ file: WorkspaceFileItem) {
+        coordinator.pendingAttachedFile = nil
+        guard !file.isDirectory, let fileURL = file.url,
+              let rootURL = WorkspaceManager.shared.activeWorkspaceURL?.standardizedFileURL else {
+            showToast("请选择工作区内的文本或代码文件。")
+            return
+        }
+        Task {
+            do {
+                let content = try await Task.detached(priority: .userInitiated) { () throws -> String in
+                    guard rootURL.startAccessingSecurityScopedResource() else { throw WorkspaceAccessError.accessDenied }
+                    defer { rootURL.stopAccessingSecurityScopedResource() }
+                    let root = rootURL.resolvingSymlinksInPath().standardizedFileURL.path
+                    let target = fileURL.resolvingSymlinksInPath().standardizedFileURL.path
+                    guard target.hasPrefix(root + "/") else { throw WorkspaceAccessError.invalidPath }
+                    let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+                    guard values.isRegularFile == true else { throw WorkspaceAccessError.invalidPath }
+                    guard (values.fileSize ?? 0) <= 256_000 else { throw WorkspaceAccessError.fileTooLarge }
+                    let data = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
+                    guard data.count <= 256_000, let text = String(data: data, encoding: .utf8) else {
+                        throw WorkspaceAccessError.unreadableFile
+                    }
+                    return text
+                }.value
+                chat?.inputText += "\n\n--- \(file.path) ---\n\(content)\n--- 文件结束 ---"
+                isFieldFocused = true
+                showToast("文件内容已加入输入框，请检查后发送。")
+            } catch {
+                showToast("读取文件失败：\(error.localizedDescription)")
+            }
+        }
+    }
+
+    private var imageGenerationAvailable: Bool {
+        settings.credential.format == .openAI
+            && !settings.credential.baseURL.lowercased().contains("deepseek.com")
+            && !settings.imageGenerationModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func generateImage() {
+        guard !isGeneratingImage else { return }
+        guard imageGenerationAvailable else {
+            isImageGenerationMode = false
+            showToast("请先在设置中填写支持图像生成的模型 ID。")
+            showSettings = true
+            return
+        }
+        guard let chat, let conversation = chat.conversation else {
+            showToast("当前没有可用会话。")
+            return
+        }
+        let prompt = chat.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+
+        let credential = settings.resolvedCredential
+        let imageModelID = settings.imageGenerationModelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let userMessage = ChatMessage(
+            role: .user,
+            text: "生成图片：\(prompt)",
+            orderIndex: conversation.nextOrderIndex,
+            thinkingMode: chat.thinkingMode
+        )
+        modelContext.insert(userMessage)
+        userMessage.conversation = conversation
+        conversation.updatedAt = Date()
+        conversation.regenerateTitleIfNeeded()
+        chat.inputText = ""
+        chat.handleInputChange("")
+        try? modelContext.save()
+
+        isGeneratingImage = true
+        isImageGenerationMode = false
+        imageGenerationTask = Task {
+            do {
+                let imageData = try await ImageGenerationService.generate(
+                    prompt: prompt,
+                    modelID: imageModelID,
+                    credential: credential
+                )
+                try Task.checkCancellation()
+                let response = ChatMessage(
+                    role: .assistant,
+                    text: "图像生成完成",
+                    orderIndex: conversation.nextOrderIndex,
+                    thinkingMode: chat.thinkingMode
+                )
+                response.attachmentData = imageData
+                response.attachmentKind = "image"
+                modelContext.insert(response)
+                response.conversation = conversation
+                conversation.updatedAt = Date()
+                try modelContext.save()
+                showToast("图像已生成")
+            } catch {
+                if chat.conversation?.id == conversation.id {
+                    chat.inputText = prompt
+                    isImageGenerationMode = true
+                }
+                showToast(Task.isCancelled ? "已停止图像生成" : error.localizedDescription)
+            }
+            isGeneratingImage = false
+            imageGenerationTask = nil
+        }
     }
 
     private func quote(_ message: ChatMessage) {

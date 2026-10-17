@@ -74,6 +74,7 @@ final class AppSettings {
         static let suggestionsEnabled = "settings.suggestions.enabled.v1"
         static let selectedAgent = "settings.agent.selected.v1"
         static let customModels = "settings.custom.models.v1"
+        static let imageGenerationModelID = "settings.image-generation.model-id.v1"
         static let webSearch = "settings.websearch.v1"
         static let appearance = "settings.appearance.v1"
         static let accent = "settings.accent.v1"
@@ -138,6 +139,11 @@ final class AppSettings {
 
     var customModels: [CustomModelEntry] {
         didSet { persist(customModels, forKey: Key.customModels) }
+    }
+
+    /// Optional OpenAI-compatible image model, independent from the chat model.
+    var imageGenerationModelID: String {
+        didSet { defaults.set(imageGenerationModelID, forKey: Key.imageGenerationModelID) }
     }
 
     var webSearch: WebSearchConfiguration {
@@ -230,6 +236,7 @@ final class AppSettings {
         self.suggestionsEnabled = defaults.object(forKey: Key.suggestionsEnabled) as? Bool ?? true
         self.selectedAgentName = defaults.string(forKey: Key.selectedAgent) ?? ""
         self.customModels = Self.load([CustomModelEntry].self, from: defaults, key: Key.customModels) ?? []
+        self.imageGenerationModelID = defaults.string(forKey: Key.imageGenerationModelID) ?? ""
         self.webSearch = Self.load(WebSearchConfiguration.self, from: defaults, key: Key.webSearch)
             ?? WebSearchConfiguration()
         self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")

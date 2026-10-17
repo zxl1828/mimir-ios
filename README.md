@@ -32,6 +32,8 @@
 - 多模型接入：OpenAI 兼容 Chat Completions 与 Anthropic Messages 协议；
   可接 OpenAI、DeepSeek、OpenRouter、Ollama、vLLM、LM Studio 等兼容服务，
   用户填写自己的 API Key、协议和 Base URL，读取 `/models` 目录，或手动输入模型 ID
+- 图像生成：为支持 OpenAI 兼容 `/images/generations` 的服务单独配置图像模型 ID；
+  图像生成入口可与聊天模型分开使用，DeepSeek 文本服务不会显示该入口
 - 会话中可切换当前服务商已解析或保存的模型；每个会话保留自己的模型选择
 - 长对话滚动摘要，超出上下文窗口时自动压缩而不是粗暴截断
 - Token 用量统计（消息级与本机累计）

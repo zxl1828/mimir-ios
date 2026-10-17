@@ -43,7 +43,7 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
 
             do {
                 let bookmark = try folder.bookmarkData(
-                    options: .withSecurityScope,
+                    options: [],
                     includingResourceValuesForKeys: nil,
                     relativeTo: nil
                 )

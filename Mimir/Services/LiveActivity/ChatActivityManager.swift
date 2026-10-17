@@ -81,4 +81,59 @@ enum ChatActivityManager {
         }
         current = nil
     }
+
+    // MARK: - Task 4: Cyber-Owl Live Activity & Timestamp Pin (Background Audio)
+
+    private static var audioActivity: Activity<MimirActivityAttributes>?
+
+    static func startAudioActivity(
+        sessionID: String,
+        title: String = "Mimir 实时录音",
+        status: String = "正在全双工收听",
+        enabled: Bool = true
+    ) {
+        guard enabled, isSupported else { return }
+        Task {
+            let attributes = MimirActivityAttributes(sessionID: sessionID)
+            let state = MimirActivityAttributes.ContentState(
+                conversationTitle: title,
+                statusText: status,
+                isAudioActive: true,
+                audioElapsedSeconds: 0,
+                audioLevels: [0.35, 0.75, 0.45]
+            )
+            do {
+                audioActivity = try Activity.request(
+                    attributes: attributes,
+                    content: .init(state: state, staleDate: nil),
+                    pushType: nil
+                )
+            } catch {
+                audioActivity = nil
+            }
+        }
+    }
+
+    static func updateAudioActivity(
+        elapsedSeconds: Int,
+        levels: [Float],
+        status: String? = nil
+    ) {
+        guard let activity = audioActivity else { return }
+        Task {
+            var state = activity.content.state
+            state.audioElapsedSeconds = elapsedSeconds
+            state.audioLevels = levels
+            if let status { state.statusText = status }
+            await activity.update(.init(state: state, staleDate: nil))
+        }
+    }
+
+    static func endAudioActivity() {
+        guard let activity = audioActivity else { return }
+        audioActivity = nil
+        Task {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
 }

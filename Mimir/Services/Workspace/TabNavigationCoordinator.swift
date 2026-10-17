@@ -41,6 +41,7 @@ final class TabNavigationCoordinator {
 
     /// 跨工作区向助手注入的 Prompt 与上下文附件
     var pendingPromptToChat: String?
+    var pendingImageGenerationPromptToChat: String?
     var pendingAttachedFile: WorkspaceFileItem?
     var pendingOpenConversationID: UUID?
     var shouldStartNewChat: Bool = false
@@ -60,6 +61,11 @@ final class TabNavigationCoordinator {
 
     func navigateToAssistant(withPrompt prompt: String) {
         pendingPromptToChat = prompt
+        switchToTab(.assistant)
+    }
+
+    func navigateToAssistantForImageGeneration(withPrompt prompt: String = "描述你想生成的图片：") {
+        pendingImageGenerationPromptToChat = prompt
         switchToTab(.assistant)
     }
 

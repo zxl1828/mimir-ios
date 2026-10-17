@@ -14,9 +14,15 @@ import UIKit
 /// - **浅色转写形态（参考图 2）**：
 ///   中央 3D 梦幻流体动态声波丝带（Iridescent Wave Ribbon）与音频时间轴量规；
 ///   双层时间戳沉浸式转写卡片与分贝刻度。
-public struct VoiceDuplexView: View {
+struct VoiceDuplexView: View {
 
-    public let chat: ChatViewModel
+    private enum SheetRoute: String, Identifiable {
+        case tonePicker
+        case minutes
+        var id: String { rawValue }
+    }
+
+    let chat: ChatViewModel
 
     @Environment(AppSettings.self) private var settings
     @Environment(\.modelContext) private var modelContext
@@ -25,21 +31,21 @@ public struct VoiceDuplexView: View {
     @State private var session: VoiceSessionViewModel?
     @State private var isMuted: Bool = false
     @State private var visualMode: LiquidOrbVisualizer.VisualMode = .duplexSphere
-    @State private var showMinutes: Bool = false
-    @State private var minutesText: String?
+    @State private var minutesText = ""
+    @State private var minutesError: String?
     @State private var isSummarizing: Bool = false
-    @State private var showTonePicker: Bool = false
+    @State private var activeSheet: SheetRoute?
 
     // 核心品牌色
     private let irisViolet = Color(hex: "7D52F4")
     private let electricViolet = Color(hex: "9B70FF")
     private let deepPlumNight = Color(hex: "0D061A")
 
-    public init(chat: ChatViewModel) {
+    init(chat: ChatViewModel) {
         self.chat = chat
     }
 
-    public var body: some View {
+    var body: some View {
         ZStack {
             // ① 深度环境渐变与紫雾焦散背景
             duplexAmbientBackground
@@ -61,13 +67,27 @@ public struct VoiceDuplexView: View {
         .onDisappear {
             session?.end()
         }
-        .sheet(isPresented: $showTonePicker) {
-            VoiceTonePickerView()
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            session?.enterBackground()
         }
-        .sheet(isPresented: $showMinutes) {
-            VoiceMinutesView(text: minutesText ?? "", onDismiss: { showMinutes = false })
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            session?.enterForeground()
+        }
+        .sheet(item: $activeSheet) { route in
+            switch route {
+            case .tonePicker:
+                VoiceTonePickerView()
+            case .minutes:
+                VoiceMinutesView(
+                    text: minutesText,
+                    isLoading: isSummarizing,
+                    errorMessage: minutesError,
+                    onRetry: { if let session { generateMinutes(session) } },
+                    onDismiss: { activeSheet = nil }
+                )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+            }
         }
     }
 
@@ -247,7 +267,7 @@ public struct VoiceDuplexView: View {
     private var airPodsPeripheralPill: some View {
         Button {
             Haptics.impact(.light)
-            showTonePicker = true
+            activeSheet = .tonePicker
         } label: {
             HStack(spacing: 7) {
                 // AirPods 紧凑图标
@@ -374,12 +394,16 @@ public struct VoiceDuplexView: View {
 
     private func generateMinutes(_ session: VoiceSessionViewModel) {
         guard !isSummarizing else { return }
+        minutesText = ""
+        minutesError = nil
         isSummarizing = true
+        activeSheet = .minutes
         Task {
             let succeeded = await session.generateMinutes()
             if succeeded {
                 minutesText = session.lines.last(where: { !$0.isUser })?.text ?? ""
-                showMinutes = true
+            } else {
+                minutesError = session.infoText ?? "纪要生成失败，请检查连接后重试。"
             }
             isSummarizing = false
         }
