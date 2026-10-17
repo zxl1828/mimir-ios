@@ -45,7 +45,7 @@ public struct RootContainerView: View {
                     .allowsHitTesting(coordinator.selectedTab == .code)
                     .zIndex(coordinator.selectedTab == .code ? 2 : 1)
             }
-            .animation(.spring(response: 0.38, dampingFraction: 0.82), value: coordinator.selectedTab)
+            .animation(.easeInOut(duration: 0.18), value: coordinator.selectedTab)
 
             // 悬浮式毛玻璃底栏（Floating Glass TabBar）
             FloatingTabBar(selectedTab: $coord.selectedTab)

@@ -4,7 +4,8 @@ import UniformTypeIdentifiers
 
 struct WorkspaceFolderPicker: UIViewControllerRepresentable {
     @Binding var isPresented: Bool
-    let onPick: (URL) -> Void
+    let onPick: (URL, Data) -> Void
+    let onError: (String) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
@@ -34,8 +35,25 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
                 parent.isPresented = false
                 return
             }
-            parent.isPresented = false
-            parent.onPick(folder)
+            guard folder.startAccessingSecurityScopedResource() else {
+                parent.isPresented = false
+                parent.onError("无法访问所选文件夹，请重新选择并允许 Mimir 读取。")
+                return
+            }
+
+            do {
+                let bookmark = try folder.bookmarkData(
+                    options: .withSecurityScope,
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                parent.isPresented = false
+                parent.onPick(folder, bookmark)
+            } catch {
+                folder.stopAccessingSecurityScopedResource()
+                parent.isPresented = false
+                parent.onError(error.localizedDescription)
+            }
         }
 
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {

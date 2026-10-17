@@ -82,8 +82,10 @@ struct CodeWorkspaceCLIView: View {
             isKeyboardVisible = false
         }
         .sheet(isPresented: $showFolderImporter) {
-            WorkspaceFolderPicker(isPresented: $showFolderImporter) { folder in
-                loadWorkspace(from: folder)
+            WorkspaceFolderPicker(isPresented: $showFolderImporter) { folder, bookmark in
+                loadWorkspace(from: folder, bookmark: bookmark)
+            } onError: { message in
+                workspaceLoadError = message
             }
             .ignoresSafeArea()
         }
@@ -129,13 +131,17 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
-    private func loadWorkspace(from folder: URL) {
+    private func loadWorkspace(from folder: URL, bookmark: Data) {
         isLoadingWorkspace = true
         workspaceLoadError = nil
         Task {
             defer { isLoadingWorkspace = false }
             do {
-                try await workspace.mountFolder(url: folder)
+                try await workspace.mountFolder(
+                    url: folder,
+                    bookmarkData: bookmark,
+                    securityScopeAlreadyStarted: true
+                )
                 workspace.selectCodeFile(workspace.sourceFiles.first)
                 saveState = "已载入工作区"
             } catch {

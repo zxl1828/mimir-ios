@@ -136,7 +136,7 @@ public struct AssistantMainView: View {
         }
         .fullScreenCover(isPresented: $showVoiceMode) {
             if let chat {
-                VoiceConversationView(chat: chat)
+                VoiceDuplexView(chat: chat)
             }
         }
         .sheet(isPresented: $showMemoryBrowser) {
@@ -313,13 +313,9 @@ public struct AssistantMainView: View {
 
             Spacer(minLength: 2)
 
-            // 思考强度只在底部 reasoning capsule 中调整，顶部保持平衡。
-            UIBarButton(icon: "square.and.pencil", label: "新建对话") {
-                if showReasoningCard {
-                    withAnimation(AppUI.snap) { showReasoningCard = false }
-                }
-                newConversation()
-            }
+            Color.clear
+                .frame(width: 40, height: 40)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

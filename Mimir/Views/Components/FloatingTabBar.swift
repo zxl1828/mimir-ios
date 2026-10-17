@@ -4,18 +4,17 @@ import SwiftUI
 struct FloatingTabBar: View {
 
     @Binding var selectedTab: AppTab
-    @Namespace private var tabPillAnimation
 
     @Environment(\.appAccent) private var accent
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(AppTab.allCases) { tab in
                 tabButton(tab)
             }
         }
-        .padding(.horizontal, 7)
+        .padding(.horizontal, 9)
         .padding(.vertical, 7)
         .frame(height: 66)
         .background {
@@ -59,7 +58,7 @@ struct FloatingTabBar: View {
             x: 0,
             y: 10
         )
-        .frame(maxWidth: 480)
+        .frame(maxWidth: 360)
         .padding(.horizontal, 16)
     }
 
@@ -69,26 +68,28 @@ struct FloatingTabBar: View {
         return Button {
             if selectedTab != tab {
                 Haptics.selectionChanged()
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                withAnimation(.easeInOut(duration: 0.18)) {
                     selectedTab = tab
                 }
             }
         } label: {
-            HStack(spacing: 7) {
+            HStack(spacing: 5) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: isSelected ? 17 : 18, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 17, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isSelected ? accent : inactiveColor)
-                    .frame(width: 20)
+                    .frame(width: 18)
 
                 if isSelected {
-                    Text(tab.title)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    Text(tab.shortTitle)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                         .lineLimit(1)
-                        .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .leading)))
+                        .minimumScaleFactor(0.78)
+                        .transition(.opacity)
                 }
             }
-            .frame(width: isSelected ? 88 : 48, height: 50)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .background {
                 if isSelected {
                     Capsule(style: .continuous)
@@ -110,9 +111,9 @@ struct FloatingTabBar: View {
                                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                         )
                         .shadow(color: accent.opacity(0.18), radius: 9, y: 2)
-                        .matchedGeometryEffect(id: "floating.tab.glow.pill", in: tabPillAnimation)
                 }
             }
+            .animation(.easeInOut(duration: 0.18), value: isSelected)
             .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
@@ -122,5 +123,16 @@ struct FloatingTabBar: View {
 
     private var inactiveColor: Color {
         scheme == .dark ? Color(hex: "C8BCD9") : Color(hex: "625A72")
+    }
+}
+
+private extension AppTab {
+    var shortTitle: String {
+        switch self {
+        case .assistant: "Assist"
+        case .dashboard: "Home"
+        case .files: "Files"
+        case .code: "Code"
+        }
     }
 }

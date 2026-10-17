@@ -185,18 +185,27 @@ final class WorkspaceManager {
 
     // MARK: - 挂载本地真实项目/文件夹 (Security-Scoped URL)
 
-    func mountFolder(url: URL) async throws {
-        guard url.startAccessingSecurityScopedResource() else {
+    func mountFolder(
+        url: URL,
+        bookmarkData providedBookmark: Data? = nil,
+        securityScopeAlreadyStarted: Bool = false
+    ) async throws {
+        if !securityScopeAlreadyStarted && !url.startAccessingSecurityScopedResource() {
             throw WorkspaceAccessError.accessDenied
         }
         defer { url.stopAccessingSecurityScopedResource() }
 
-        // iOS persists document-picker access in the bookmark itself; .withSecurityScope is macOS-only.
-        let bookmarkData = try url.bookmarkData(
-            options: [],
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-        )
+        // Keep the security-scoped bookmark so the selected folder can be restored after relaunch.
+        let bookmarkData: Data
+        if let providedBookmark {
+            bookmarkData = providedBookmark
+        } else {
+            bookmarkData = try url.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+        }
         saveBookmark(bookmarkData, for: url)
         addFolderURL(url)
         let scannedItems = await Task.detached(priority: .userInitiated) {
@@ -415,7 +424,7 @@ final class WorkspaceManager {
             var isStale = false
             if let resolvedURL = try? URL(
                 resolvingBookmarkData: data,
-                options: [],
+                options: .withSecurityScope,
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             ) {

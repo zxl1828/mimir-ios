@@ -24,6 +24,7 @@ struct ChatLiveActivityWidget: Widget {
             LockScreenSparkView(state: context.state)
                 .activityBackgroundTint(sparkPlum.opacity(0.85))
                 .activitySystemActionForegroundColor(.white)
+                .widgetURL(URL(string: "mimir://spark"))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -163,40 +164,108 @@ private struct LockScreenSparkView: View {
     let state: ChatActivityAttributes.ContentState
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "bird.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(sparkViolet)
-                .shadow(color: sparkViolet.opacity(min(max(state.owlGlow, 0.35), 0.85)), radius: 8)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(sparkViolet.opacity(0.20))
+                        .frame(width: 38, height: 38)
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.24), lineWidth: 1)
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "bird.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color.white)
+                        .shadow(color: sparkViolet.opacity(min(max(state.owlGlow, 0.35), 0.85)), radius: 8)
+                }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(state.statusText.isEmpty ? "Mimir 待命" : state.statusText)
-                    .font(.system(size: 14, weight: .semibold))
-                    .lineLimit(1)
-
-                if !state.ambientWeather.isEmpty || !state.ambientSchedule.isEmpty {
-                    Text([state.ambientWeather, state.ambientSchedule]
-                        .filter { !$0.isEmpty }
-                        .joined(separator: " · "))
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("Mimir")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        Circle()
+                            .fill(state.isGenerating ? Color.green : sparkViolet)
+                            .frame(width: 5, height: 5)
+                        Text(state.isGenerating ? "正在思考" : (state.statusText.isEmpty ? "随时响应" : state.statusText.replacingOccurrences(of: "Mimir ", with: "")))
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color.white.opacity(0.68))
+                            .lineLimit(1)
+                    }
+                    Text(state.conversationTitle.isEmpty ? "AI 助手" : state.conversationTitle)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.76))
                         .lineLimit(1)
                 }
 
-                if !state.previewText.isEmpty {
-                    Text(state.previewText)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                Spacer(minLength: 4)
+                Image(systemName: state.isGenerating ? "waveform" : "waveform.circle.fill")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(sparkViolet.opacity(0.95))
+            }
+
+            Text(state.previewText.isEmpty ? "轻点打开 Mimir，继续你的对话。" : state.previewText)
+                .font(.system(size: 12))
+                .foregroundStyle(Color.white.opacity(state.previewText.isEmpty ? 0.68 : 0.92))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 6) {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 9, weight: .semibold))
+                Text(state.isGenerating ? "LIVE RESPONSE" : "TAP TO CONTINUE")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if state.tokenCount > 0 {
+                    Text("\(state.tokenCount) TOKENS")
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.white.opacity(0.58))
+                        .lineLimit(1)
                 }
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.70))
             }
-
-            Spacer(minLength: 0)
-
-            if state.isGenerating {
-                ProgressView().controlSize(.mini)
-            }
+            .foregroundStyle(Color.white.opacity(0.84))
         }
-        .padding(14)
+        .padding(.horizontal, 15)
+        .padding(.vertical, 13)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.20, green: 0.13, blue: 0.31),
+                            Color(red: 0.11, green: 0.08, blue: 0.17),
+                            Color(red: 0.08, green: 0.06, blue: 0.12)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [Color.white.opacity(0.20), .clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
+                        .frame(height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.36), sparkViolet.opacity(0.40), Color.white.opacity(0.12)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: sparkViolet.opacity(0.18), radius: 18, y: 8)
     }
 }

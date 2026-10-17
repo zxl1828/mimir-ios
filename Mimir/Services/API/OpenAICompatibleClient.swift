@@ -121,6 +121,30 @@ struct OpenAICompatibleClient: LLMClient {
         var error: APIError?
     }
 
+    private struct CompletionResponse: Decodable {
+        struct Choice: Decodable {
+            struct Message: Decodable {
+                var content: String?
+                var reasoning_content: String?
+                var tool_calls: [ToolCall]?
+
+                struct ToolCall: Decodable {
+                    struct Function: Decodable {
+                        var name: String?
+                        var arguments: String?
+                    }
+                    var id: String?
+                    var function: Function?
+                }
+            }
+            var message: Message?
+            var finish_reason: String?
+        }
+        var choices: [Choice]?
+        var usage: StreamChunk.Usage?
+        var error: APIError?
+    }
+
     private struct APIError: Decodable {
         var message: String?
         var type: String?
@@ -160,6 +184,11 @@ struct OpenAICompatibleClient: LLMClient {
         request: URLRequest,
         continuation: AsyncThrowingStream<LLMStreamEvent, Error>.Continuation
     ) async throws {
+        if !Self.requestsStreaming(request) {
+            try await runNonStreaming(request: request, continuation: continuation)
+            return
+        }
+
         let (bytes, response) = try await session.bytes(for: request)
 
         guard let http = response as? HTTPURLResponse else {
@@ -219,6 +248,64 @@ struct OpenAICompatibleClient: LLMClient {
                 continuation.yield(.textDelta(fallback.text))
             }
         }
+    }
+
+    private func runNonStreaming(
+        request: URLRequest,
+        continuation: AsyncThrowingStream<LLMStreamEvent, Error>.Continuation
+    ) async throws {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw LLMError.network("没有收到有效的响应")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw Self.error(for: http.statusCode, body: String(data: data.prefix(2_000), encoding: .utf8) ?? "")
+        }
+
+        let result: CompletionResponse
+        do {
+            result = try JSONDecoder().decode(CompletionResponse.self, from: data)
+        } catch {
+            throw LLMError.decoding(error.localizedDescription)
+        }
+        if let apiError = result.error {
+            throw LLMError.serverError(status: http.statusCode, message: apiError.message ?? "请求被拒绝")
+        }
+
+        guard let choice = result.choices?.first, let message = choice.message else {
+            throw LLMError.emptyResponse
+        }
+        if let reasoning = message.reasoning_content, !reasoning.isEmpty {
+            continuation.yield(.reasoningDelta(reasoning))
+        }
+        if let text = message.content, !text.isEmpty {
+            continuation.yield(.textDelta(text))
+        }
+        if let usage = result.usage {
+            let reasoningTokens = usage.completion_tokens_details?.reasoning_tokens ?? 0
+            continuation.yield(.usage(TokenUsage(
+                promptTokens: usage.prompt_tokens ?? 0,
+                completionTokens: max((usage.completion_tokens ?? 0) - reasoningTokens, 0),
+                reasoningTokens: reasoningTokens
+            )))
+        }
+        if let toolCalls = message.tool_calls, !toolCalls.isEmpty {
+            let calls = toolCalls.compactMap { call -> LLMToolCall? in
+                guard let id = call.id, let function = call.function, let name = function.name else { return nil }
+                return LLMToolCall(id: id, name: name, argumentsJSON: function.arguments ?? "{}")
+            }
+            if !calls.isEmpty { continuation.yield(.toolCallsReady(calls)) }
+        }
+        guard !(message.content ?? "").isEmpty || !(message.reasoning_content ?? "").isEmpty || !(message.tool_calls ?? []).isEmpty else {
+            throw LLMError.emptyResponse
+        }
+        continuation.yield(.finished(reason: choice.finish_reason ?? "stop"))
+    }
+
+    private static func requestsStreaming(_ request: URLRequest) -> Bool {
+        guard let data = request.httpBody,
+              let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return true }
+        return body["stream"] as? Bool ?? true
     }
 
     /// 把流式请求改成非流式再发一次，返回（正文, 思考内容）。失败返回 nil。
@@ -391,7 +478,7 @@ struct OpenAICompatibleClient: LLMClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue(parameters.streamsResponse ? "text/event-stream" : "application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(credential.key)", forHTTPHeaderField: "Authorization")
         if let organization = credential.organizationID, !organization.isEmpty {
             request.setValue(organization, forHTTPHeaderField: "OpenAI-Organization")
