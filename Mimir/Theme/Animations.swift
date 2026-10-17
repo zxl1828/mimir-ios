@@ -47,8 +47,4 @@ enum Haptics {
         generator.prepare()
         generator.notificationOccurred(type)
     }
-
-    static func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
-        notify(type)
-    }
 }

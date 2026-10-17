@@ -51,10 +51,19 @@ extension LLMClient {
             )
         }
 
+        guard !collected.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return LLMValidationResult(
+                isReachable: false,
+                format: credential.format,
+                message: LLMError.emptyResponse.errorDescription ?? "模型没有返回内容。",
+                availableModels: []
+            )
+        }
+
         return LLMValidationResult(
             isReachable: true,
             format: credential.format,
-            message: collected.isEmpty ? "连接正常" : "连接正常",
+            message: "连接正常",
             availableModels: [credential.modelID]
         )
     }

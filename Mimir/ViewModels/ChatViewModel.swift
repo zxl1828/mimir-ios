@@ -423,7 +423,6 @@ final class ChatViewModel {
         let credential = settings.resolvedCredential
         var parameters = settings.parameters.applying(thinkingMode)
         parameters.modelID = conversation.modelID
-        parameters.streamsResponse = true
         let client = LLMClientFactory.make(for: credential)
 
         // 记录本条回答引用到的记忆，供气泡上的标签跳转。
@@ -903,34 +902,34 @@ final class ChatViewModel {
 
         let messages = [LLMChatMessage(role: .user, text: trimmed)]
 
-        Task {
-            await withTaskGroup(of: Void.self) { group in
-                group.addTask { @MainActor [weak self] in
-                    guard let self else { return }
-                    let streamA = client.streamChat(messages: messages, parameters: paramA, credential: credential, tools: [])
-                    do {
-                        for try await event in streamA {
-                            if case .textDelta(let text) = event {
-                                self.dualStreamResponseA += text
-                            }
+        Task { @MainActor [weak self] in
+            let taskA = Task { @MainActor [weak self] in
+                guard let self else { return }
+                let streamA = client.streamChat(messages: messages, parameters: paramA, credential: credential, tools: [])
+                do {
+                    for try await event in streamA {
+                        if case .textDelta(let text) = event {
+                            self.dualStreamResponseA += text
                         }
-                    } catch {}
-                }
-
-                group.addTask { @MainActor [weak self] in
-                    guard let self else { return }
-                    let streamB = client.streamChat(messages: messages, parameters: paramB, credential: credential, tools: [])
-                    do {
-                        for try await event in streamB {
-                            if case .textDelta(let text) = event {
-                                self.dualStreamResponseB += text
-                            }
-                        }
-                    } catch {}
-                }
+                    }
+                } catch {}
             }
 
-            self.isDualStreaming = false
+            let taskB = Task { @MainActor [weak self] in
+                guard let self else { return }
+                let streamB = client.streamChat(messages: messages, parameters: paramB, credential: credential, tools: [])
+                do {
+                    for try await event in streamB {
+                        if case .textDelta(let text) = event {
+                            self.dualStreamResponseB += text
+                        }
+                    }
+                } catch {}
+            }
+
+            _ = await taskA.value
+            _ = await taskB.value
+            self?.isDualStreaming = false
         }
     }
 

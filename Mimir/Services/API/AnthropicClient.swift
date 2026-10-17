@@ -67,6 +67,24 @@ struct AnthropicClient: LLMClient {
         var error: ErrorPayload?
     }
 
+    private struct MessageResponse: Decodable {
+        struct ContentBlock: Decodable {
+            var type: String?
+            var text: String?
+        }
+        struct Usage: Decodable {
+            var input_tokens: Int?
+            var output_tokens: Int?
+        }
+        struct ErrorPayload: Decodable {
+            var message: String?
+        }
+        var content: [ContentBlock]?
+        var usage: Usage?
+        var stop_reason: String?
+        var error: ErrorPayload?
+    }
+
     func streamChat(
         messages: [LLMChatMessage],
         parameters: ModelParameters,
@@ -81,7 +99,11 @@ struct AnthropicClient: LLMClient {
                         parameters: parameters,
                         credential: credential
                     )
-                    try await runStream(request: request, continuation: continuation)
+                    if parameters.streamsResponse {
+                        try await runStream(request: request, continuation: continuation)
+                    } else {
+                        try await runNonStream(request: request, continuation: continuation)
+                    }
                     continuation.finish()
                 } catch is CancellationError {
                     continuation.finish(throwing: LLMError.cancelled)
@@ -119,6 +141,44 @@ struct AnthropicClient: LLMClient {
         if let tail = parser.flush() {
             try Self.handle(payload: tail.data, continuation: continuation)
         }
+    }
+
+    private func runNonStream(
+        request: URLRequest,
+        continuation: AsyncThrowingStream<LLMStreamEvent, Error>.Continuation
+    ) async throws {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw LLMError.network("没有收到有效的响应")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let body = String(data: data.prefix(2_000), encoding: .utf8) ?? ""
+            throw OpenAICompatibleClient.error(for: http.statusCode, body: body)
+        }
+
+        let result: MessageResponse
+        do {
+            result = try JSONDecoder().decode(MessageResponse.self, from: data)
+        } catch {
+            throw LLMError.decoding(error.localizedDescription)
+        }
+        if let error = result.error {
+            throw LLMError.serverError(status: http.statusCode, message: error.message ?? "请求被拒绝")
+        }
+
+        let text = (result.content ?? [])
+            .filter { $0.type == "text" }
+            .compactMap(\.text)
+            .joined()
+        guard !text.isEmpty else { throw LLMError.emptyResponse }
+        if let usage = result.usage {
+            continuation.yield(.usage(TokenUsage(
+                promptTokens: usage.input_tokens ?? 0,
+                completionTokens: usage.output_tokens ?? 0
+            )))
+        }
+        continuation.yield(.textDelta(text))
+        continuation.yield(.finished(reason: result.stop_reason ?? "end_turn"))
     }
 
     private static func handle(
@@ -209,7 +269,10 @@ struct AnthropicClient: LLMClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue(
+            parameters.streamsResponse ? "text/event-stream" : "application/json",
+            forHTTPHeaderField: "Accept"
+        )
         request.setValue(credential.key, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
         for (header, value) in credential.extraHeaders {
