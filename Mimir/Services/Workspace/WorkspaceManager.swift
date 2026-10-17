@@ -155,8 +155,32 @@ final class WorkspaceManager {
 
     private let bookmarkStorageKey = "mimir.workspace.bookmarks"
     private var lastSavedCodeContent = ""
+    private var workspaceFiles: [WorkspaceFileItem] = []
+    private var libraryFiles: [WorkspaceFileItem] = []
+    private var libraryRevision = 0
+
+    private var localLibraryURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Mimir Library", isDirectory: true)
+    }
 
     private init() {
+        try? FileManager.default.createDirectory(at: localLibraryURL, withIntermediateDirectories: true)
+        let libraryURL = localLibraryURL
+        Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                let revision = self.libraryRevision
+                let items = await Task.detached(priority: .utility) {
+                    WorkspaceFolderScanner.scan(libraryURL)
+                }.value
+                guard !Task.isCancelled else { return }
+                guard self.libraryRevision == revision else { continue }
+                self.libraryFiles = items
+                self.rebuildAllFiles()
+                return
+            }
+        }
         loadBookmarks()
     }
 
@@ -234,12 +258,13 @@ final class WorkspaceManager {
     }
 
     private func applyScannedItems(_ scannedItems: [WorkspaceFileItem]) {
+        workspaceFiles = scannedItems
+        rebuildAllFiles()
         let selectedPath = currentActiveCodeFile?.url?.standardizedFileURL.path
         let activeRoot = activeWorkspaceURL?.standardizedFileURL.path
         let selectionBelongsToWorkspace = activeRoot.map { root in
             selectedPath?.hasPrefix(root + "/") == true
         } ?? false
-        self.allFiles = scannedItems
 
         if let selectedPath, let refreshed = scannedItems.first(where: { $0.url?.standardizedFileURL.path == selectedPath }) {
             currentActiveCodeFile = refreshed
@@ -253,44 +278,58 @@ final class WorkspaceManager {
         }
     }
 
+    private func rebuildAllFiles() {
+        let workspacePaths = Set(workspaceFiles.compactMap { $0.url?.standardizedFileURL.path })
+        allFiles = workspaceFiles + libraryFiles.filter { libraryItem in
+            guard let path = libraryItem.url?.standardizedFileURL.path else { return true }
+            return !workspacePaths.contains(path)
+        }
+    }
+
     func refreshActiveWorkspace() async {
         guard let activeWorkspaceURL else { return }
         await scanFolder(url: activeWorkspaceURL)
     }
 
-    func refreshCurrentCodeFile() {
+    func refreshCurrentCodeFile() async {
         guard let file = currentActiveCodeFile,
               let url = file.url,
               let root = activeWorkspaceURL else { return }
-        let accessing = root.startAccessingSecurityScopedResource()
-        guard accessing else { return }
-        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
-        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
-              let modifiedAt = values.contentModificationDate else { return }
-        let size = Int64(values.fileSize ?? 0)
-        guard size != file.size || modifiedAt != file.modifiedAt else { return }
-
-        var refreshed = file
-        refreshed.size = size
-        refreshed.modifiedAt = modifiedAt
+        let shouldReload = currentCodeContent == lastSavedCodeContent
+        let snapshot = await Task.detached(priority: .utility) { () -> (WorkspaceFileItem, String?)? in
+            guard root.startAccessingSecurityScopedResource() else { return nil }
+            defer { root.stopAccessingSecurityScopedResource() }
+            guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
+                  let modifiedAt = values.contentModificationDate else { return nil }
+            let size = Int64(values.fileSize ?? 0)
+            guard size != file.size || modifiedAt != file.modifiedAt else { return nil }
+            var refreshed = file
+            refreshed.size = size
+            refreshed.modifiedAt = modifiedAt
+            let text = shouldReload && size <= 256_000 ? try? String(contentsOf: url, encoding: .utf8) : nil
+            return (refreshed, text)
+        }.value
+        guard let (refreshed, text) = snapshot, currentActiveCodeFile?.id == file.id else { return }
         currentActiveCodeFile = refreshed
-        if let index = allFiles.firstIndex(where: { $0.id == file.id }) {
-            allFiles[index] = refreshed
+        upsertFile(refreshed)
+        if currentCodeContent == lastSavedCodeContent, let text {
+            currentCodeContent = text
+            lastSavedCodeContent = text
         }
-        guard currentCodeContent == lastSavedCodeContent,
-              let path = relativePath(for: refreshed),
-              let text = try? readWorkspaceText(path: path) else { return }
-        currentCodeContent = text
-        lastSavedCodeContent = text
     }
 
     // MARK: - 文件读写（支持直接修改并保存手机上的文件）
 
     func readFileContent(for item: WorkspaceFileItem) -> String {
-        if let url = item.url,
-           let root = activeWorkspaceURL,
-           root.startAccessingSecurityScopedResource() {
-            defer { root.stopAccessingSecurityScopedResource() }
+        if let url = item.url {
+            let isLocalLibraryFile = url.standardizedFileURL.path.hasPrefix(localLibraryURL.standardizedFileURL.path + "/")
+            let scopeRoot = activeWorkspaceURL.flatMap { root in
+                url.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") ? root : nil
+            }
+            let accessURL = isLocalLibraryFile ? nil : (scopeRoot ?? url)
+            let accessing = accessURL?.startAccessingSecurityScopedResource() ?? true
+            guard accessing else { return "// 文件内容为空或二进制不可读" }
+            defer { accessURL?.stopAccessingSecurityScopedResource() }
             if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
                let size = values.fileSize,
                size > 256_000 {
@@ -362,11 +401,7 @@ final class WorkspaceManager {
             url: url,
             category: WorkspaceFileTypes.category(for: url.lastPathComponent, extension: url.pathExtension.lowercased())
         )
-        if let index = allFiles.firstIndex(where: { $0.url?.standardizedFileURL == url }) {
-            allFiles[index] = updated
-        } else {
-            allFiles.insert(updated, at: 0)
-        }
+        upsertFile(updated)
         currentActiveCodeFile = updated
         currentCodeContent = content
         lastSavedCodeContent = content
@@ -386,28 +421,117 @@ final class WorkspaceManager {
         return candidate
     }
 
-    func createNewFile(name: String, content: String, category: WorkspaceFileItem.AssetCategory) -> WorkspaceFileItem {
+    func createNewFile(name: String, content: String, category: WorkspaceFileItem.AssetCategory) throws -> WorkspaceFileItem {
+        let cleanName = (name as NSString).lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty, cleanName == name else { throw WorkspaceAccessError.invalidPath }
+        let root = activeWorkspaceURL ?? localLibraryURL
+        let accessing = activeWorkspaceURL != nil
+        if accessing && !root.startAccessingSecurityScopedResource() { throw WorkspaceAccessError.accessDenied }
+        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let fileURL = root.appendingPathComponent(cleanName, isDirectory: false)
+        guard !FileManager.default.fileExists(atPath: fileURL.path) else { throw CocoaError(.fileWriteFileExists) }
+        try content.write(to: fileURL, atomically: true, encoding: .utf8)
         let newItem = WorkspaceFileItem(
-            name: name,
-            path: "/workspace/\(name)",
+            name: cleanName,
+            path: fileURL.path,
             isDirectory: false,
             size: Int64(content.utf8.count),
             modifiedAt: Date(),
-            fileExtension: (name as NSString).pathExtension,
-            url: nil,
+            fileExtension: fileURL.pathExtension.lowercased(),
+            url: fileURL,
             category: category
         )
-        allFiles.insert(newItem, at: 0)
+        upsertFile(newItem)
         return newItem
     }
 
-    func deleteFile(_ item: WorkspaceFileItem) {
-        if let url = item.url {
-            guard url.startAccessingSecurityScopedResource() else { return }
-            defer { url.stopAccessingSecurityScopedResource() }
-            try? FileManager.default.removeItem(at: url)
+    func importFiles(_ urls: [URL]) async throws {
+        let libraryURL = localLibraryURL
+        let items = try await Task.detached(priority: .userInitiated) { () throws -> [WorkspaceFileItem] in
+            try FileManager.default.createDirectory(at: libraryURL, withIntermediateDirectories: true)
+            var copiedURLs: [URL] = []
+            var importedItems: [WorkspaceFileItem] = []
+            do {
+                for source in urls {
+                    guard source.startAccessingSecurityScopedResource() else { throw WorkspaceAccessError.accessDenied }
+                    defer { source.stopAccessingSecurityScopedResource() }
+                    let stem = source.deletingPathExtension().lastPathComponent
+                    let ext = source.pathExtension
+                    var target = libraryURL.appendingPathComponent(source.lastPathComponent)
+                    if FileManager.default.fileExists(atPath: target.path) {
+                        let suffix = UUID().uuidString.prefix(8)
+                        let uniqueName = ext.isEmpty ? "\(stem)-\(suffix)" : "\(stem)-\(suffix).\(ext)"
+                        target = libraryURL.appendingPathComponent(uniqueName)
+                    }
+                    do {
+                        try FileManager.default.copyItem(at: source, to: target)
+                        copiedURLs.append(target)
+                        let values = try target.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
+                        let fileExtension = target.pathExtension.lowercased()
+                        let importedItem = WorkspaceFileItem(
+                            name: target.lastPathComponent,
+                            path: target.path,
+                            isDirectory: values.isDirectory ?? false,
+                            size: Int64(values.fileSize ?? 0),
+                            modifiedAt: values.contentModificationDate ?? Date(),
+                            fileExtension: fileExtension,
+                            url: target,
+                            category: WorkspaceFileTypes.category(for: target.lastPathComponent, extension: fileExtension)
+                        )
+                        importedItems.append(importedItem)
+                        if importedItem.isDirectory {
+                            importedItems.append(contentsOf: WorkspaceFolderScanner.scan(target))
+                        }
+                    } catch {
+                        try? FileManager.default.removeItem(at: target)
+                        throw error
+                    }
+                }
+            } catch {
+                copiedURLs.forEach { try? FileManager.default.removeItem(at: $0) }
+                throw error
+            }
+            return importedItems
+        }.value
+        items.forEach(upsertFile)
+    }
+
+    func deleteFile(_ item: WorkspaceFileItem) throws {
+        guard let url = item.url else { throw WorkspaceAccessError.invalidPath }
+        let isLocalLibraryFile = isInLocalLibrary(url)
+        let scopeRoot = activeWorkspaceURL.flatMap { root in
+            url.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") ? root : nil
         }
-        allFiles.removeAll { $0.id == item.id }
+        let accessURL = isLocalLibraryFile ? nil : (scopeRoot ?? url)
+        let accessing = accessURL?.startAccessingSecurityScopedResource() ?? true
+        guard accessing else { throw WorkspaceAccessError.accessDenied }
+        defer { accessURL?.stopAccessingSecurityScopedResource() }
+        try FileManager.default.removeItem(at: url)
+        if isLocalLibraryFile { libraryRevision += 1 }
+        workspaceFiles.removeAll { $0.id == item.id }
+        libraryFiles.removeAll { $0.id == item.id }
+        rebuildAllFiles()
+    }
+
+    private func isInLocalLibrary(_ url: URL) -> Bool {
+        url.standardizedFileURL.path.hasPrefix(localLibraryURL.standardizedFileURL.path + "/")
+    }
+
+    private func upsertFile(_ item: WorkspaceFileItem) {
+        if isInLocalLibrary(item.url ?? URL(fileURLWithPath: item.path)) {
+            libraryRevision += 1
+            if let index = libraryFiles.firstIndex(where: { $0.id == item.id }) {
+                libraryFiles[index] = item
+            } else {
+                libraryFiles.insert(item, at: 0)
+            }
+        } else if let index = workspaceFiles.firstIndex(where: { $0.id == item.id }) {
+            workspaceFiles[index] = item
+        } else {
+            workspaceFiles.insert(item, at: 0)
+        }
+        rebuildAllFiles()
     }
 
     // MARK: - 书签持久化

@@ -397,12 +397,16 @@ enum SystemCapabilityGateway {
         guard args.bool("create_if_missing") else {
             return "工作区里没有「" + name + "」。若确实要新建，请把 create_if_missing 设为 true。"
         }
-        let created = WorkspaceManager.shared.createNewFile(
-            name: name,
-            content: content,
-            category: .all
-        )
-        return "已新建工作区文件「" + created.name + "」。"
+        do {
+            let created = try WorkspaceManager.shared.createNewFile(
+                name: name,
+                content: content,
+                category: .all
+            )
+            return "已新建工作区文件「" + created.name + "」。"
+        } catch {
+            return "新建文件失败：" + error.localizedDescription
+        }
     }
 
     static func findWorkspaceFile(named name: String) -> WorkspaceFileItem? {

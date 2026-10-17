@@ -102,9 +102,12 @@ struct FilesAssetsView: View {
         ) { result in
             switch result {
             case .success(let urls):
-                mountWorkspace(urls: urls)
-            case .failure:
-                break
+                Task {
+                    do { try await workspace.importFiles(urls) }
+                    catch { workspaceImportError = error.localizedDescription }
+                }
+            case .failure(let error):
+                workspaceImportError = error.localizedDescription
             }
         }
         .sheet(isPresented: $showNewDocSheet) {
@@ -430,7 +433,8 @@ struct FilesAssetsView: View {
                     previewFileItem = item
                 },
                 GlassCardAction(title: "删除文件", icon: "trash", role: .destructive) {
-                    workspace.deleteFile(item)
+                    do { try workspace.deleteFile(item) }
+                    catch { workspaceImportError = error.localizedDescription }
                 }
             ]
         )
@@ -721,14 +725,18 @@ struct FilesAssetsView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") {
                         if !newDocTitle.isEmpty {
-                            _ = workspace.createNewFile(
-                                name: newDocTitle,
-                                content: newDocContent,
-                                category: .document
-                            )
-                            newDocTitle = ""
-                            newDocContent = ""
-                            showNewDocSheet = false
+                            do {
+                                _ = try workspace.createNewFile(
+                                    name: newDocTitle,
+                                    content: newDocContent,
+                                    category: .document
+                                )
+                                newDocTitle = ""
+                                newDocContent = ""
+                                showNewDocSheet = false
+                            } catch {
+                                workspaceImportError = error.localizedDescription
+                            }
                         }
                     }
                     .disabled(newDocTitle.isEmpty)

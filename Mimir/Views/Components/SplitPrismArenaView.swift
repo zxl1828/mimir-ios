@@ -266,7 +266,7 @@ public struct SplitPrismArenaView: View {
                 splitRatio = 1.0
                 lockedWinner = modelAName
             }
-            Haptics.notification(.success)
+            Haptics.notify(.success)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
                 commitWinner(model: modelAName, text: responseA)
             }
@@ -276,7 +276,7 @@ public struct SplitPrismArenaView: View {
                 splitRatio = 0.0
                 lockedWinner = modelBName
             }
-            Haptics.notification(.success)
+            Haptics.notify(.success)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
                 commitWinner(model: modelBName, text: responseB)
             }

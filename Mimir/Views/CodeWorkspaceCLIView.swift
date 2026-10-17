@@ -151,7 +151,7 @@ struct CodeWorkspaceCLIView: View {
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
-                workspace.refreshCurrentCodeFile()
+                await workspace.refreshCurrentCodeFile()
             }
         }
         .onDisappear {
@@ -800,7 +800,7 @@ struct CodeWorkspaceCLIView: View {
         guard !currentCode.isEmpty else { return }
 
         isRefactoring = true
-        Haptics.notification(.success)
+        Haptics.notify(.success)
 
         Task {
             defer { isRefactoring = false }
@@ -860,7 +860,7 @@ struct CodeWorkspaceCLIView: View {
         do {
             try workspace.saveFileContent(item: currentFile, newContent: newCode)
             saveState = "已提交重构"
-            Haptics.notification(.success)
+            Haptics.notify(.success)
         } catch {
             saveError = "保存失败: \(error.localizedDescription)"
         }

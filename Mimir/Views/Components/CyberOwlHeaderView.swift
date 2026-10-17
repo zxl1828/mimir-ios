@@ -27,97 +27,119 @@ struct CyberOwlHeaderView: View {
     private let paleLavender = Color(hex: "F8F6FD")
 
     var body: some View {
+        VStack(spacing: isCompact ? 6 : 12) {
+            orbitalCenterStage
+            statusPillBadge
+            greetingAndCaption
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, isCompact ? 10 : 20)
+        .overlay(alignment: .center) {
+            popoverOverlay
+        }
+        .sheet(isPresented: $showFullSliceSheet) {
+            if let node = activePopoverNode {
+                FullSliceSheet(node: node)
+            }
+        }
+    }
+
+    // MARK: - 拆原子视图（Sub-views）
+
+    private var orbitalCenterStage: some View {
         let orbitRadiusX = mascotSize * 0.78
         let orbitRadiusY = mascotSize * 0.36
 
-        VStack(spacing: isCompact ? 6 : 12) {
-            // ① 猫头鹰 + 轨道共振粒子节点
-            ZStack {
-                // 呼吸背景微光晕
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                irisViolet.opacity(scheme == .dark ? 0.28 : 0.16),
-                                irisViolet.opacity(0.06),
-                                .clear
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: mascotSize * 0.8
-                        )
+        return ZStack {
+            // 呼吸背景微光晕
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            irisViolet.opacity(scheme == .dark ? 0.28 : 0.16),
+                            irisViolet.opacity(0.06),
+                            .clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: mascotSize * 0.8
                     )
-                    .frame(width: mascotSize * 1.5, height: mascotSize * 1.5)
+                )
+                .frame(width: mascotSize * 1.5, height: mascotSize * 1.5)
 
-                // 环绕行星轨道环（纤细透光玻璃轨道）
-                Ellipse()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                irisViolet.opacity(0.45),
-                                Color.white.opacity(scheme == .dark ? 0.22 : 0.35),
-                                irisViolet.opacity(0.12)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1.0
-                    )
-                    .frame(width: orbitRadiusX * 2.05, height: orbitRadiusY * 2.05)
-                    .rotationEffect(.degrees(-16))
+            // 环绕行星轨道环（纤细透光玻璃轨道）
+            Ellipse()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            irisViolet.opacity(0.45),
+                            Color.white.opacity(scheme == .dark ? 0.22 : 0.35),
+                            irisViolet.opacity(0.12)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.0
+                )
+                .frame(width: orbitRadiusX * 2.05, height: orbitRadiusY * 2.05)
+                .rotationEffect(.degrees(-16))
 
-                // 中央核心：Cyber-Owl 赛博猫头鹰
-                MimirMascot(size: mascotSize * 0.90, mood: .calm)
-                    .frame(width: mascotSize, height: mascotSize)
-                    .shadow(color: irisViolet.opacity(scheme == .dark ? 0.38 : 0.24), radius: mascotSize * 0.18, y: 3)
+            // 中央核心：Cyber-Owl 赛博猫头鹰
+            MimirMascot(size: mascotSize * 0.90, mood: .calm)
+                .frame(width: mascotSize, height: mascotSize)
+                .shadow(color: irisViolet.opacity(scheme == .dark ? 0.38 : 0.24), radius: mascotSize * 0.18, y: 3)
 
-                // 参数化分布的 1 到 6 个 RAG 轨道粒子节点
-                ForEach(Array(ragManager.orbitalNodes.enumerated()), id: \.element.id) { index, node in
-                    let total = max(1, ragManager.orbitalNodes.count)
-                    // 参数化分布角度：均匀分摊 + 慢速恒定自转
-                    let baseAngle = (Double(index) / Double(total)) * (2.0 * .pi)
-                    let currentAngle = baseAngle + orbitalDriftAngle
-
-                    // 倾斜轨道投影坐标（-16 度倾斜）
-                    let rawX = cos(currentAngle) * orbitRadiusX
-                    let rawY = sin(currentAngle) * orbitRadiusY
-                    let tiltRad = -16.0 * .pi / 180.0
-                    let rotatedX = rawX * cos(tiltRad) - rawY * sin(tiltRad)
-                    let rotatedY = rawX * sin(tiltRad) + rawY * cos(tiltRad)
-
-                    OrbitalNodeView(node: node) {
-                        activePopoverNode = node
-                        ragManager.selectedNode = node
-                        onSelectNode?(node)
-                    }
-                    .offset(x: rotatedX, y: rotatedY)
-                    .zIndex(sin(currentAngle) > 0 ? 10 : 2) // 真实遮挡层级：前端或后端
+            // 参数化分布的 1 到 6 个 RAG 轨道粒子节点
+            ForEach(Array(ragManager.orbitalNodes.enumerated()), id: \.element.id) { index, node in
+                let pos = nodePosition(index: index, total: ragManager.orbitalNodes.count, radiusX: orbitRadiusX, radiusY: orbitRadiusY)
+                OrbitalNodeView(node: node) {
+                    activePopoverNode = node
+                    ragManager.selectedNode = node
+                    onSelectNode?(node)
                 }
+                .offset(x: pos.offset.x, y: pos.offset.y)
+                .zIndex(pos.isFront ? 10 : 2)
             }
-            .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.35))
-            .onAppear {
-                // 恒定平滑天体自转动画
-                withAnimation(.linear(duration: 45).repeatForever(autoreverses: false)) {
-                    orbitalDriftAngle = 2.0 * .pi
-                }
+        }
+        .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.35))
+        .onAppear {
+            withAnimation(.linear(duration: 45).repeatForever(autoreverses: false)) {
+                orbitalDriftAngle = 2.0 * .pi
             }
+        }
+    }
 
-            // ② 状态胶囊与就绪指示
-            HStack(spacing: 7) {
-                Circle().fill(Color.green).frame(width: 5, height: 5)
-                Text("MIMIR · KNOWLEDGE RESONANCE READY")
-                    .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                    .foregroundStyle(irisViolet)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(
-                Capsule()
-                    .fill(irisViolet.opacity(scheme == .dark ? 0.15 : 0.08))
-                    .overlay(Capsule().strokeBorder(irisViolet.opacity(0.25), lineWidth: 0.8))
-            )
+    private func nodePosition(index: Int, total: Int, radiusX: CGFloat, radiusY: CGFloat) -> (offset: CGPoint, isFront: Bool) {
+        let count = Double(max(1, total))
+        let baseAngle = (Double(index) / count) * (2.0 * .pi)
+        let currentAngle = baseAngle + orbitalDriftAngle
 
-            // ③ 问候与上下文提示
+        let rawX = cos(currentAngle) * Double(radiusX)
+        let rawY = sin(currentAngle) * Double(radiusY)
+        let tiltRad = -16.0 * .pi / 180.0
+        let rx = rawX * cos(tiltRad) - rawY * sin(tiltRad)
+        let ry = rawX * sin(tiltRad) + rawY * cos(tiltRad)
+        return (CGPoint(x: rx, y: ry), sin(currentAngle) > 0)
+    }
+
+    private var statusPillBadge: some View {
+        HStack(spacing: 7) {
+            Circle().fill(Color.green).frame(width: 5, height: 5)
+            Text("MIMIR · KNOWLEDGE RESONANCE READY")
+                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                .foregroundStyle(irisViolet)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(irisViolet.opacity(scheme == .dark ? 0.15 : 0.08))
+                .overlay(Capsule().strokeBorder(irisViolet.opacity(0.25), lineWidth: 0.8))
+        )
+    }
+
+    private var greetingAndCaption: some View {
+        VStack(spacing: 4) {
             Text(greeting)
                 .font(.system(size: isCompact ? 18 : 22, weight: .bold, design: .rounded))
                 .foregroundStyle(scheme == .dark ? paleLavender : deepPlumBase)
@@ -131,27 +153,21 @@ struct CyberOwlHeaderView: View {
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, isCompact ? 10 : 20)
-        // 弹出悬浮高架切片卡片
-        .overlay(alignment: .center) {
-            if let node = activePopoverNode {
-                RAGChunkPopoverView(node: node, onDismiss: {
-                    activePopoverNode = nil
-                }, onOpenFullView: {
-                    showFullSliceSheet = true
-                })
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.96).combined(with: .opacity),
-                    removal: .opacity
-                ))
-                .zIndex(100)
-            }
-        }
-        .sheet(isPresented: $showFullSliceSheet) {
-            if let node = activePopoverNode {
-                FullSliceSheet(node: node)
-            }
+    }
+
+    @ViewBuilder
+    private var popoverOverlay: some View {
+        if let node = activePopoverNode {
+            RAGChunkPopoverView(node: node, onDismiss: {
+                activePopoverNode = nil
+            }, onOpenFullView: {
+                showFullSliceSheet = true
+            })
+            .transition(.asymmetric(
+                insertion: .scale(scale: 0.96).combined(with: .opacity),
+                removal: .opacity
+            ))
+            .zIndex(100)
         }
     }
 
