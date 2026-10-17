@@ -6,9 +6,9 @@ import ActivityKit
 
 /// 锁屏与灵动岛上的 "Pin Moment"（标记高光时刻）免解锁快速意图。
 public struct PinMomentIntent: AppIntent {
-    public static var title: LocalizedStringResource = "Pin Moment"
-    public static var description: IntentDescription = IntentDescription("在锁屏或灵动岛实时标记关键语音时间戳")
-    public static var openAppWhenRun: Bool = false
+    public static var title: LocalizedStringResource { "Pin Moment" }
+    public static var description: IntentDescription? { IntentDescription("在锁屏或灵动岛实时标记关键语音时间戳") }
+    public static var openAppWhenRun: Bool { false }
 
     @Parameter(title: "Session ID")
     public var sessionID: String
