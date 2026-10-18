@@ -231,7 +231,7 @@ struct RotatingGlowBorderModifier: ViewModifier {
     @Environment(\.colorScheme) private var scheme
 
     func body(content: Content) -> some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isAnimated)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 120.0, paused: !isAnimated)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             let angle = (time * 42.0).truncatingRemainder(dividingBy: 360)
 

@@ -19,6 +19,8 @@ final class VoiceAudioEngine: @unchecked Sendable {
     }
 
     private let engine = AVAudioEngine()
+    private let muteLock = NSLock()
+    private var inputMuted = false
     private var isRunning = false
 
     private var speechThreshold: Float
@@ -41,8 +43,21 @@ final class VoiceAudioEngine: @unchecked Sendable {
     }
 
     func update(preferences: VoicePreferences) {
+        muteLock.lock()
         speechThreshold = Float(preferences.speechThreshold)
         silenceThreshold = Float(preferences.silenceThreshold)
+        muteLock.unlock()
+    }
+
+    func setInputMuted(_ muted: Bool) {
+        muteLock.lock()
+        inputMuted = muted
+        if muted {
+            hasDetectedSpeech = false
+            isInSpeech = false
+            lastSpeechAt = Date()
+        }
+        muteLock.unlock()
     }
 
     var format: AVAudioFormat {
@@ -88,14 +103,21 @@ final class VoiceAudioEngine: @unchecked Sendable {
 
     /// 让 VAD 重新开始一句话（打断后使用）。
     func resetSpeechTracking() {
+        muteLock.lock()
         hasDetectedSpeech = false
         isInSpeech = false
         lastSpeechAt = Date()
+        muteLock.unlock()
     }
 
     // MARK: - 音频线程
 
     private func process(buffer: AVAudioPCMBuffer, time: AVAudioTime) {
+        muteLock.lock()
+        let muted = inputMuted
+        muteLock.unlock()
+        guard !muted else { return }
+
         onAudioBuffer?(buffer, time)
 
         guard let channel = buffer.floatChannelData?.pointee else { return }
@@ -106,6 +128,11 @@ final class VoiceAudioEngine: @unchecked Sendable {
         vDSP_rmsqv(channel, 1, &rms, count)
 
         let now = Date()
+        muteLock.lock()
+        guard !inputMuted else {
+            muteLock.unlock()
+            return
+        }
         let isSpeechFrame = rms >= speechThreshold
         var started = false
         var ended = false
@@ -128,6 +155,7 @@ final class VoiceAudioEngine: @unchecked Sendable {
         }
 
         let normalized = min(max(Double(rms) / Double(max(speechThreshold, 0.0001)) * 0.5, 0), 1)
+        muteLock.unlock()
         let update = Update(
             level: normalized,
             isSpeech: isSpeechFrame,

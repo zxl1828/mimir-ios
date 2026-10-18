@@ -2,11 +2,7 @@ import SwiftUI
 
 /// 实时转写与推理上下文悬浮卡片（LiveTranscriptSlab）。
 ///
-/// 严格复刻参考图 1 与参考图 2 的双通道排版与高透光毛玻璃质感：
-/// - **深色全双工形态（参考图 1）**：高折射高透光毛玻璃底板，边缘覆盖 0.8pt 鸢尾紫微光描边；
-///   上层为用户语音输入（淡紫字体 + 麦克风图标），下层为 AI 实时流式推理（纯白/浅紫粗体 + 发光紫色闪烁光标）；
-///   底部悬浮小字状态标签 (`Listening actively · Tap mic or speak freely`)。
-/// - **浅色转写形态（参考图 2）**：双层时间戳沉浸卡片 (`[00:01:24]` / `[00:03:55]`)，包含 `Translate` 与 `Live Summary` 胶囊。
+/// 展示真实的用户转写与 Mimir 回复；固定布局高度，避免流式文本更新时挤动底部控制岛。
 public struct LiveTranscriptSlab: View {
 
     public enum DisplayMode: Sendable {
@@ -17,36 +13,36 @@ public struct LiveTranscriptSlab: View {
     public var displayMode: DisplayMode = .liveDuplex
     public var userQuery: String?
     public var aiResponse: String?
-    public var statusHint: String = "Listening actively · Tap mic or speak freely"
+    public var statusHint: String = "等待语音输入"
+    public var isCompact: Bool = false
     public var onMinutesTapped: (() -> Void)?
 
     @Environment(\.colorScheme) private var scheme
 
-    // 光标闪烁呼吸态
-    @State private var cursorVisible: Bool = true
-
     // 核心色彩令牌
     private let irisViolet = Color(hex: "7D52F4")
     private let electricViolet = Color(hex: "9B70FF")
-    private let lavenderText = Color(hex: "BCA8DC")
-    private let deepPlumCard = Color(hex: "1F1235")
+    private let darkCard = Color(hex: "21182F")
+    private let darkText = Color(hex: "F2ECFA")
 
     public init(
         displayMode: DisplayMode = .liveDuplex,
         userQuery: String? = nil,
         aiResponse: String? = nil,
-        statusHint: String = "Listening actively · Tap mic or speak freely",
+        statusHint: String = "等待语音输入",
+        isCompact: Bool = false,
         onMinutesTapped: (() -> Void)? = nil
     ) {
         self.displayMode = displayMode
         self.userQuery = userQuery
         self.aiResponse = aiResponse
         self.statusHint = statusHint
+        self.isCompact = isCompact
         self.onMinutesTapped = onMinutesTapped
     }
 
     public var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: isCompact ? 6 : 8) {
             if displayMode == .liveDuplex {
                 liveDuplexSlab
             } else {
@@ -56,61 +52,57 @@ public struct LiveTranscriptSlab: View {
             // 底部居中悬浮状态标签
             bottomStatusBadge
         }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.65).repeatForever(autoreverses: true)) {
-                cursorVisible.toggle()
-            }
-        }
+        .frame(maxWidth: .infinity)
+        .frame(height: isCompact ? 160 : 194, alignment: .top)
+        .transaction { $0.animation = nil }
     }
 
     // MARK: - 1. 深色全双工形态卡片 (参考图 1)
 
     private var liveDuplexSlab: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: isCompact ? 6 : 10) {
             // 用户提问通道（顶部淡紫字，末尾带微型麦克风图标）
             HStack(alignment: .top, spacing: 8) {
                 Text(effectiveUserText)
-                    .font(.system(size: 15.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(lavenderText)
+                    .font(.system(size: isCompact ? 14 : 15.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(scheme == .dark ? Color(hex: "C8B6FF") : irisViolet)
                     .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: isCompact ? 30 : 38, maxHeight: isCompact ? 30 : 38, alignment: .topLeading)
 
                 Spacer(minLength: 4)
 
                 Image(systemName: "mic.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(electricViolet)
+                    .foregroundStyle(scheme == .dark ? Color(hex: "C8B6FF") : irisViolet)
                     .padding(.top, 2)
             }
 
             // AI 实时推理与响应通道（纯白/浅紫高亮，带发光闪烁光标）
             HStack(alignment: .bottom, spacing: 2) {
                 Text(effectiveAIText)
-                    .font(.system(size: 16.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.white)
+                    .font(.system(size: isCompact ? 14.5 : 16.5, weight: .semibold, design: .rounded))
+                    .foregroundStyle(scheme == .dark ? darkText : Color(hex: "2F2440"))
                     .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: isCompact ? 38 : 58, maxHeight: isCompact ? 38 : 58, alignment: .topLeading)
 
                 // 发光紫色呼吸闪烁光标
-                Rectangle()
-                    .fill(electricViolet)
-                    .frame(width: 2.2, height: 18)
-                    .opacity(cursorVisible ? 1.0 : 0.15)
-                    .shadow(color: electricViolet.opacity(0.8), radius: 4)
-                    .padding(.bottom, 2)
+                if !aiResponseIsEmpty {
+                    Rectangle()
+                        .fill(electricViolet)
+                        .frame(width: 2.2, height: 18)
+                        .opacity(0.8)
+                        .shadow(color: electricViolet.opacity(0.35), radius: 3)
+                        .padding(.bottom, 2)
+                }
             }
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 16)
+        .padding(.vertical, isCompact ? 10 : 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         // 高折射毛玻璃底板 + 0.8pt 鸢尾紫微光描边
         .background {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(
-                    scheme == .dark
-                        ? deepPlumCard.opacity(0.68)
-                        : Color.white.opacity(0.82)
-                )
+                .fill(scheme == .dark ? darkCard.opacity(0.94) : Color.white.opacity(0.84))
         }
         .liquidGlass(.regular, in: .rect(cornerRadius: 22))
         .overlay {
@@ -118,10 +110,10 @@ public struct LiveTranscriptSlab: View {
                 .strokeBorder(
                     LinearGradient(
                         stops: [
-                            .init(color: Color.white.opacity(0.45), location: 0.0),
-                            .init(color: irisViolet.opacity(0.40), location: 0.45),
-                            .init(color: electricViolet.opacity(0.35), location: 0.80),
-                            .init(color: Color.white.opacity(0.20), location: 1.0)
+                            .init(color: Color.white.opacity(scheme == .dark ? 0.34 : 0.45), location: 0.0),
+                            .init(color: irisViolet.opacity(scheme == .dark ? 0.52 : 0.40), location: 0.45),
+                            .init(color: electricViolet.opacity(scheme == .dark ? 0.44 : 0.35), location: 0.80),
+                            .init(color: Color.white.opacity(scheme == .dark ? 0.12 : 0.20), location: 1.0)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -130,87 +122,43 @@ public struct LiveTranscriptSlab: View {
                 )
                 .allowsHitTesting(false)
         }
-        .shadow(color: irisViolet.opacity(0.25), radius: 24, x: 0, y: 10)
+        .shadow(color: irisViolet.opacity(scheme == .dark ? 0.34 : 0.25), radius: 24, x: 0, y: 10)
     }
 
     // MARK: - 2. 浅色转写形态多卡片 (参考图 2)
 
     private var transcriptionCardsSlab: some View {
-        VStack(spacing: 8) {
-            // 上层历史转写卡
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text("[00:01:24]")
-                        .font(.system(size: 12.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.primary.opacity(0.85))
-                }
-                Text("The key to futuristic financial agility is not just tracking, but understanding the narrative of your capital in real-time...")
-                    .font(.system(size: 13.5, weight: .regular, design: .rounded))
-                    .foregroundStyle(Color.primary.opacity(0.78))
-                    .lineLimit(2)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.70))
-            }
-            .liquidGlass(.regular, in: .rect(cornerRadius: 18))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.75), lineWidth: 0.8)
-            }
-
-            // 当前实时激活高亮转写卡
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("[00:03:55]")
-                        .font(.system(size: 12.5, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.primary.opacity(0.85))
-
-                    Spacer()
-
-                    HStack(spacing: 6) {
-                        smallPillTag("Translate")
-                        smallPillTag("Live Summary")
-                    }
-                }
-
-                HStack(alignment: .bottom, spacing: 2) {
-                    Text("That's why we're focusing on highly fluid, transparent interfaces that feel almost alive, allowing us to connect with our users on a...")
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(irisViolet)
-                        .lineLimit(3)
-
-                    Rectangle()
-                        .fill(irisViolet)
-                        .frame(width: 2.0, height: 16)
-                        .opacity(cursorVisible ? 1.0 : 0.2)
-                }
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.92))
-            }
-            .liquidGlass(.regular, in: .rect(cornerRadius: 18))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(irisViolet.opacity(0.35), lineWidth: 1.0)
-            }
-            .shadow(color: irisViolet.opacity(0.12), radius: 14, y: 6)
+        VStack(spacing: isCompact ? 6 : 8) {
+            transcriptCard(title: "你", text: effectiveUserText, tint: irisViolet)
+            transcriptCard(title: "Mimir", text: effectiveAIText, tint: Color(hex: "35264A"))
         }
     }
 
-    private func smallPillTag(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(Color.primary.opacity(0.70))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(Color.black.opacity(0.05)))
-            .overlay(Capsule().strokeBorder(Color.black.opacity(0.08), lineWidth: 0.6))
+    private func transcriptCard(title: String, text: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title.uppercased())
+                .font(.system(size: isCompact ? 8 : 9, weight: .bold, design: .monospaced))
+                .tracking(0.8)
+                .foregroundStyle((scheme == .dark ? Color(hex: "D6C9F0") : tint).opacity(0.78))
+            Text(text)
+                .font(.system(size: isCompact ? 12.5 : 14, weight: .medium, design: .rounded))
+                .foregroundStyle(scheme == .dark ? darkText : tint)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: isCompact ? 26 : 36, maxHeight: isCompact ? 26 : 36, alignment: .topLeading)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, isCompact ? 7 : 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            scheme == .dark ? darkCard.opacity(0.94) : Color.white.opacity(0.82),
+            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+        )
+        .liquidGlass(.regular, in: .rect(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.78), lineWidth: 0.8)
+                .allowsHitTesting(false)
+        }
     }
 
     // MARK: - 3. 底部悬浮状态提示标签
@@ -219,7 +167,10 @@ public struct LiveTranscriptSlab: View {
         HStack(spacing: 8) {
             Text(statusHint)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(scheme == .dark ? Color.white.opacity(0.60) : Color.primary.opacity(0.55))
+                .foregroundStyle(scheme == .dark ? Color(hex: "C5B8D8") : Color(hex: "645A70"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if let onMinutesTapped {
                 Button {
@@ -233,22 +184,20 @@ public struct LiveTranscriptSlab: View {
                             .font(.system(size: 10, weight: .semibold))
                     }
                     .foregroundStyle(electricViolet)
+                    .fixedSize(horizontal: true, vertical: false)
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity)
+        .frame(height: 32)
         .background {
             Capsule(style: .continuous)
-                .fill(
-                    scheme == .dark
-                        ? Color(hex: "1F1235").opacity(0.50)
-                        : Color.white.opacity(0.60)
-                )
+                .fill(scheme == .dark ? darkCard.opacity(0.96) : Color.white.opacity(0.72))
         }
         .overlay {
             Capsule(style: .continuous)
-                .strokeBorder(Color.white.opacity(scheme == .dark ? 0.16 : 0.40), lineWidth: 0.6)
+            .strokeBorder(Color.white.opacity(scheme == .dark ? 0.22 : 0.80), lineWidth: 0.7)
         }
     }
 
@@ -258,13 +207,17 @@ public struct LiveTranscriptSlab: View {
         if let userQuery, !userQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return userQuery
         }
-        return "Can you analyze the quantum coherence of this model?"
+        return "等待语音输入…"
     }
 
     private var effectiveAIText: String {
         if let aiResponse, !aiResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return aiResponse
         }
-        return "Coherence is stable at 99.4%, initializing multi-agent reasoning..."
+        return "Mimir 的回复会显示在这里。"
+    }
+
+    private var aiResponseIsEmpty: Bool {
+        aiResponse?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true
     }
 }

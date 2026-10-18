@@ -23,7 +23,7 @@ struct MimirMascot: View {
     @Environment(\.appAccent) private var accent
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 120.0, paused: !animated)) { timeline in
             Canvas { context, canvasSize in
                 let time = animated ? timeline.date.timeIntervalSinceReferenceDate : 0
                 MimirOwlRenderer.draw(

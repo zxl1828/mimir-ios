@@ -111,8 +111,8 @@ struct CodeWorkspaceCLIView: View {
             isKeyboardVisible = false
         }
         .sheet(isPresented: $showFolderImporter) {
-            WorkspaceFolderPicker(isPresented: $showFolderImporter) { folder, bookmark in
-                loadWorkspace(from: folder, bookmark: bookmark)
+            WorkspaceFolderPicker(isPresented: $showFolderImporter) { folder, bookmark, didStartAccess in
+                loadWorkspace(from: folder, bookmark: bookmark, securityScopeAlreadyStarted: didStartAccess)
             } onError: { message in
                 workspaceLoadError = message
             }
@@ -151,7 +151,9 @@ struct CodeWorkspaceCLIView: View {
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
-                await workspace.refreshCurrentCodeFile()
+                if TabNavigationCoordinator.shared.selectedTab == .code {
+                    await workspace.refreshCurrentCodeFile()
+                }
             }
         }
         .onDisappear {
@@ -160,7 +162,7 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
-    private func loadWorkspace(from folder: URL, bookmark: Data) {
+    private func loadWorkspace(from folder: URL, bookmark: Data, securityScopeAlreadyStarted: Bool) {
         isLoadingWorkspace = true
         workspaceLoadError = nil
         Task {
@@ -169,7 +171,7 @@ struct CodeWorkspaceCLIView: View {
                 try await workspace.mountFolder(
                     url: folder,
                     bookmarkData: bookmark,
-                    securityScopeAlreadyStarted: true
+                    securityScopeAlreadyStarted: securityScopeAlreadyStarted
                 )
                 workspace.selectCodeFile(workspace.sourceFiles.first)
                 saveState = "已载入工作区"

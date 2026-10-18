@@ -159,13 +159,25 @@ final class WorkspaceManager {
     private var libraryFiles: [WorkspaceFileItem] = []
     private var libraryRevision = 0
 
-    private var localLibraryURL: URL {
+    private var documentsURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+
+    private var defaultWorkspaceURL: URL {
+        documentsURL
+            .appendingPathComponent("Mimir Workspace", isDirectory: true)
+    }
+
+    private var localLibraryURL: URL {
+        documentsURL
             .appendingPathComponent("Mimir Library", isDirectory: true)
     }
 
     private init() {
         try? FileManager.default.createDirectory(at: localLibraryURL, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: defaultWorkspaceURL, withIntermediateDirectories: true)
+        activeWorkspaceURL = defaultWorkspaceURL
+        mountedWorkspaces = [defaultWorkspaceURL]
         let libraryURL = localLibraryURL
         Task { [weak self] in
             guard let self else { return }
@@ -181,6 +193,7 @@ final class WorkspaceManager {
                 return
             }
         }
+        Task { await scanFolder(url: defaultWorkspaceURL) }
         loadBookmarks()
     }
 
@@ -214,10 +227,14 @@ final class WorkspaceManager {
         bookmarkData providedBookmark: Data? = nil,
         securityScopeAlreadyStarted: Bool = false
     ) async throws {
-        if !securityScopeAlreadyStarted && !url.startAccessingSecurityScopedResource() {
+        let needsSecurityScope = !isInAppDocuments(url)
+        let startedHere = needsSecurityScope && !securityScopeAlreadyStarted
+        if startedHere && !url.startAccessingSecurityScopedResource() {
             throw WorkspaceAccessError.accessDenied
         }
-        defer { url.stopAccessingSecurityScopedResource() }
+        defer {
+            if startedHere || securityScopeAlreadyStarted { url.stopAccessingSecurityScopedResource() }
+        }
 
         // Keep the security-scoped bookmark so the selected folder can be restored after relaunch.
         let bookmarkData: Data
@@ -230,7 +247,7 @@ final class WorkspaceManager {
                 relativeTo: nil
             )
         }
-        saveBookmark(bookmarkData, for: url)
+        if needsSecurityScope { saveBookmark(bookmarkData, for: url) }
         addFolderURL(url)
         let scannedItems = await Task.detached(priority: .userInitiated) {
             WorkspaceFolderScanner.scan(url)
@@ -248,8 +265,18 @@ final class WorkspaceManager {
 
     /// 扫描挂载目录内容。
     func scanFolder(url: URL) async {
-        guard url.startAccessingSecurityScopedResource() else { return }
-        defer { url.stopAccessingSecurityScopedResource() }
+        let needsSecurityScope = !isInAppDocuments(url)
+        let startedAccess = !needsSecurityScope || url.startAccessingSecurityScopedResource()
+        guard startedAccess else {
+            if activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL {
+                activeWorkspaceURL = defaultWorkspaceURL
+                await scanFolder(url: defaultWorkspaceURL)
+            }
+            return
+        }
+        defer {
+            if needsSecurityScope { url.stopAccessingSecurityScopedResource() }
+        }
         let scannedItems = await Task.detached(priority: .userInitiated) {
             WorkspaceFolderScanner.scan(url)
         }.value
@@ -296,9 +323,11 @@ final class WorkspaceManager {
               let url = file.url,
               let root = activeWorkspaceURL else { return }
         let shouldReload = currentCodeContent == lastSavedCodeContent
+        let needsSecurityScope = !isInAppDocuments(root)
         let snapshot = await Task.detached(priority: .utility) { () -> (WorkspaceFileItem, String?)? in
-            guard root.startAccessingSecurityScopedResource() else { return nil }
-            defer { root.stopAccessingSecurityScopedResource() }
+            let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
+            guard accessing else { return nil }
+            defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
             guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
                   let modifiedAt = values.contentModificationDate else { return nil }
             let size = Int64(values.fileSize ?? 0)
@@ -327,9 +356,10 @@ final class WorkspaceManager {
                 url.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") ? root : nil
             }
             let accessURL = isLocalLibraryFile ? nil : (scopeRoot ?? url)
-            let accessing = accessURL?.startAccessingSecurityScopedResource() ?? true
+            let needsSecurityScope = accessURL.map { !isInAppDocuments($0) } ?? false
+            let accessing = !needsSecurityScope || (accessURL?.startAccessingSecurityScopedResource() ?? true)
             guard accessing else { return "// 文件内容为空或二进制不可读" }
-            defer { accessURL?.stopAccessingSecurityScopedResource() }
+            defer { if needsSecurityScope { accessURL?.stopAccessingSecurityScopedResource() } }
             if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
                let size = values.fileSize,
                size > 256_000 {
@@ -371,9 +401,10 @@ final class WorkspaceManager {
 
     func readWorkspaceText(path: String) throws -> String {
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
-        let accessing = root.startAccessingSecurityScopedResource()
+        let needsSecurityScope = !isInAppDocuments(root)
+        let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
         guard accessing else { throw WorkspaceAccessError.accessDenied }
-        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
+        defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
         let url = try validatedWorkspaceURL(path: path)
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
         guard values.isRegularFile == true else { throw WorkspaceAccessError.invalidPath }
@@ -385,9 +416,10 @@ final class WorkspaceManager {
     func writeWorkspaceText(path: String, content: String) throws {
         guard content.utf8.count <= 256_000 else { throw WorkspaceAccessError.fileTooLarge }
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
-        let accessing = root.startAccessingSecurityScopedResource()
+        let needsSecurityScope = !isInAppDocuments(root)
+        let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
         guard accessing else { throw WorkspaceAccessError.accessDenied }
-        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
+        defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
         let url = try validatedWorkspaceURL(path: path)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try content.write(to: url, atomically: true, encoding: .utf8)
@@ -425,9 +457,9 @@ final class WorkspaceManager {
         let cleanName = (name as NSString).lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanName.isEmpty, cleanName == name else { throw WorkspaceAccessError.invalidPath }
         let root = activeWorkspaceURL ?? localLibraryURL
-        let accessing = activeWorkspaceURL != nil
-        if accessing && !root.startAccessingSecurityScopedResource() { throw WorkspaceAccessError.accessDenied }
-        defer { if accessing { root.stopAccessingSecurityScopedResource() } }
+        let needsSecurityScope = activeWorkspaceURL != nil && !isInAppDocuments(root)
+        if needsSecurityScope && !root.startAccessingSecurityScopedResource() { throw WorkspaceAccessError.accessDenied }
+        defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let fileURL = root.appendingPathComponent(cleanName, isDirectory: false)
         guard !FileManager.default.fileExists(atPath: fileURL.path) else { throw CocoaError(.fileWriteFileExists) }
@@ -504,9 +536,10 @@ final class WorkspaceManager {
             url.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") ? root : nil
         }
         let accessURL = isLocalLibraryFile ? nil : (scopeRoot ?? url)
-        let accessing = accessURL?.startAccessingSecurityScopedResource() ?? true
+        let needsSecurityScope = accessURL.map { !isInAppDocuments($0) } ?? false
+        let accessing = !needsSecurityScope || (accessURL?.startAccessingSecurityScopedResource() ?? true)
         guard accessing else { throw WorkspaceAccessError.accessDenied }
-        defer { accessURL?.stopAccessingSecurityScopedResource() }
+        defer { if needsSecurityScope { accessURL?.stopAccessingSecurityScopedResource() } }
         try FileManager.default.removeItem(at: url)
         if isLocalLibraryFile { libraryRevision += 1 }
         workspaceFiles.removeAll { $0.id == item.id }
@@ -516,6 +549,12 @@ final class WorkspaceManager {
 
     private func isInLocalLibrary(_ url: URL) -> Bool {
         url.standardizedFileURL.path.hasPrefix(localLibraryURL.standardizedFileURL.path + "/")
+    }
+
+    func isInAppDocuments(_ url: URL) -> Bool {
+        let root = documentsURL.standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        return path == root || path.hasPrefix(root + "/")
     }
 
     private func upsertFile(_ item: WorkspaceFileItem) {

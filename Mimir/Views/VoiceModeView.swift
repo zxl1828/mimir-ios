@@ -47,10 +47,10 @@ struct VoiceModeView: View {
 
             Spacer(minLength: 0)
 
-            VoiceOrb(
-                state: session.state,
+            VoiceWaveformVisualizer(
                 inputLevel: session.inputLevel,
-                outputLevel: session.outputLevel
+                outputLevel: session.outputLevel,
+                isSpeaking: session.state == .speaking
             )
 
             Text(session.state.title)

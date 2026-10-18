@@ -19,6 +19,7 @@ final class VoiceSessionViewModel {
     var unavailable: VoiceUnavailableReason?
     var isPreparing: Bool = false
     var infoText: String?
+    private(set) var isMicrophoneMuted = false
 
     // MARK: - 依赖
 
@@ -118,6 +119,39 @@ final class VoiceSessionViewModel {
         partialText = ""
     }
 
+    func setMicrophoneMuted(_ muted: Bool) {
+        guard muted != isMicrophoneMuted else { return }
+        inputLevel = 0
+        partialText = ""
+
+        if muted {
+            isMicrophoneMuted = true
+            audioEngine?.setInputMuted(true)
+            transcriber?.cancel()
+            if state == .transcribing { state = .listening }
+            return
+        }
+
+        guard state == .listening || state == .interrupted, let transcriber else {
+            isMicrophoneMuted = false
+            audioEngine?.setInputMuted(false)
+            return
+        }
+        do {
+            transcriber.cancel()
+            try transcriber.start(allowCloudFallback: settings.voice.allowsCloudSTTFallback)
+            audioEngine?.resetSpeechTracking()
+            isMicrophoneMuted = false
+            audioEngine?.setInputMuted(false)
+            didHandleUserTurn = false
+            state = .listening
+        } catch {
+            isMicrophoneMuted = true
+            audioEngine?.setInputMuted(true)
+            infoText = error.localizedDescription
+        }
+    }
+
     func end() {
         stopAll()
         state = .idle
@@ -143,10 +177,11 @@ final class VoiceSessionViewModel {
     private func startCapture() {
         AppDiagnostics.shared.log("voice: capture begin")
         let engine = VoiceAudioEngine(preferences: settings.voice)
+        engine.setInputMuted(isMicrophoneMuted)
 
         let transcriber = SpeechTranscriber(locale: Locale(identifier: "zh-CN"))
         transcriber.onUpdate = { [weak self] update in
-            guard let self else { return }
+            guard let self, !self.isMicrophoneMuted else { return }
             self.partialText = update.text
             if update.isFinal, !update.text.isEmpty {
                 self.completeUserTurn(with: update.text)
@@ -209,6 +244,7 @@ final class VoiceSessionViewModel {
     }
 
     private func handleSpeechEnded() {
+        guard !isMicrophoneMuted else { return }
         guard state == .listening || state == .transcribing else { return }
         state = .transcribing
         audioEngine?.resetSpeechTracking()
@@ -379,7 +415,7 @@ final class VoiceSessionViewModel {
 
     /// 播放结束后重新开始一轮识别，保证可以连续对话。
     private func restartRecognitionIfNeeded() {
-        guard let transcriber else { return }
+        guard !isMicrophoneMuted, let transcriber else { return }
         transcriber.cancel()
         try? transcriber.start(allowCloudFallback: settings.voice.allowsCloudSTTFallback)
         didHandleUserTurn = false

@@ -5,9 +5,6 @@ struct FloatingTabBar: View {
 
     @Binding var selectedTab: AppTab
 
-    @Environment(\.appAccent) private var accent
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
         HStack(spacing: 2) {
             ForEach(AppTab.allCases) { tab in
@@ -19,17 +16,13 @@ struct FloatingTabBar: View {
         .frame(height: 66)
         .background {
             Capsule(style: .continuous)
-                .fill(
-                    scheme == .dark
-                        ? Color(hex: "241936").opacity(0.48)
-                        : Color.white.opacity(0.62)
-                )
+                .fill(Color.white.opacity(0.76))
         }
-        .liquidGlass(.regular.tint(accent.opacity(0.08)), in: .capsule)
+        .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.08)), in: .capsule)
         .overlay {
             Capsule(style: .continuous)
                 .strokeBorder(
-                    AppUI.refractionEdge(accent, scheme: scheme),
+                    Color.white.opacity(0.86),
                     lineWidth: 1.0
                 )
                 .allowsHitTesting(false)
@@ -39,8 +32,8 @@ struct FloatingTabBar: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(scheme == .dark ? 0.34 : 0.82),
-                            Color.white.opacity(scheme == .dark ? 0.09 : 0.28),
+                            Color.white.opacity(0.72),
+                            Color.white.opacity(0.30),
                             .clear
                         ],
                         startPoint: .top,
@@ -53,7 +46,7 @@ struct FloatingTabBar: View {
                 .allowsHitTesting(false)
         }
         .shadow(
-            color: accent.opacity(scheme == .dark ? 0.24 : 0.12),
+            color: Color(hex: "7D52F4").opacity(0.12),
             radius: 24,
             x: 0,
             y: 10
@@ -76,13 +69,13 @@ struct FloatingTabBar: View {
             HStack(spacing: 5) {
                 Image(systemName: tab.icon)
                     .font(.system(size: 17, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isSelected ? accent : inactiveColor)
+                    .foregroundStyle(isSelected ? tab.functionColor : inactiveColor)
                     .frame(width: 18)
 
                 if isSelected {
                     Text(tab.shortTitle)
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                        .foregroundStyle(Color(hex: "35264A"))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
                         .transition(.opacity)
@@ -93,13 +86,13 @@ struct FloatingTabBar: View {
             .background {
                 if isSelected {
                     Capsule(style: .continuous)
-                        .fill(accent.opacity(scheme == .dark ? 0.15 : 0.10))
-                        .liquidGlass(.regular.tint(accent.opacity(0.18)), in: .capsule)
+                        .fill(tab.functionColor.opacity(0.12))
+                        .liquidGlass(.regular.tint(tab.functionColor.opacity(0.18)), in: .capsule)
                         .overlay {
                             Capsule(style: .continuous)
                                 .fill(
                                     LinearGradient(
-                                        colors: [Color.white.opacity(scheme == .dark ? 0.32 : 0.62), .clear],
+                                        colors: [Color.white.opacity(0.62), .clear],
                                         startPoint: .top,
                                         endPoint: .bottom
                                     )
@@ -108,9 +101,9 @@ struct FloatingTabBar: View {
                         }
                         .overlay(
                             Capsule(style: .continuous)
-                                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                                .strokeBorder(Color.white.opacity(0.82), lineWidth: 1)
                         )
-                        .shadow(color: accent.opacity(0.18), radius: 9, y: 2)
+                        .shadow(color: tab.functionColor.opacity(0.18), radius: 9, y: 2)
                 }
             }
             .animation(.easeInOut(duration: 0.18), value: isSelected)
@@ -121,12 +114,19 @@ struct FloatingTabBar: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private var inactiveColor: Color {
-        scheme == .dark ? Color(hex: "C8BCD9") : Color(hex: "625A72")
-    }
+    private var inactiveColor: Color { Color(hex: "81768D") }
 }
 
 private extension AppTab {
+    var functionColor: Color {
+        switch self {
+        case .assistant: return Color(hex: "7D52F4")
+        case .dashboard: return Color(hex: "3977E8")
+        case .files: return Color(hex: "28A89B")
+        case .code: return Color(hex: "D87B40")
+        }
+    }
+
     var shortTitle: String {
         switch self {
         case .assistant: "Assist"

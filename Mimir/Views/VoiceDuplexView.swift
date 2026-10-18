@@ -1,19 +1,12 @@
 import SwiftUI
 import SwiftData
 import AVFoundation
+import AVKit
 import UIKit
 
 /// 次世代全双工实时语音交互视窗（VoiceDuplexView）。
 ///
-/// 斩获 Apple Design Award（视觉与图像类）标准的次世代超流体玻璃全双工实时语音交互视窗：
-/// - **深色全双工形态（核心交互态，参考图 1）**：
-///   顶部外设胶囊（AirPods Pro + 降噪模式 + 动态波形跳动）与引擎状态浮条（Mimir Neural Core · 110ms · Spatial Audio 48kHz）；
-///   中央 3D 虹彩超流体玻璃悬浮球（Liquid Glass Orb）外覆液态金属环与多重星轨发光粒子；
-///   双通道流式打字转写卡片（LiveTranscriptSlab）；
-///   双层悬浮底座（FloatingAudioDock）与 -36 dB 精密分贝指示标尺。
-/// - **浅色转写形态（参考图 2）**：
-///   中央 3D 梦幻流体动态声波丝带（Iridescent Wave Ribbon）与音频时间轴量规；
-///   双层时间戳沉浸式转写卡片与分贝刻度。
+/// 全双工实时语音交互视窗，使用同一套音频响应波形和稳定的双向字幕布局。
 struct VoiceDuplexView: View {
 
     private enum SheetRoute: String, Identifiable {
@@ -27,10 +20,10 @@ struct VoiceDuplexView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var session: VoiceSessionViewModel?
-    @State private var isMuted: Bool = false
-    @State private var visualMode: LiquidOrbVisualizer.VisualMode = .duplexSphere
+    @State private var transcriptDisplayMode: LiveTranscriptSlab.DisplayMode = .liveDuplex
     @State private var minutesText = ""
     @State private var minutesError: String?
     @State private var isSummarizing: Bool = false
@@ -38,8 +31,6 @@ struct VoiceDuplexView: View {
 
     // 核心品牌色
     private let irisViolet = Color(hex: "7D52F4")
-    private let electricViolet = Color(hex: "9B70FF")
-    private let deepPlumNight = Color(hex: "0D061A")
 
     init(chat: ChatViewModel) {
         self.chat = chat
@@ -57,7 +48,6 @@ struct VoiceDuplexView: View {
                 loadingStage
             }
         }
-        .preferredColorScheme(visualMode == .duplexSphere ? .dark : nil)
         .task {
             if session == nil {
                 session = VoiceSessionViewModel(settings: settings, modelContext: modelContext)
@@ -95,53 +85,29 @@ struct VoiceDuplexView: View {
 
     private var duplexAmbientBackground: some View {
         ZStack {
-            if visualMode == .duplexSphere {
-                // 深色形态：沉浸紫夜星空底板
+            if colorScheme == .dark {
                 LinearGradient(
-                    colors: [
-                        Color(hex: "0B0516"),
-                        Color(hex: "20103B"),
-                        Color(hex: "0D061A")
-                    ],
+                    colors: [Color(hex: "120D1D"), Color(hex: "1B1230"), Color(hex: "120D1D")],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-
-                // 灵动岛下方与中央球体背后的环境紫雾漫射
-                RadialGradient(
-                    colors: [
-                        irisViolet.opacity(0.38),
-                        electricViolet.opacity(0.18),
-                        Color.clear
-                    ],
-                    center: UnitPoint(x: 0.5, y: 0.32),
-                    startRadius: 40,
-                    endRadius: 400
-                )
-                .blur(radius: 24)
             } else {
-                // 浅色形态：珍珠透光粉紫极光漫射
                 LinearGradient(
-                    colors: [
-                        Color(hex: "F8F5FF"),
-                        Color(hex: "EFE7FC"),
-                        Color(hex: "FDFBFF")
-                    ],
+                    colors: [Color.white, Color(hex: "F8F6FD"), Color(hex: "F2EBFC")],
                     startPoint: .top,
                     endPoint: .bottom
-                )
-
-                RadialGradient(
-                    colors: [
-                        irisViolet.opacity(0.15),
-                        Color(hex: "70E1FD").opacity(0.10),
-                        Color.clear
-                    ],
-                    center: UnitPoint(x: 0.5, y: 0.35),
-                    startRadius: 30,
-                    endRadius: 320
                 )
             }
+            RadialGradient(
+                colors: [
+                    irisViolet.opacity(colorScheme == .dark ? 0.24 : 0.14),
+                    Color(hex: "70E1FD").opacity(colorScheme == .dark ? 0.10 : 0.08),
+                    .clear
+                ],
+                center: UnitPoint(x: 0.5, y: 0.35),
+                startRadius: 30,
+                endRadius: 320
+            )
         }
         .ignoresSafeArea()
     }
@@ -160,56 +126,65 @@ struct VoiceDuplexView: View {
     // MARK: - 主舞台纵向布局
 
     private func duplexMainStage(_ session: VoiceSessionViewModel) -> some View {
+        GeometryReader { geometry in
+        let veryCompact = geometry.size.height < 560
+        let compact = geometry.size.height < 720
+        let waveDiameter: CGFloat = veryCompact ? 116 : (compact ? 142 : 184)
+        let waveHeight: CGFloat = veryCompact ? 104 : (compact ? 136 : 178)
+        let isMuted = session.isMicrophoneMuted
         VStack(spacing: 0) {
             // 1. 顶部控制栏与外设状态胶囊
             duplexHeaderBar(session)
 
-            // 2. 神经引擎与低延迟空间音频状态浮条
-            neuralEngineStatusBar
-                .padding(.top, 10)
+            // 2. 语音链路状态浮条
+            neuralEngineStatusBar(session)
+                .padding(.top, 8)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: compact ? 2 : 6)
 
-            // 3. 中央核心视觉锚点：3D 超流体声波共振球 / 流体丝带
-            LiquidOrbVisualizer(
-                mode: visualMode,
+            // 3. 中央核心视觉锚点：实时流体声波
+            VoiceWaveformVisualizer(
                 inputLevel: isMuted ? 0.0 : session.inputLevel,
                 outputLevel: session.outputLevel,
                 isSpeaking: session.state == .speaking,
-                diameter: 195
+                diameter: waveDiameter
             )
-            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity)
+            .frame(height: waveHeight)
 
-            Spacer(minLength: 6)
+            Spacer(minLength: compact ? 3 : 8)
 
             // 4. 实时转写与推理上下文悬浮卡片 (LiveTranscriptSlab)
             LiveTranscriptSlab(
-                displayMode: visualMode == .duplexSphere ? .liveDuplex : .transcriptionCards,
+                displayMode: transcriptDisplayMode,
                 userQuery: latestUserText(session),
                 aiResponse: latestAIText(session),
                 statusHint: currentStatusHint(session),
+                isCompact: compact,
                 onMinutesTapped: { generateMinutes(session) }
             )
             .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .frame(height: compact ? 160 : 194, alignment: .top)
 
             // 5. 双层悬浮控制底座与分贝计 (FloatingAudioDock)
             FloatingAudioDock(
-                style: visualMode == .duplexSphere ? .liveDuplex : .transcription,
+                style: transcriptDisplayMode == .liveDuplex ? .liveDuplex : .transcription,
                 isMuted: isMuted,
                 isSpeakingOrGenerating: session.state == .speaking || session.state == .thinking,
                 audioLevel: isMuted ? 0.0 : max(session.inputLevel, session.outputLevel),
                 onLeftButtonTapped: {
-                    toggleMute(session)
+                    session.setMicrophoneMuted(!session.isMicrophoneMuted)
                 },
                 onCenterButtonTapped: {
-                    handleCenterOrbAction(session)
+                    handleCenterAction(session)
                 },
                 onRightButtonTapped: {
-                    toggleVisualMode()
+                    toggleTranscriptDisplayMode()
                 }
             )
-            .padding(.bottom, 10)
+            .padding(.bottom, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -225,158 +200,93 @@ struct VoiceDuplexView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(colorScheme == .dark ? Color(hex: "F4EFFB") : Color(hex: "3D3150"))
                     .frame(width: 38, height: 38)
                     .background {
                         Circle()
-                            .fill(Color.white.opacity(0.12))
+                            .fill(colorScheme == .dark ? Color(hex: "2B203B").opacity(0.94) : Color.white.opacity(0.76))
                     }
                     .liquidGlass(.regular, in: .circle)
                     .overlay {
                         Circle()
-                            .strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8)
+                            .strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.30 : 0.86), lineWidth: 0.8)
                     }
             }
             .buttonStyle(StaticButtonFeedbackStyle())
             .accessibilityLabel("退出全双工语音")
 
-            Spacer()
-
-            // 中央品牌标识：Mimir + LIVE DUPLEX
+            Spacer(minLength: 0)
+            audioOutputControl
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .overlay {
             VStack(spacing: 2) {
                 Text("Mimir")
                     .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(colorScheme == .dark ? Color(hex: "F2ECFA") : Color(hex: "34264A"))
                 Text("LIVE DUPLEX")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .tracking(2.0)
-                    .foregroundStyle(Color.white.opacity(0.55))
+                    .foregroundStyle(colorScheme == .dark ? Color(hex: "C5B8D8") : Color(hex: "796E87"))
             }
-            .offset(x: 6) // 微调居中光学平衡
-
-            Spacer()
-
-            // 右侧外设实时胶囊 (AirPods Pro + 降噪模式 + 迷你跳动波形)
-            airPodsPeripheralPill
+            .allowsHitTesting(false)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
     }
 
-    // AirPods Pro 状态外设胶囊
-    private var airPodsPeripheralPill: some View {
-        Button {
-            Haptics.impact(.light)
-            activeSheet = .tonePicker
-        } label: {
-            HStack(spacing: 7) {
-                // AirPods 紧凑图标
-                Image(systemName: "airpodspro")
+    private var audioOutputControl: some View {
+        HStack(spacing: 6) {
+            AudioRoutePickerView()
+                .frame(width: 38, height: 38)
+                .background(colorScheme == .dark ? Color(hex: "2B203B").opacity(0.94) : Color.white.opacity(0.82), in: Circle())
+                .liquidGlass(.regular, in: .circle)
+                .overlay { Circle().strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.30 : 0.9), lineWidth: 0.8).allowsHitTesting(false) }
+                .accessibilityLabel("选择蓝牙或 AirPlay 音频输出")
+
+            Button {
+                Haptics.impact(.light)
+                activeSheet = .tonePicker
+            } label: {
+                Image(systemName: "waveform")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.white)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("AirPods Pro")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white)
-                    Text("Noise Cancelling")
-                        .font(.system(size: 8.5, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.60))
-                }
-
-                // 动态微型声波动画（3~4 条紫色迷你波形柱根据当前声音实时跳动）
-                miniAudioWaveformBars
-                    .padding(.leading, 2)
+                    .foregroundStyle(colorScheme == .dark ? Color(hex: "C6B5FF") : irisViolet)
+                    .frame(width: 38, height: 38)
+                    .background(colorScheme == .dark ? Color(hex: "2B203B").opacity(0.94) : Color.white.opacity(0.82), in: Circle())
+                    .liquidGlass(.regular, in: .circle)
+                    .overlay { Circle().strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.30 : 0.9), lineWidth: 0.8).allowsHitTesting(false) }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background {
-                Capsule(style: .continuous)
-                    .fill(Color(hex: "1F1235").opacity(0.58))
-            }
-            .liquidGlass(.regular, in: .capsule)
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.30), lineWidth: 0.8)
-            }
-        }
-        .buttonStyle(StaticButtonFeedbackStyle())
-        .accessibilityLabel("外设音频与音色设置")
-    }
-
-    // 迷你声波跳动条 (3-4 柱)
-    private var miniAudioWaveformBars: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-            let time = timeline.date.timeIntervalSinceReferenceDate
-            let active = (session?.inputLevel ?? 0) > 0.05 || (session?.outputLevel ?? 0) > 0.05
-
-            HStack(spacing: 2.2) {
-                ForEach(0..<4, id: \.self) { idx in
-                    let seed = Double(idx) * 1.1
-                    let wave = sin(time * 8.0 + seed) * 0.5 + 0.5
-                    let barH = active ? (4.0 + wave * 9.0) : 3.0
-
-                    Capsule(style: .continuous)
-                        .fill(electricViolet)
-                        .frame(width: 2.2, height: barH)
-                }
-            }
-            .frame(width: 14, height: 16)
+            .buttonStyle(StaticButtonFeedbackStyle())
+            .accessibilityLabel("选择语音音色")
         }
     }
 
     // MARK: - 2. 神经引擎与空间音频状态浮条
 
-    private var neuralEngineStatusBar: some View {
+    private func neuralEngineStatusBar(_ session: VoiceSessionViewModel) -> some View {
         HStack(spacing: 8) {
-            // 实时神经核心状态指示灯（呼吸发光绿点）
             HStack(spacing: 5) {
-                Circle()
-                    .fill(Color(hex: "34C759"))
+                Circle().fill(session.isActive ? Color(hex: "34C759") : Color(hex: "A99EB6"))
                     .frame(width: 6, height: 6)
-                    .shadow(color: Color(hex: "34C759").opacity(0.85), radius: 4)
-
-                Text("Mimir Neural Core · 110ms")
+                Text("语音链路 · \(session.state.title)")
             }
-
-            // 分割坚线
-            Capsule()
-                .fill(Color.white.opacity(0.24))
-                .frame(width: 1, height: 10)
-
-            // 空间音频规格
-            Text("Spatial Audio 48kHz")
         }
-        .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-        .foregroundStyle(Color.white.opacity(0.80))
+        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+        .foregroundStyle(colorScheme == .dark ? Color(hex: "D6CCE5") : Color(hex: "514660"))
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
         .background {
             Capsule(style: .continuous)
-                .fill(Color(hex: "1F1235").opacity(0.45))
+                .fill(colorScheme == .dark ? Color(hex: "21182F").opacity(0.92) : Color.white.opacity(0.68))
         }
         .overlay {
             Capsule(style: .continuous)
-                .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.7)
+            .strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.22 : 0.88), lineWidth: 0.7)
         }
     }
 
     // MARK: - 交互事件处理
 
-    private func toggleMute(_ session: VoiceSessionViewModel) {
-        isMuted.toggle()
-        if isMuted {
-            // 静音态
-            session.stopAll()
-        } else {
-            // 恢复采集
-            Task {
-                await session.start(conversation: chat.conversation)
-            }
-        }
-    }
-
-    private func handleCenterOrbAction(_ session: VoiceSessionViewModel) {
+    private func handleCenterAction(_ session: VoiceSessionViewModel) {
         if session.state == .speaking || session.state == .thinking {
             // 打断当前回答
             session.interrupt()
@@ -386,9 +296,9 @@ struct VoiceDuplexView: View {
         }
     }
 
-    private func toggleVisualMode() {
+    private func toggleTranscriptDisplayMode() {
         withAnimation(.spring(response: 0.40, dampingFraction: 0.82)) {
-            visualMode = (visualMode == .duplexSphere) ? .transcriptRibbon : .duplexSphere
+            transcriptDisplayMode = transcriptDisplayMode == .liveDuplex ? .transcriptionCards : .liveDuplex
         }
     }
 
@@ -420,27 +330,52 @@ struct VoiceDuplexView: View {
 
     private func latestAIText(_ session: VoiceSessionViewModel) -> String? {
         if session.state == .thinking {
-            return "Synthesizing contextual thoughts..."
+            return "Mimir 正在组织回复…"
         }
         return session.lines.last(where: { !$0.isUser })?.text
     }
 
     private func currentStatusHint(_ session: VoiceSessionViewModel) -> String {
+        if session.isMicrophoneMuted { return "麦克风已静音" }
         switch session.state {
         case .listening:
-            return "Listening actively · Tap mic or speak freely"
+            return "正在聆听 · 开口即可继续"
         case .transcribing:
-            return "Transcribing voice stream…"
+            return "正在转写语音…"
         case .thinking:
-            return "Multi-agent reasoning in progress…"
+            return "Mimir 正在思考…"
         case .speaking:
-            return "Speaking · Tap orb or speak to interrupt"
+            return "正在回答 · 轻点主键可打断"
         case .interrupted:
-            return "Interrupted · Ready for next turn"
+            return "已打断 · 可以继续说话"
         case .idle:
-            return "Standby · Tap center orb to speak"
+            return "待命 · 轻点主键开始聆听"
         case .unavailable:
-            return session.infoText ?? "Voice route unavailable"
+            return session.infoText ?? "语音通道暂不可用"
         }
+    }
+}
+
+private struct AudioRoutePickerView: UIViewRepresentable {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let picker = AVRoutePickerView(frame: .zero)
+        picker.prioritizesVideoDevices = false
+        updateAppearance(picker)
+        return picker
+    }
+
+    func updateUIView(_ picker: AVRoutePickerView, context: Context) {
+        updateAppearance(picker)
+    }
+
+    private func updateAppearance(_ picker: AVRoutePickerView) {
+        if colorScheme == .dark {
+            picker.tintColor = UIColor(red: 0.83, green: 0.78, blue: 0.93, alpha: 1)
+        } else {
+            picker.tintColor = UIColor(red: 0.36, green: 0.28, blue: 0.52, alpha: 1)
+        }
+        picker.activeTintColor = UIColor(red: 0.49, green: 0.32, blue: 0.96, alpha: 1)
     }
 }

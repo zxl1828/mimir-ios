@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct WorkspaceFolderPicker: UIViewControllerRepresentable {
     @Binding var isPresented: Bool
-    let onPick: (URL, Data) -> Void
+    let onPick: (URL, Data, Bool) -> Void
     let onError: (String) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
@@ -32,12 +32,19 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let folder = urls.first else {
-                parent.isPresented = false
+                controller.dismiss(animated: true) { self.parent.isPresented = false }
                 return
             }
-            guard folder.startAccessingSecurityScopedResource() else {
-                parent.isPresented = false
-                parent.onError("无法访问所选文件夹，请重新选择并允许 Mimir 读取。")
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .standardizedFileURL.path
+            let isAppDocument = folder.standardizedFileURL.path == documentsPath
+                || folder.standardizedFileURL.path.hasPrefix(documentsPath + "/")
+            let didStartAccess = folder.startAccessingSecurityScopedResource()
+            guard didStartAccess || isAppDocument else {
+                controller.dismiss(animated: true) {
+                    self.parent.isPresented = false
+                    self.parent.onError("无法访问所选文件夹，请重新选择并允许 Mimir 读取。")
+                }
                 return
             }
 
@@ -47,17 +54,21 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
                     includingResourceValuesForKeys: nil,
                     relativeTo: nil
                 )
-                parent.isPresented = false
-                parent.onPick(folder, bookmark)
+                controller.dismiss(animated: true) {
+                    self.parent.isPresented = false
+                    self.parent.onPick(folder, bookmark, didStartAccess)
+                }
             } catch {
-                folder.stopAccessingSecurityScopedResource()
-                parent.isPresented = false
-                parent.onError(error.localizedDescription)
+                if didStartAccess { folder.stopAccessingSecurityScopedResource() }
+                controller.dismiss(animated: true) {
+                    self.parent.isPresented = false
+                    self.parent.onError(error.localizedDescription)
+                }
             }
         }
 
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            parent.isPresented = false
+            controller.dismiss(animated: true) { self.parent.isPresented = false }
         }
     }
 }

@@ -989,11 +989,13 @@ public struct AssistantMainView: View {
             showToast("请选择工作区内的文本或代码文件。")
             return
         }
+        let needsSecurityScope = !WorkspaceManager.shared.isInAppDocuments(rootURL)
         Task {
             do {
                 let content = try await Task.detached(priority: .userInitiated) { () throws -> String in
-                    guard rootURL.startAccessingSecurityScopedResource() else { throw WorkspaceAccessError.accessDenied }
-                    defer { rootURL.stopAccessingSecurityScopedResource() }
+                    let accessing = !needsSecurityScope || rootURL.startAccessingSecurityScopedResource()
+                    guard accessing else { throw WorkspaceAccessError.accessDenied }
+                    defer { if needsSecurityScope { rootURL.stopAccessingSecurityScopedResource() } }
                     let root = rootURL.resolvingSymlinksInPath().standardizedFileURL.path
                     let target = fileURL.resolvingSymlinksInPath().standardizedFileURL.path
                     guard target.hasPrefix(root + "/") else { throw WorkspaceAccessError.invalidPath }
@@ -1300,7 +1302,8 @@ private struct CentralAssistantCard: View {
             AmbientBreathingParticles(
                 width: mascotSize * 2.05,
                 height: height,
-                accent: accent
+                accent: accent,
+                isActive: coordinator.selectedTab == .assistant
             )
 
             Circle()
@@ -1328,15 +1331,22 @@ private struct CentralAssistantCard: View {
                 .rotationEffect(.degrees(isBreathing ? -8 : 9))
 
             Circle()
-                .fill(.clear)
+                .strokeBorder(
+                    AngularGradient(
+                        colors: [
+                            .clear,
+                            Color.white.opacity(scheme == .dark ? 0.56 : 0.82),
+                            accent.opacity(scheme == .dark ? 0.74 : 0.58),
+                            .clear
+                        ],
+                        center: .center
+                    ),
+                    lineWidth: 0.9
+                )
                 .frame(width: mascotSize * 1.24, height: mascotSize * 1.24)
-                .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .circle)
-                .overlay {
-                    Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                }
-                .shadow(color: accent.opacity(scheme == .dark ? 0.25 : 0.12), radius: 24)
+                .shadow(color: accent.opacity(scheme == .dark ? 0.22 : 0.11), radius: 14)
 
-            TimelineView(.animation(minimumInterval: 1 / 24, paused: coordinator.selectedTab != .assistant)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 120.0, paused: coordinator.selectedTab != .assistant)) { timeline in
                 OrbitParticleCanvas(time: timeline.date.timeIntervalSinceReferenceDate, accent: accent)
                     .frame(width: mascotSize * 2.15, height: height)
             }
@@ -1350,9 +1360,10 @@ private struct AmbientBreathingParticles: View {
     let width: CGFloat
     let height: CGFloat
     let accent: Color
+    let isActive: Bool
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 120.0, paused: !isActive)) { timeline in
             Canvas { context, size in
                 let time = timeline.date.timeIntervalSinceReferenceDate
                 for index in 0..<14 {

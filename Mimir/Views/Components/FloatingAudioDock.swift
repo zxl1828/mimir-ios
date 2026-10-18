@@ -7,14 +7,14 @@ import UIKit
 /// - **双层悬浮底座**：高透光悬浮玻璃跑道型胶囊（.ultraThinMaterial），外覆 0.8pt 焦散高光描边；
 /// - **动态声波主按钮**：中央 68x68pt 鸢尾紫（#7D52F4）渐变实体发光圆，正中心为声波动态符号，
 ///   在收音/发声态向外爆发扩散多重同心声波扩散环（Concentric Pulse Shockwaves）；
-/// - **两侧辅助功能键**：左侧为微凹感玻璃底托麦克风静音/开启键，右侧为键盘/会话卡片抽屉入口；
+/// - **两侧辅助功能键**：左侧切换麦克风静音，右侧切换字幕卡片排版；
 /// - **精密分贝刻度量规**：内嵌精密声级指示标尺（-36 dB / -42 dB 至 0 dB），
 ///   随当前音频电平从左向右实时填充发光紫色点阵。
 public struct FloatingAudioDock: View {
 
     public enum DockStyle: Sendable {
-        case liveDuplex       // 参考图 1：左 mic.slash | 中 waveform + 同心扩散环 | 右 bubble.left.and.text
-        case transcription    // 参考图 2：左 flag.fill | 中 square.fill (停止) | 右 pause.fill
+        case liveDuplex
+        case transcription
     }
 
     public var style: DockStyle = .liveDuplex
@@ -26,12 +26,11 @@ public struct FloatingAudioDock: View {
     public var onCenterButtonTapped: (() -> Void)?
     public var onRightButtonTapped: (() -> Void)?
 
-    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorScheme) private var colorScheme
 
     // 核心色彩令牌
     private let irisViolet = Color(hex: "7D52F4")
     private let electricViolet = Color(hex: "9B70FF")
-    private let deepPlumDock = Color(hex: "1F1238")
 
     public init(
         style: DockStyle = .liveDuplex,
@@ -69,20 +68,16 @@ public struct FloatingAudioDock: View {
         ZStack {
             // 外层跑道型悬浮高透光毛玻璃胶囊
             RoundedRectangle(cornerRadius: 44, style: .continuous)
-                .fill(
-                    scheme == .dark
-                        ? deepPlumDock.opacity(0.65)
-                        : Color.white.opacity(0.85)
-                )
+                .fill(colorScheme == .dark ? Color(hex: "21182F").opacity(0.96) : Color.white.opacity(0.88))
                 .liquidGlass(.regular, in: .rect(cornerRadius: 44))
                 .overlay {
                     RoundedRectangle(cornerRadius: 44, style: .continuous)
                         .strokeBorder(
                             LinearGradient(
                                 stops: [
-                                    .init(color: Color.white.opacity(0.40), location: 0.0),
-                                    .init(color: irisViolet.opacity(0.35), location: 0.50),
-                                    .init(color: Color.white.opacity(0.18), location: 1.0)
+                                    .init(color: Color.white.opacity(colorScheme == .dark ? 0.24 : 0.40), location: 0.0),
+                                    .init(color: irisViolet.opacity(0.42), location: 0.50),
+                                    .init(color: Color.white.opacity(colorScheme == .dark ? 0.10 : 0.18), location: 1.0)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -94,13 +89,13 @@ public struct FloatingAudioDock: View {
 
             // 三颗控制按键水平阵列
             HStack(spacing: 28) {
-                // 左侧辅助键（麦克风静音 / Flag 标记）
+                // 左侧麦克风静音控制
                 leftAuxiliaryButton
 
                 // 中央核心声波主按钮（含同心声波扩散环）
-                centerActionOrbButton
+                centerActionButton
 
-                // 右侧辅助键（模式切换 / 抽屉 / 暂停）
+                // 右侧字幕卡片排版切换
                 rightAuxiliaryButton
             }
             .padding(.horizontal, 24)
@@ -110,7 +105,7 @@ public struct FloatingAudioDock: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - 2. 左侧辅助键 (微凹感玻璃底托)
+    // MARK: - 2. 左侧辅助键
 
     private var leftAuxiliaryButton: some View {
         Button {
@@ -120,16 +115,14 @@ public struct FloatingAudioDock: View {
             ZStack {
                 Circle()
                     .fill(
-                        scheme == .dark
-                            ? Color.white.opacity(0.08)
-                            : Color.black.opacity(0.04)
+                        colorScheme == .dark ? Color(hex: "342749") : Color(hex: "F2EDFA")
                     )
                     .frame(width: 52, height: 52)
                     .overlay {
                         Circle()
                             .strokeBorder(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.35), Color.clear],
+                                    colors: [Color.white.opacity(colorScheme == .dark ? 0.20 : 0.35), Color.clear],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
@@ -139,31 +132,25 @@ public struct FloatingAudioDock: View {
 
                 Image(systemName: leftButtonIcon)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(isMuted ? Color(hex: "F86E6E") : (scheme == .dark ? Color.white : Color.primary))
+                    .foregroundStyle(isMuted ? Color(hex: "D94D68") : irisViolet)
             }
         }
         .buttonStyle(StaticButtonFeedbackStyle())
-        .accessibilityLabel(style == .liveDuplex ? (isMuted ? "取消静音" : "静音") : "添加标记")
+        .accessibilityLabel(isMuted ? "取消静音" : "静音")
     }
 
     private var leftButtonIcon: String {
-        if style == .transcription {
-            return "flag.fill"
-        }
         return isMuted ? "mic.slash.fill" : "mic.fill"
     }
 
     // MARK: - 3. 中央核心动态声波主按钮 (Center Action Orb)
 
-    private var centerActionOrbButton: some View {
+    private var centerActionButton: some View {
         Button {
             triggerHaptic(.heavy)
             onCenterButtonTapped?()
         } label: {
             ZStack {
-                // 外向同心声波脉冲震荡波环 (Concentric Pulse Shockwaves)
-                concentricPulseRings
-
                 // 实体渐变发光主圆 (68x68)
                 Circle()
                     .fill(
@@ -187,6 +174,8 @@ public struct FloatingAudioDock: View {
                 // 按钮核心动态图标
                 centerButtonIconView
             }
+            .frame(width: 66, height: 66)
+            .overlay { concentricPulseRings.allowsHitTesting(false) }
         }
         .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel(centerAccessibilityLabel)
@@ -194,7 +183,7 @@ public struct FloatingAudioDock: View {
 
     // 同心扩散波纹环
     private var concentricPulseRings: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 120.0)) { timeline in
             let time = timeline.date.timeIntervalSinceReferenceDate
             let active = audioLevel > 0.04 || isSpeakingOrGenerating
 
@@ -218,42 +207,37 @@ public struct FloatingAudioDock: View {
 
     @ViewBuilder
     private var centerButtonIconView: some View {
-        if style == .transcription {
-            // 录制/转写停止方块
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color.white)
-                .frame(width: 20, height: 20)
-        } else if isSpeakingOrGenerating {
+        if isSpeakingOrGenerating {
             // 停止打断回答方块
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(Color.white)
                 .frame(width: 20, height: 20)
         } else {
-            // 经典高保真 5 柱动态跳动声波
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            // 高保真 5 柱动态跳动声波；布局固定，音频流只改变柱高。
+            TimelineView(.animation(minimumInterval: 1.0 / 120.0)) { timeline in
                 let time = timeline.date.timeIntervalSinceReferenceDate
                 HStack(spacing: 3.5) {
                     ForEach(0..<5, id: \.self) { barIdx in
                         let seed = Double(barIdx) * 0.85
                         let wave = (sin(time * 6.0 + seed) * 0.5 + 0.5)
                         let heightFactor = 0.35 + (audioLevel * 0.65) * wave + (audioLevel > 0.05 ? 0.25 : 0.0)
-                        let barHeight = max(6.0, min(24.0, 24.0 * heightFactor))
-
                         Capsule(style: .continuous)
                             .fill(Color.white)
-                            .frame(width: 3.2, height: barHeight)
+                            .frame(width: 3.2, height: 24)
+                            .scaleEffect(y: heightFactor, anchor: .center)
                     }
                 }
+                .frame(width: 32, height: 30)
             }
         }
     }
 
     private var centerAccessibilityLabel: String {
         if isSpeakingOrGenerating { return "停止回答" }
-        return style == .liveDuplex ? "语音主控" : "停止转写"
+        return "开始或暂停聆听"
     }
 
-    // MARK: - 4. 右侧辅助键 (模式切换 / 抽屉 / 暂停)
+    // MARK: - 4. 右侧字幕排版切换
 
     private var rightAuxiliaryButton: some View {
         Button {
@@ -263,16 +247,14 @@ public struct FloatingAudioDock: View {
             ZStack {
                 Circle()
                     .fill(
-                        scheme == .dark
-                            ? Color.white.opacity(0.08)
-                            : Color.black.opacity(0.04)
+                        colorScheme == .dark ? Color(hex: "342749") : Color(hex: "F2EDFA")
                     )
                     .frame(width: 52, height: 52)
                     .overlay {
                         Circle()
                             .strokeBorder(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.35), Color.clear],
+                                    colors: [Color.white.opacity(colorScheme == .dark ? 0.20 : 0.35), Color.clear],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
@@ -282,18 +264,15 @@ public struct FloatingAudioDock: View {
 
                 Image(systemName: rightButtonIcon)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(scheme == .dark ? Color.white : Color.primary)
+                    .foregroundStyle(colorScheme == .dark ? Color(hex: "85DDE0") : Color(hex: "268E9E"))
             }
         }
         .buttonStyle(StaticButtonFeedbackStyle())
-        .accessibilityLabel(style == .liveDuplex ? "切换会话抽屉" : "暂停录制")
+        .accessibilityLabel(style == .liveDuplex ? "切换到转写卡片" : "切换到全双工显示")
     }
 
     private var rightButtonIcon: String {
-        if style == .transcription {
-            return "pause.fill"
-        }
-        return "bubble.left.and.text.bubble.right"
+        return style == .liveDuplex ? "captions.bubble" : "waveform"
     }
 
     // MARK: - 5. 精密分贝刻度量规 (Bottom Decibel Gauge: -36 dB ~ 0 dB)
@@ -303,7 +282,7 @@ public struct FloatingAudioDock: View {
             // 左端标注
             Text(style == .transcription ? "-42 dB" : "-36 dB")
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(scheme == .dark ? Color.white.opacity(0.52) : Color.primary.opacity(0.48))
+                .foregroundStyle(colorScheme == .dark ? Color(hex: "C5B8D8") : Color(hex: "746A80"))
 
             // 中间点阵音量电平驱动发光紫色点阵实时填充
             GeometryReader { proxy in
@@ -319,9 +298,10 @@ public struct FloatingAudioDock: View {
                             .fill(
                                 isActive
                                     ? (isPeak ? Color.white : electricViolet)
-                                    : (scheme == .dark ? Color.white.opacity(0.18) : Color.primary.opacity(0.14))
+                                    : (colorScheme == .dark ? Color(hex: "514361") : Color(hex: "DCD5E7"))
                             )
-                            .frame(width: isPeak ? 4.0 : 3.0, height: isPeak ? 4.0 : 3.0)
+                            .frame(width: 3.5, height: 3.5)
+                            .scaleEffect(isPeak ? 1.12 : 1.0)
                             .shadow(color: isActive ? electricViolet.opacity(0.85) : Color.clear, radius: isPeak ? 4 : 2)
                     }
                 }
@@ -332,7 +312,7 @@ public struct FloatingAudioDock: View {
             // 右端标注
             Text("0 dB")
                 .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(scheme == .dark ? Color.white.opacity(0.52) : Color.primary.opacity(0.48))
+                .foregroundStyle(colorScheme == .dark ? Color(hex: "C5B8D8") : Color(hex: "746A80"))
         }
     }
 

@@ -6,7 +6,7 @@ import SwiftUI
 /// 1. 居中原生绘制的 Cyber-Owl（MimirMascot）；
 /// 2. 围绕猫头鹰行星星轨动态附着 1 到 6 个参数化角度分布的轨道粒子节点（`OrbitalNodeView`）；
 /// 3. 当 SSE 流或上下文命中特定分块时，触发 `#7D52F4` 焦散光晕呼吸脉冲（radius: 8pt）；
-/// 4. 点击轨道节点弹出无变形的高架悬浮切片卡片（Elevated Floating Popover，`#120D1D` 85% + `ultraThinMaterial`），支持行截断与全量视图导航。
+/// 4. 点击轨道节点弹出浅色高架悬浮切片卡片，支持行截断与全量视图导航。
 struct CyberOwlHeaderView: View {
 
     let mascotSize: CGFloat
@@ -19,7 +19,6 @@ struct CyberOwlHeaderView: View {
     @State private var ragManager = RAGContextManager.shared
     @State private var activePopoverNode: RAGOrbitalNode?
     @State private var showFullSliceSheet: Bool = false
-    @State private var orbitalDriftAngle: Double = 0
 
     // Mimir 严选品牌色基准（严禁 Color.black）
     private let irisViolet = Color(hex: "7D52F4")
@@ -102,17 +101,12 @@ struct CyberOwlHeaderView: View {
             }
         }
         .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.35))
-        .onAppear {
-            withAnimation(.linear(duration: 45).repeatForever(autoreverses: false)) {
-                orbitalDriftAngle = 2.0 * .pi
-            }
-        }
     }
 
     private func nodePosition(index: Int, total: Int, radiusX: CGFloat, radiusY: CGFloat) -> (offset: CGPoint, isFront: Bool) {
         let count = Double(max(1, total))
         let baseAngle = (Double(index) / count) * (2.0 * .pi)
-        let currentAngle = baseAngle + orbitalDriftAngle
+        let currentAngle = baseAngle
 
         let rawX = cos(currentAngle) * Double(radiusX)
         let rawY = sin(currentAngle) * Double(radiusY)
@@ -185,7 +179,6 @@ struct OrbitalNodeView: View {
     let node: RAGOrbitalNode
     let onTap: () -> Void
 
-    @Environment(\.colorScheme) private var scheme
     private let irisViolet = Color(hex: "7D52F4")
     private let deepPlumBase = Color(hex: "120D1D")
 
@@ -203,11 +196,7 @@ struct OrbitalNodeView: View {
 
                 // 微型高架液态玻璃圆盘（刚性无形变）
                 Circle()
-                    .fill(
-                        scheme == .dark
-                            ? deepPlumBase.opacity(0.85)
-                            : Color.white.opacity(0.85)
-                    )
+                    .fill(Color.white.opacity(0.90))
                     .frame(width: 26, height: 26)
                     .background(.ultraThinMaterial, in: Circle())
                     .overlay {
@@ -215,12 +204,12 @@ struct OrbitalNodeView: View {
                             .strokeBorder(
                                 node.isCausticActive
                                     ? irisViolet
-                                    : Color.white.opacity(scheme == .dark ? 0.35 : 0.65),
+                                    : Color.white.opacity(0.82),
                                 lineWidth: node.isCausticActive ? 1.6 : 0.8
                             )
                     }
                     .shadow(
-                        color: node.isCausticActive ? irisViolet.opacity(0.65) : Color.black.opacity(0.12),
+                        color: node.isCausticActive ? irisViolet.opacity(0.65) : deepPlumBase.opacity(0.12),
                         radius: node.isCausticActive ? 6 : 3,
                         y: 1.5
                     )
@@ -228,7 +217,7 @@ struct OrbitalNodeView: View {
                 // 文件类型标识符小字
                 Text(fileTag(for: node.fileExtension))
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    .foregroundStyle(node.isCausticActive ? irisViolet : (scheme == .dark ? Color.white : deepPlumBase))
+                    .foregroundStyle(node.isCausticActive ? irisViolet : deepPlumBase)
             }
         }
         .buttonStyle(RigidNodeButtonStyle())
@@ -256,10 +245,8 @@ private struct RAGChunkPopoverView: View {
     let onDismiss: () -> Void
     let onOpenFullView: () -> Void
 
-    @Environment(\.colorScheme) private var scheme
     private let irisViolet = Color(hex: "7D52F4")
     private let deepPlumBase = Color(hex: "120D1D")
-    private let paleLavender = Color(hex: "F8F6FD")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -272,7 +259,7 @@ private struct RAGChunkPopoverView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(node.title)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(deepPlumBase)
                         .lineLimit(1)
 
                     Text("RAG CHUNK #\(node.chunkIndex + 1) OF \(node.totalChunks)")
@@ -285,7 +272,7 @@ private struct RAGChunkPopoverView: View {
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.white.opacity(0.75))
+                        .foregroundStyle(deepPlumBase.opacity(0.65))
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(Color.white.opacity(0.12)))
                 }
@@ -295,14 +282,14 @@ private struct RAGChunkPopoverView: View {
             // 文本/代码切片内容（行截断 line-clamp 4行）
             Text(node.snippet)
                 .font(.system(size: 11.5, weight: .regular, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.88))
+                .foregroundStyle(deepPlumBase.opacity(0.92))
                 .lineLimit(4)
                 .lineSpacing(3)
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(hex: "1D152D").opacity(0.90))
+                        .fill(Color(hex: "F5F1FA").opacity(0.92))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.8)
@@ -336,7 +323,7 @@ private struct RAGChunkPopoverView: View {
         // 严格遵循：#120D1D 85% + ultraThinMaterial
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(deepPlumBase.opacity(0.85))
+                .fill(Color.white.opacity(0.92))
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -354,7 +341,7 @@ private struct RAGChunkPopoverView: View {
                         )
                 }
                 .shadow(color: irisViolet.opacity(0.24), radius: 24, y: 10)
-                .shadow(color: Color.black.opacity(0.32), radius: 14, y: 6)
+                .shadow(color: deepPlumBase.opacity(0.24), radius: 14, y: 6)
         }
     }
 
@@ -392,13 +379,13 @@ private struct FullSliceSheet: View {
 
                     Text(node.snippet)
                         .font(.system(size: 13, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color.white.opacity(0.92))
+                        .foregroundStyle(deepPlumBase.opacity(0.92))
                         .textSelection(.enabled)
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(Color(hex: "1A1228"))
+                                .fill(Color(hex: "F5F1FA"))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                                         .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.8)
@@ -407,7 +394,7 @@ private struct FullSliceSheet: View {
                 }
                 .padding(20)
             }
-            .background(deepPlumBase.ignoresSafeArea())
+            .background(Color(hex: "F8F6FD").ignoresSafeArea())
             .navigationTitle(node.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -50,15 +50,16 @@ public final class RAGContextManager: Sendable {
     private var flareResetTasks: [UUID: Task<Void, Never>] = [:]
 
     public init() {
-        // 装填默认对话/架构上下文样本（1~6个）
-        seedDefaultContextNodes()
+        // 没有真实工作区内容时保持轨道为空；演示节点会伪装成已摄入的文件，
+        // 也会让轨道标签看起来像异常的随机字符。
+        orbitalNodes = []
     }
 
     /// 根据当前工作区或会话更新关联上下文文件（最多 6 个节点）
     public func updateContextFiles(_ files: [(name: String, ext: String, snippet: String)]) {
         let limited = Array(files.prefix(6))
         if limited.isEmpty {
-            seedDefaultContextNodes()
+            orbitalNodes = []
             return
         }
 
@@ -102,37 +103,4 @@ public final class RAGContextManager: Sendable {
         }
     }
 
-    /// 装填初始高价值上下文切片
-    private func seedDefaultContextNodes() {
-        orbitalNodes = [
-            RAGOrbitalNode(
-                title: "AppTheme.swift",
-                fileExtension: "swift",
-                chunkIndex: 0,
-                totalChunks: 3,
-                snippet: "enum AppUI {\n    static let irisViolet = Color(hex: \"7D52F4\")\n    static let deepPlum = Color(hex: \"120D1D\")\n}"
-            ),
-            RAGOrbitalNode(
-                title: "VoiceDuplex.swift",
-                fileExtension: "swift",
-                chunkIndex: 1,
-                totalChunks: 4,
-                snippet: "struct VoiceDuplexView: View {\n    // ADA-grade Liquid Glass Sphere with dual-channel typewriter slab\n}"
-            ),
-            RAGOrbitalNode(
-                title: "DesignDNA.md",
-                fileExtension: "md",
-                chunkIndex: 0,
-                totalChunks: 2,
-                snippet: "# Mimir Design DNA\nStrictly NO Color.black. Rigid floating slabs with ultraThinMaterial and iris violet caustic highlights."
-            ),
-            RAGOrbitalNode(
-                title: "WorkspaceManager",
-                fileExtension: "swift",
-                chunkIndex: 2,
-                totalChunks: 5,
-                snippet: "func mountFolder(url: URL, bookmarkData: Data) async throws {\n    // Security-scoped bookmark persistence for iOS\n}"
-            )
-        ]
-    }
 }
