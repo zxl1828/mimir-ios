@@ -476,7 +476,7 @@ final class WorkspaceManager {
         return candidate
     }
 
-    private static func decodeText(at url: URL) -> String? {
+    nonisolated private static func decodeText(at url: URL) -> String? {
         guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) else { return nil }
         for encoding in [
             String.Encoding.utf8,
