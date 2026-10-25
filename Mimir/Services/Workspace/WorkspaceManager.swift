@@ -100,7 +100,7 @@ private enum WorkspaceFileTypes {
     ]
 
     static func isTextLike(name: String, extension ext: String) -> Bool {
-        editable.contains(ext) || knownTextNames.contains(name.lowercased()) || ext.isEmpty
+        editable.contains(ext) || knownTextNames.contains(name.lowercased())
     }
 
     static func category(for name: String, extension ext: String) -> WorkspaceFileItem.AssetCategory {
@@ -125,7 +125,8 @@ private enum WorkspaceFolderScanner {
         guard let enumerator = FileManager.default.enumerator(
             at: url,
             includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles]
+            // Dotfiles such as .env, .gitignore and .editorconfig are part of a code workspace.
+            options: []
         ) else { return [] }
 
         let skippedDirectories: Set<String> = [".git", ".build", "Build", "DerivedData", "node_modules", "Pods", "Carthage"]
@@ -622,7 +623,7 @@ final class WorkspaceManager {
 
     private func loadBookmarks() {
         guard let dict = UserDefaults.standard.dictionary(forKey: bookmarkStorageKey) as? [String: Data] else { return }
-        for (_, data) in dict {
+        for (storedPath, data) in dict {
             var isStale = false
             if let resolvedURL = try? URL(
                 resolvingBookmarkData: data,
@@ -630,10 +631,20 @@ final class WorkspaceManager {
                 relativeTo: nil,
                 bookmarkDataIsStale: &isStale
             ) {
-                mountedWorkspaces.append(resolvedURL)
-                if activeWorkspaceURL == nil {
-                    activeWorkspaceURL = resolvedURL
-                    Task { await scanFolder(url: resolvedURL) }
+                if !mountedWorkspaces.contains(resolvedURL) {
+                    mountedWorkspaces.append(resolvedURL)
+                }
+                // The most recently saved bookmark wins over the private default workspace.
+                activeWorkspaceURL = resolvedURL
+                Task { await scanFolder(url: resolvedURL) }
+                if isStale, let refreshed = try? resolvedURL.bookmarkData(
+                    options: [],
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                ) {
+                    saveBookmark(refreshed, for: resolvedURL)
+                } else if storedPath != resolvedURL.path {
+                    saveBookmark(data, for: resolvedURL)
                 }
             }
         }

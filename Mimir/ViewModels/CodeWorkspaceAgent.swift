@@ -24,7 +24,8 @@ final class CodeWorkspaceAgent {
         LLMChatMessage(role: .system, text: """
         你是 Mimir 手机端代码 Agent。用户选定的本地工作区是唯一可访问目录。
         先用 workspace_list 找文件；需要时用 workspace_read 读取；仅按用户要求通过 workspace_write 修改或新建文件。
-        写文件时必须提供完整 UTF-8 文件内容。不得声称运行过 shell、测试或编译；编译只能由页面的 GitHub Actions 按钮执行。
+        工作区支持 Swift、Python、JavaScript/TypeScript、C/C++、Rust、Go、Java、Kotlin、Dart、PHP、Ruby、Shell、配置文件、Markdown 以及常见的纯文本工程文件；不要因为扩展名不熟悉就拒绝读取，先尝试按文本处理。
+        写文件时必须提供完整文本内容。不得声称运行过 shell、测试或编译；编译只能由页面的 GitHub Actions 按钮执行。
         只处理与用户请求相关的文件，修改后说明文件路径和关键变化。遇到不明确或可能覆盖用户重要内容时先询问。
         """)
     ]
@@ -117,17 +118,17 @@ final class CodeWorkspaceAgent {
     private static let tools: [LLMToolDefinition] = [
         LLMToolDefinition(
             name: "workspace_list",
-            description: "列出当前手机工作区中的可编辑源文件相对路径。",
+            description: "列出当前工作区内可编辑的源代码、配置和纯文本文件相对路径。",
             parametersJSON: #"{"type":"object","properties":{},"additionalProperties":false}"#
         ),
         LLMToolDefinition(
             name: "workspace_read",
-            description: "读取当前工作区内一个 UTF-8 文本文件。",
+            description: "读取当前工作区内一个文本文件，支持常见代码和配置编码。",
             parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"],"additionalProperties":false}"#
         ),
         LLMToolDefinition(
             name: "workspace_write",
-            description: "在当前工作区内创建或完整覆盖一个 UTF-8 文本文件。",
+            description: "在当前工作区内创建或完整覆盖一个文本文件。",
             parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"],"additionalProperties":false}"#
         )
     ]

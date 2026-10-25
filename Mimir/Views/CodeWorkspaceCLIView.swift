@@ -110,13 +110,18 @@ struct CodeWorkspaceCLIView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
-        .sheet(isPresented: $showFolderImporter) {
-            WorkspaceFolderPicker(isPresented: $showFolderImporter) { folder, bookmark, didStartAccess in
-                loadWorkspace(from: folder, bookmark: bookmark, securityScopeAlreadyStarted: didStartAccess)
-            } onError: { message in
-                workspaceLoadError = message
+        .fileImporter(
+            isPresented: $showFolderImporter,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let folder = urls.first else { return }
+                loadWorkspace(from: folder)
+            case .failure(let error):
+                workspaceLoadError = error.localizedDescription
             }
-            .ignoresSafeArea()
         }
         .sheet(isPresented: $showFilePicker) {
             sourceFilePicker
@@ -162,7 +167,7 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
-    private func loadWorkspace(from folder: URL, bookmark: Data, securityScopeAlreadyStarted: Bool) {
+    private func loadWorkspace(from folder: URL) {
         isLoadingWorkspace = true
         workspaceLoadError = nil
         Task {
@@ -170,8 +175,8 @@ struct CodeWorkspaceCLIView: View {
             do {
                 try await workspace.mountFolder(
                     url: folder,
-                    bookmarkData: bookmark,
-                    securityScopeAlreadyStarted: securityScopeAlreadyStarted
+                    bookmarkData: nil,
+                    securityScopeAlreadyStarted: false
                 )
                 workspace.selectCodeFile(workspace.sourceFiles.first)
                 saveState = "已载入工作区"
