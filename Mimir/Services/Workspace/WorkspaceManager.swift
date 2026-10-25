@@ -70,21 +70,41 @@ enum WorkspaceAccessError: LocalizedError, Sendable {
         case .noFolder: return "请先选择一个工作区文件夹。"
         case .accessDenied: return "无法访问所选项目。请重新选择文件夹并允许 Mimir 读取。"
         case .invalidPath: return "文件路径超出当前工作区。"
-        case .fileTooLarge: return "Agent 目前只读取或修改小于 256 KB 的文本文件。"
-        case .unreadableFile: return "无法按 UTF-8 文本读取这个文件。"
+        case .fileTooLarge: return "文件超过 4 MB，当前编辑器不会加载它。"
+        case .unreadableFile: return "这个文件不是可编辑的文本格式。"
         }
     }
 }
 
 private enum WorkspaceFileTypes {
+    static let maxTextFileBytes: Int64 = 4_000_000
+
+    // Source files are plain text on disk; the extension only controls grouping and the icon.
     static let editable: Set<String> = [
-        "swift", "m", "mm", "h", "hh", "c", "cc", "cpp", "metal",
-        "json", "yml", "yaml", "plist", "pbxproj", "xcconfig", "entitlements",
-        "strings", "stringsdict", "md", "txt", "sh", "py", "js", "ts", "html", "css"
+        "swift", "m", "mm", "h", "hh", "hpp", "c", "cc", "cpp", "cxx", "metal",
+        "py", "pyw", "pyi", "js", "jsx", "mjs", "cjs", "ts", "tsx", "vue", "svelte",
+        "html", "htm", "css", "scss", "sass", "less", "xml", "xhtml",
+        "json", "jsonc", "json5", "yml", "yaml", "toml", "ini", "cfg", "conf",
+        "plist", "pbxproj", "xcconfig", "entitlements", "strings", "stringsdict",
+        "md", "markdown", "mdx", "txt", "rtf", "rst", "adoc", "log",
+        "sh", "bash", "zsh", "fish", "ps1", "bat", "cmd",
+        "rs", "go", "rb", "php", "kt", "kts", "java", "gradle", "dart", "ex", "exs",
+        "erl", "hrl", "fs", "fsx", "cs", "csx", "sql", "graphql", "gql",
+        "proto", "sol", "r", "lua", "nim", "zig", "asm", "s", "make", "cmake"
     ]
 
+    static let knownTextNames: Set<String> = [
+        "makefile", "dockerfile", "gemfile", "rakefile", "procfile", "package.swift",
+        "package.json", "readme", "license", "changelog", ".gitignore", ".gitattributes",
+        ".editorconfig", ".env", ".env.example", "podfile", "cartfile"
+    ]
+
+    static func isTextLike(name: String, extension ext: String) -> Bool {
+        editable.contains(ext) || knownTextNames.contains(name.lowercased()) || ext.isEmpty
+    }
+
     static func category(for name: String, extension ext: String) -> WorkspaceFileItem.AssetCategory {
-        if editable.contains(ext) || ["rs", "go", "rb", "kt", "java"].contains(ext) {
+        if isTextLike(name: name, extension: ext) {
             return .code
         }
         if ["png", "jpg", "jpeg", "webp", "gif", "svg", "heic"].contains(ext) {
@@ -215,7 +235,7 @@ final class WorkspaceManager {
             .filter { item in
                 guard !item.isDirectory, let url = item.url else { return false }
                 return url.standardizedFileURL.path.hasPrefix(root + "/")
-                    && WorkspaceFileTypes.editable.contains(item.fileExtension)
+                    && WorkspaceFileTypes.isTextLike(name: item.name, extension: item.fileExtension)
             }
             .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
     }
@@ -335,7 +355,9 @@ final class WorkspaceManager {
             var refreshed = file
             refreshed.size = size
             refreshed.modifiedAt = modifiedAt
-            let text = shouldReload && size <= 256_000 ? try? String(contentsOf: url, encoding: .utf8) : nil
+            let text = shouldReload && size <= WorkspaceFileTypes.maxTextFileBytes
+                ? Self.decodeText(at: url)
+                : nil
             return (refreshed, text)
         }.value
         guard let (refreshed, text) = snapshot, currentActiveCodeFile?.id == file.id else { return }
@@ -362,10 +384,10 @@ final class WorkspaceManager {
             defer { if needsSecurityScope { accessURL?.stopAccessingSecurityScopedResource() } }
             if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
                let size = values.fileSize,
-               size > 256_000 {
-                return "// 文件超过 256 KB，当前编辑器不会加载它"
+               Int64(size) > WorkspaceFileTypes.maxTextFileBytes {
+                return "// 文件超过 4 MB，当前编辑器不会加载它"
             }
-            if let text = try? String(contentsOf: url, encoding: .utf8) {
+            if let text = Self.decodeText(at: url) {
                 return text
             }
         }
@@ -408,13 +430,13 @@ final class WorkspaceManager {
         let url = try validatedWorkspaceURL(path: path)
         let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
         guard values.isRegularFile == true else { throw WorkspaceAccessError.invalidPath }
-        guard (values.fileSize ?? 0) <= 256_000 else { throw WorkspaceAccessError.fileTooLarge }
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { throw WorkspaceAccessError.unreadableFile }
+        guard Int64(values.fileSize ?? 0) <= WorkspaceFileTypes.maxTextFileBytes else { throw WorkspaceAccessError.fileTooLarge }
+        guard let text = Self.decodeText(at: url) else { throw WorkspaceAccessError.unreadableFile }
         return text
     }
 
     func writeWorkspaceText(path: String, content: String) throws {
-        guard content.utf8.count <= 256_000 else { throw WorkspaceAccessError.fileTooLarge }
+        guard Int64(content.utf8.count) <= WorkspaceFileTypes.maxTextFileBytes else { throw WorkspaceAccessError.fileTooLarge }
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
         let needsSecurityScope = !isInAppDocuments(root)
         let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
@@ -451,6 +473,23 @@ final class WorkspaceManager {
             throw WorkspaceAccessError.invalidPath
         }
         return candidate
+    }
+
+    private static func decodeText(at url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) else { return nil }
+        for encoding in [
+            String.Encoding.utf8,
+            .utf16,
+            .utf16LittleEndian,
+            .utf16BigEndian,
+            .windowsCP1252,
+            .isoLatin1
+        ] {
+            if let text = String(data: data, encoding: encoding), !text.contains("\u{0000}") {
+                return text
+            }
+        }
+        return nil
     }
 
     func createNewFile(name: String, content: String, category: WorkspaceFileItem.AssetCategory) throws -> WorkspaceFileItem {
