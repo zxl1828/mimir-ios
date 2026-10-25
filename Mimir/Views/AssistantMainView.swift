@@ -64,17 +64,6 @@ public struct AssistantMainView: View {
 
     public var body: some View {
         ZStack(alignment: .top) {
-            // 0. 思考强度选择面板
-            if showReasoningCard {
-                reasoningPanel
-                    .padding(.top, 64)
-                    .zIndex(2)
-                    .transition(
-                        .scale(scale: 0.94, anchor: .topTrailing)
-                            .combined(with: .opacity)
-                    )
-            }
-
             // Task 3: Split-Prism Arena 对比浮层
             if let chat, chat.showPrismArena {
                 SplitPrismArenaView(
@@ -377,7 +366,7 @@ public struct AssistantMainView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 8)
-        .padding(.top, 22)
+        .padding(.top, 14)
     }
 
     private var currentModelID: String {
@@ -472,80 +461,6 @@ public struct AssistantMainView: View {
     }
 
     // MARK: - 5. 锁定不滚动自适应全屏视口（Non-Scrollable Locked Viewport & Adaptive Layout）
-
-    /// 天气 / 日程详情面板（胶囊的流体展开态）。
-    /// 思考强度选择面板：点击顶栏波形按钮展开，选中后自动收起。
-    ///
-    /// Pale liquid glass keeps the choices legible in both appearance modes.
-    private var reasoningPanel: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("思考强度")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(hex: "756A86"))
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-
-            ForEach(ThinkingMode.allCases) { mode in
-                let isCurrent = chat?.thinkingMode == mode
-
-                Button {
-                    Haptics.selectionChanged()
-                    chat?.thinkingMode = mode
-                    withAnimation(AppUI.snap) { showReasoningCard = false }
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: isCurrent ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 15))
-                            .foregroundStyle(isCurrent ? accent : Color(hex: "8A8098"))
-
-                        Text(mode.title)
-                            .font(.system(size: 14, weight: isCurrent ? .semibold : .regular))
-                            .foregroundStyle(Color(hex: "281F36"))
-
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 9)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(isCurrent ? accent.opacity(0.12) : Color.clear)
-                    )
-                    .padding(.horizontal, 6)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.vertical, 6)
-        .frame(width: 220)
-        .background {
-            let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
-            shape.fill(.ultraThinMaterial)
-                .overlay {
-                    shape.fill(
-                        scheme == .dark
-                            ? Color(hex: "F8F6FD").opacity(0.90)
-                            : Color.white.opacity(0.85)
-                    )
-                }
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.70), accent.opacity(0.24)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
-                .allowsHitTesting(false)
-        }
-        .padding(.trailing, 16)
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .shadow(color: Color(hex: "5A3E85").opacity(scheme == .dark ? 0.18 : 0.07), radius: 22, y: 12)
-    }
 
     /// Top-edge blur fades out over 48pt.
     ///
@@ -1350,6 +1265,11 @@ private struct CentralAssistantCard: View {
                 OrbitParticleCanvas(time: timeline.date.timeIntervalSinceReferenceDate, accent: accent)
                     .frame(width: mascotSize * 2.15, height: height)
             }
+
+            TimelineView(.animation(minimumInterval: 1.0 / 120.0, paused: coordinator.selectedTab != .assistant)) { timeline in
+                OuterOrbitParticleCanvas(time: timeline.date.timeIntervalSinceReferenceDate, accent: accent)
+                    .frame(width: mascotSize * 2.15, height: height)
+            }
         }
         .frame(width: mascotSize * 2.15, height: height)
         .allowsHitTesting(false)
@@ -1420,5 +1340,30 @@ private struct OrbitParticleCanvas: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+private struct OuterOrbitParticleCanvas: View {
+    let time: TimeInterval
+    let accent: Color
+
+    var body: some View {
+        Canvas { context, size in
+            let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+            for index in 0..<30 {
+                let seed = Double(index) / 30.0
+                let direction = index.isMultiple(of: 2) ? 1.0 : -1.0
+                let angle = seed * .pi * 2 + time * 0.22 * direction
+                let radiusX = size.width * (0.47 + (index.isMultiple(of: 3) ? 0.035 : 0))
+                let radiusY = size.height * (0.43 + (index.isMultiple(of: 4) ? 0.035 : 0))
+                let pulse = 0.55 + 0.45 * sin(time * 1.4 + seed * 18)
+                let point = CGPoint(x: center.x + cos(angle) * radiusX, y: center.y + sin(angle) * radiusY)
+                let diameter = 0.9 + pulse * (index.isMultiple(of: 5) ? 2.0 : 1.1)
+                let rect = CGRect(x: point.x - diameter / 2, y: point.y - diameter / 2, width: diameter, height: diameter)
+                context.fill(Path(ellipseIn: rect), with: .color(index.isMultiple(of: 4) ? .white.opacity(0.82) : accent.opacity(0.58 + pulse * 0.22)))
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

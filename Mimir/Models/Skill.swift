@@ -71,6 +71,49 @@ struct SkillDocument: Codable, Sendable, Equatable {
     var toolNames: [String]
     var accentHex: String
 
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, name, slashCommand, icon, summary, promptPrefix
+        case triggerKeywords, intentLabel, toolNames, accentHex
+    }
+
+    init(
+        schemaVersion: Int = 1,
+        name: String,
+        slashCommand: String,
+        icon: String,
+        summary: String,
+        promptPrefix: String,
+        triggerKeywords: [String],
+        intentLabel: String,
+        toolNames: [String],
+        accentHex: String
+    ) {
+        self.schemaVersion = schemaVersion
+        self.name = name
+        self.slashCommand = slashCommand
+        self.icon = icon
+        self.summary = summary
+        self.promptPrefix = promptPrefix
+        self.triggerKeywords = triggerKeywords
+        self.intentLabel = intentLabel
+        self.toolNames = toolNames
+        self.accentHex = accentHex
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        slashCommand = try container.decodeIfPresent(String.self, forKey: .slashCommand) ?? ""
+        icon = try container.decodeIfPresent(String.self, forKey: .icon) ?? "wand.and.stars"
+        summary = try container.decodeIfPresent(String.self, forKey: .summary) ?? ""
+        promptPrefix = try container.decodeIfPresent(String.self, forKey: .promptPrefix) ?? ""
+        triggerKeywords = try container.decodeIfPresent([String].self, forKey: .triggerKeywords) ?? []
+        intentLabel = try container.decodeIfPresent(String.self, forKey: .intentLabel) ?? ""
+        toolNames = try container.decodeIfPresent([String].self, forKey: .toolNames) ?? []
+        accentHex = try container.decodeIfPresent(String.self, forKey: .accentHex) ?? ""
+    }
+
     init(skill: Skill) {
         self.name = skill.name
         self.slashCommand = skill.slashCommand

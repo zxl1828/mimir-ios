@@ -435,14 +435,14 @@ struct CodeWorkspaceCLIView: View {
                     Image(systemName: agent.isWorking ? "ellipsis" : "arrow.up")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(Color.white)
-                        .frame(width: 34, height: 34)
+                        .frame(width: 32, height: 32)
                         .background(Circle().fill(accent))
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(agent.isWorking || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .padding(.trailing, 5)
                 .accessibilityLabel("发送给代码 Agent")
             }
+            .padding(.horizontal, 6)
             .liquidGlass(.regular, in: .rect(cornerRadius: 20))
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)

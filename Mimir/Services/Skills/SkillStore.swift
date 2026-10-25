@@ -125,7 +125,63 @@ enum SkillStore {
             return collection.skills
         }
 
+        // Codex-compatible skills are distributed as SKILL.md files with a
+        // small YAML front matter block followed by the skill instructions.
+        if let markdown = String(data: data, encoding: .utf8),
+           let document = decodeCodexSkill(markdown) {
+            return [document]
+        }
+
         throw SkillImportError.unrecognized
+    }
+
+    private static func decodeCodexSkill(_ markdown: String) -> SkillDocument? {
+        let normalized = markdown.replacingOccurrences(of: "\r\n", with: "\n")
+        let lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else { return nil }
+
+        guard let closingIndex = lines.dropFirst().firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespaces) == "---"
+        }) else { return nil }
+
+        var metadata: [String: String] = [:]
+        for line in lines[1..<closingIndex] {
+            guard let separator = line.firstIndex(of: ":") else { continue }
+            let key = line[..<separator].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let value = line[line.index(after: separator)...]
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            metadata[key] = value
+        }
+
+        let name = (metadata["name"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+
+        let bodyStart = lines.index(after: closingIndex)
+        let body = lines[bodyStart...].joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let summary = metadata["description"] ?? metadata["summary"] ?? ""
+        let command = name
+            .lowercased()
+            .replacingOccurrences(of: "[^a-z0-9_-]+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+
+        let keywords = ([name, summary] + name.split(whereSeparator: { $0 == "-" || $0 == "_" }).map(String.init))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        return SkillDocument(
+            schemaVersion: 1,
+            name: name,
+            slashCommand: command.isEmpty ? name : command,
+            icon: "wand.and.stars",
+            summary: summary,
+            promptPrefix: body,
+            triggerKeywords: Array(Set(keywords)),
+            intentLabel: "",
+            toolNames: [],
+            accentHex: ""
+        )
     }
 
     enum SkillImportError: LocalizedError {

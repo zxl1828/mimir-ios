@@ -115,7 +115,7 @@ struct SkillManagerView: View {
             }
             .fileImporter(
                 isPresented: $showImporter,
-                allowedContentTypes: [.json],
+                allowedContentTypes: [.json, .plainText],
                 allowsMultipleSelection: false
             ) { result in
                 handleImport(result)

@@ -4,6 +4,7 @@ import SwiftUI
 struct FloatingTabBar: View {
 
     @Binding var selectedTab: AppTab
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         HStack(spacing: 2) {
@@ -16,7 +17,7 @@ struct FloatingTabBar: View {
         .frame(height: 66)
         .background {
             Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.76))
+                .fill((scheme == .dark ? Color(hex: "120D1D") : Color.white).opacity(0.82))
         }
         .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.08)), in: .capsule)
         .overlay {
@@ -75,13 +76,13 @@ struct FloatingTabBar: View {
                 if isSelected {
                     Text(tab.shortTitle)
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(hex: "35264A"))
+                        .foregroundStyle(scheme == .dark ? Color(hex: "F8F6FD") : Color(hex: "35264A"))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
                         .transition(.opacity)
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .frame(maxWidth: .infinity, minHeight: 50)
             .background {
                 if isSelected {
@@ -114,7 +115,9 @@ struct FloatingTabBar: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private var inactiveColor: Color { Color(hex: "81768D") }
+    private var inactiveColor: Color {
+        scheme == .dark ? Color(hex: "D7CBE8").opacity(0.78) : Color(hex: "81768D")
+    }
 }
 
 private extension AppTab {
