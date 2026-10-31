@@ -62,7 +62,7 @@ struct FloatingTabBar: View {
         return Button {
             if selectedTab != tab {
                 Haptics.selectionChanged()
-                selectedTab.wrappedValue = tab
+                selectedTab = tab
             }
         } label: {
             HStack(spacing: 5) {
