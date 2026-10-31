@@ -4,6 +4,14 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+struct BeamResponse: Identifiable, Sendable {
+    var id: String { modelID }
+    let modelID: String
+    var text = ""
+    var usage = TokenUsage.zero
+    var error: String?
+}
+
 /// MCP 服务器的不可变快照：流式任务里只用它，避免跨隔离域传引用类型。
 struct MCPServerSnapshot: Sendable, Equatable {
     var id: UUID
@@ -378,9 +386,11 @@ final class ChatViewModel {
         contextCutoffIndex: Int? = nil
     ) {
         let assistant: ChatMessage
+        let previousCost: Double?
         if let target {
             // 重新生成：保留旧版本，新开一个版本承接流式内容。
             assistant = target
+            previousCost = target.estimatedCostUSD
             assistant.isError = false
             assistant.errorText = ""
             assistant.isInterrupted = false
@@ -388,6 +398,7 @@ final class ChatViewModel {
             assistant.memoryHitIDs = []
             assistant.beginNewVersion()
         } else {
+            previousCost = nil
             let fresh = ChatMessage(
                 role: .assistant,
                 text: "",
@@ -399,6 +410,8 @@ final class ChatViewModel {
             assistant = fresh
         }
         assistant.isStreaming = true
+        assistant.modelID = conversation.modelID
+        assistant.priceCostUSD = previousCost ?? -1
         if assistant.agentName.isEmpty {
             assistant.agentName = activeAgent?.name ?? ""
         }
@@ -453,6 +466,7 @@ final class ChatViewModel {
         streamTask = Task { [weak self] in
             var accumulated = ""
             var reasoning = ""
+            var requestUsage = TokenUsage.zero
             var failure: String?
             var wasInterrupted = false
             guard let self else { return }
@@ -514,6 +528,14 @@ final class ChatViewModel {
                             flushStreamingText()
                         case .usage(let usage):
                             assistant.usage = assistant.usage + usage
+                            requestUsage = requestUsage + usage
+                            if let requestCost = ModelPricingCatalog.costUSD(
+                                modelID: assistant.modelID,
+                                promptTokens: requestUsage.promptTokens,
+                                outputTokens: requestUsage.completionTokens + requestUsage.reasoningTokens
+                            ) {
+                                assistant.priceCostUSD = (previousCost ?? 0) + requestCost
+                            }
                         case .toolCallDelta, .finished:
                             break
                         case .toolCallsReady(let calls):
@@ -619,6 +641,13 @@ final class ChatViewModel {
                     ? "模型只返回了思考内容，没有正文。可以把思考档位调低，或点重试。"
                     : "模型没有返回内容。可能是网关不支持流式输出，或模型 ID 不对（当前：\(parameters.modelID)）。"
                 self.errorMessage = assistant.errorText
+            }
+            if requestUsage.total > 0, let requestCost = ModelPricingCatalog.costUSD(
+                modelID: assistant.modelID,
+                promptTokens: requestUsage.promptTokens,
+                outputTokens: requestUsage.completionTokens + requestUsage.reasoningTokens
+            ) {
+                assistant.priceCostUSD = (previousCost ?? 0) + requestCost
             }
             conversation.updatedAt = Date()
             self.isGenerating = false
@@ -866,88 +895,169 @@ final class ChatViewModel {
         }
     }
 
-    // MARK: - Task 3: Split-Prism Arena (Dual-Stream Model Comparison)
+    // MARK: - Beam Synthesis
 
-    var isDualStreamMode: Bool = false
-    var dualStreamModelA: String = "Claude 3.5 Sonnet"
-    var dualStreamModelB: String = "GPT-4o Mini"
-    var dualStreamResponseA: String = ""
-    var dualStreamResponseB: String = ""
-    var isDualStreaming: Bool = false
-    var showPrismArena: Bool = false
+    var beamResponses: [BeamResponse] = []
+    var beamPrompt = ""
+    var beamSynthesis = ""
+    var beamSynthesisError: String?
+    var beamSynthesisUsage = TokenUsage.zero
+    var isBeamStreaming = false
+    var isBeamSynthesizing = false
+    var showBeamArena = false
 
-    /// 触发并发双流模型对比（TaskGroup 并发）
-    func triggerDualStreamComparison(prompt: String) {
-        guard let conversation, settings.hasUsableCredential else { return }
+    func triggerBeamSynthesis(prompt: String, modelIDs: [String], images: [Data] = []) {
+        guard let conversation, settings.hasUsableCredential, !isGenerating, !isBeamStreaming else { return }
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        var seenModels = Set<String>()
+        let models = modelIDs.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seenModels.insert($0.lowercased()).inserted }
+        guard !trimmed.isEmpty, (2...4).contains(models.count) else { return }
 
-        dualStreamResponseA = ""
-        dualStreamResponseB = ""
-        isDualStreaming = true
-        showPrismArena = true
+        inputText = ""
+        attachedImages = []
+        let user = ChatMessage(role: .user, text: trimmed, orderIndex: conversation.nextOrderIndex)
+        if let image = images.first {
+            user.attachmentData = image
+            user.attachmentKind = "image"
+        }
+        modelContext.insert(user)
+        user.conversation = conversation
+        conversation.draft = ""
+        conversation.regenerateTitleIfNeeded()
+        conversation.updatedAt = Date()
+
+        beamResponses = models.map { BeamResponse(modelID: $0) }
+        beamPrompt = trimmed
+        beamSynthesis = ""
+        beamSynthesisError = nil
+        beamSynthesisUsage = .zero
+        isBeamStreaming = true
+        isBeamSynthesizing = false
+        showBeamArena = true
+        persist(force: true)
 
         let credential = settings.resolvedCredential
-        dualStreamModelA = credential.modelID
-        dualStreamModelB = credential.modelID.contains("gpt") ? "claude-3-5-sonnet" : "gpt-4o-mini"
-
         let client = LLMClientFactory.make(for: credential)
-        var paramA = settings.parameters
-        paramA.modelID = dualStreamModelA
-        paramA.temperature = 0.7
-
-        var paramB = settings.parameters
-        paramB.modelID = dualStreamModelB
-        paramB.temperature = 0.3
-
-        let messages = [LLMChatMessage(role: .user, text: trimmed)]
-
+        let messages = conversation.orderedMessages
+            .filter { $0.id != user.id && !$0.isStreaming && ($0.role == .user || $0.role == .assistant) }
+            .suffix(12)
+            .map { message in
+                LLMChatMessage(
+                    role: message.role == .user ? .user : .assistant,
+                    text: message.displayText,
+                    images: message.role == .user ? message.attachmentData.map { [$0] } ?? [] : []
+                )
+            }
+            + [LLMChatMessage(role: .user, text: trimmed, images: Array(images.prefix(4)))]
+        let tasks = models.enumerated().map { index, modelID in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                var parameters = self.settings.parameters
+                parameters.modelID = modelID
+                parameters.temperature = 0.6
+                let stream = client.streamChat(messages: messages, parameters: parameters, credential: credential, tools: [])
+                do {
+                    for try await event in stream {
+                        switch event {
+                        case .textDelta(let chunk): self.beamResponses[index].text += chunk
+                        case .usage(let usage): self.beamResponses[index].usage = self.beamResponses[index].usage + usage
+                        default: break
+                        }
+                    }
+                } catch {
+                    self.beamResponses[index].error = (error as? LLMError)?.errorDescription ?? error.localizedDescription
+                }
+            }
+        }
         Task { @MainActor [weak self] in
-            let taskA = Task { @MainActor [weak self] in
-                guard let self else { return }
-                let streamA = client.streamChat(messages: messages, parameters: paramA, credential: credential, tools: [])
-                do {
-                    for try await event in streamA {
-                        if case .textDelta(let text) = event {
-                            self.dualStreamResponseA += text
-                        }
-                    }
-                } catch {}
-            }
-
-            let taskB = Task { @MainActor [weak self] in
-                guard let self else { return }
-                let streamB = client.streamChat(messages: messages, parameters: paramB, credential: credential, tools: [])
-                do {
-                    for try await event in streamB {
-                        if case .textDelta(let text) = event {
-                            self.dualStreamResponseB += text
-                        }
-                    }
-                } catch {}
-            }
-
-            _ = await taskA.value
-            _ = await taskB.value
-            self?.isDualStreaming = false
+            for task in tasks { await task.value }
+            self?.isBeamStreaming = false
         }
     }
 
-    /// 确认胜出模型分支并保存
-    func commitWinningBranch(model: String, response: String) {
+    func synthesizeBeamResponses() {
+        guard !beamResponses.isEmpty, !isBeamStreaming, !isBeamSynthesizing,
+              let conversation, settings.hasUsableCredential else { return }
+        isBeamSynthesizing = true
+        beamSynthesis = ""
+        beamSynthesisError = nil
+        beamSynthesisUsage = .zero
+        let credential = settings.resolvedCredential
+        let client = LLMClientFactory.make(for: credential)
+        var parameters = settings.parameters
+        parameters.modelID = conversation.modelID
+        parameters.temperature = 0.2
+        parameters.maxTokens = min(max(parameters.maxTokens, 4096), 8192)
+        let candidates = beamResponses
+            .filter { $0.error == nil && !$0.text.isEmpty }
+            .map { "【\($0.modelID)】\n\($0.text)" }
+            .joined(separator: "\n\n---\n\n")
+        let messages = [
+            LLMChatMessage(role: .system, text: "你是严谨的综合裁判。比较多份回答，保留正确且有用的关键内容，消除矛盾与重复，纠正明显错误，输出一份自洽完整的最终答复。不要提及内部评审过程。"),
+            LLMChatMessage(role: .user, text: "用户问题：\n\(beamPrompt)\n\n候选回答：\n\(candidates)")
+        ]
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.isBeamSynthesizing = false }
+            do {
+                for try await event in client.streamChat(messages: messages, parameters: parameters, credential: credential, tools: []) {
+                    switch event {
+                    case .textDelta(let chunk): self.beamSynthesis += chunk
+                    case .usage(let usage): self.beamSynthesisUsage = self.beamSynthesisUsage + usage
+                    default: break
+                    }
+                }
+            } catch {
+                self.beamSynthesisError = (error as? LLMError)?.errorDescription ?? error.localizedDescription
+            }
+        }
+    }
+
+    func commitBeamResponse(_ response: BeamResponse, synthesized: Bool = false) {
         guard let conversation else { return }
+        let text = synthesized ? beamSynthesis : response.text
+        guard !text.isEmpty else { return }
         let winningMessage = ChatMessage(
             role: .assistant,
-            text: response,
+            text: text,
             orderIndex: conversation.nextOrderIndex,
             thinkingMode: thinkingMode
         )
-        winningMessage.agentName = "Prism Winner: \(model)"
+        winningMessage.text = text
+        winningMessage.modelID = synthesized ? conversation.modelID : response.modelID
+        winningMessage.usage = synthesized
+            ? beamResponses.reduce(beamSynthesisUsage) { $0 + $1.usage }
+            : response.usage
+        if synthesized {
+            let candidateCosts = beamResponses.map { item in
+                ModelPricingCatalog.costUSD(
+                    modelID: item.modelID,
+                    promptTokens: item.usage.promptTokens,
+                    outputTokens: item.usage.completionTokens + item.usage.reasoningTokens
+                )
+            }
+            let judgeCost = ModelPricingCatalog.costUSD(
+                modelID: conversation.modelID,
+                promptTokens: beamSynthesisUsage.promptTokens,
+                outputTokens: beamSynthesisUsage.completionTokens + beamSynthesisUsage.reasoningTokens
+            )
+            if candidateCosts.allSatisfy({ $0 != nil }), let judgeCost {
+                winningMessage.priceCostUSD = candidateCosts.compactMap { $0 }.reduce(judgeCost, +)
+            }
+        } else if let cost = ModelPricingCatalog.costUSD(
+            modelID: response.modelID,
+            promptTokens: response.usage.promptTokens,
+            outputTokens: response.usage.completionTokens + response.usage.reasoningTokens
+        ) {
+            winningMessage.priceCostUSD = cost
+        }
+        winningMessage.agentName = synthesized ? "Beam Synthesis" : "Beam · \(response.modelID)"
         modelContext.insert(winningMessage)
         winningMessage.conversation = conversation
         conversation.updatedAt = Date()
         persist(force: true)
-        showPrismArena = false
+        showBeamArena = false
     }
 
 }

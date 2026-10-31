@@ -83,6 +83,9 @@ private enum WorkspaceFileTypes {
     static let editable: Set<String> = [
         "swift", "m", "mm", "h", "hh", "hpp", "c", "cc", "cpp", "cxx", "metal",
         "py", "pyw", "pyi", "js", "jsx", "mjs", "cjs", "ts", "tsx", "vue", "svelte",
+        "ipynb", "astro", "tf", "tfvars", "hcl", "nix", "scala", "sc", "groovy",
+        "clj", "cljs", "cljc", "edn", "pl", "pm", "jl", "hs", "lhs", "elm", "purs",
+        "prisma", "thrift", "cue", "awk", "tex", "typ", "gradle.kts", "properties",
         "html", "htm", "css", "scss", "sass", "less", "xml", "xhtml",
         "json", "jsonc", "json5", "yml", "yaml", "toml", "ini", "cfg", "conf",
         "plist", "pbxproj", "xcconfig", "entitlements", "strings", "stringsdict",
@@ -100,11 +103,22 @@ private enum WorkspaceFileTypes {
     ]
 
     static func isTextLike(name: String, extension ext: String) -> Bool {
-        editable.contains(ext) || knownTextNames.contains(name.lowercased())
+        editable.contains(ext)
+            || knownTextNames.contains(name.lowercased())
+            || UTType(filenameExtension: ext)?.conforms(to: .sourceCode) == true
     }
 
-    static func category(for name: String, extension ext: String) -> WorkspaceFileItem.AssetCategory {
-        if isTextLike(name: name, extension: ext) {
+    static func isTextFile(at url: URL, size: Int64) -> Bool {
+        guard size <= maxTextFileBytes,
+              let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        guard let sample = try? handle.read(upToCount: min(Int(size), 8_192)),
+              !sample.contains(0) else { return false }
+        return sample.isEmpty || String(data: sample, encoding: .utf8) != nil
+    }
+
+    static func category(for name: String, extension ext: String, isText: Bool = false) -> WorkspaceFileItem.AssetCategory {
+        if isText || isTextLike(name: name, extension: ext) {
             return .code
         }
         if ["png", "jpg", "jpeg", "webp", "gif", "svg", "heic"].contains(ext) {
@@ -150,7 +164,11 @@ private enum WorkspaceFolderScanner {
                 modifiedAt: values.contentModificationDate ?? Date(),
                 fileExtension: ext,
                 url: fileURL,
-                category: WorkspaceFileTypes.category(for: name, extension: ext)
+                category: WorkspaceFileTypes.category(
+                    for: name,
+                    extension: ext,
+                    isText: !isDirectory && WorkspaceFileTypes.isTextFile(at: fileURL, size: Int64(values.fileSize ?? 0))
+                )
             ))
         }
         return items
@@ -173,6 +191,11 @@ final class WorkspaceManager {
     /// 当前选中的代码文件（用于代码工坊直接打开编辑与运行）。
     var currentActiveCodeFile: WorkspaceFileItem?
     var currentCodeContent: String = ""
+
+    var isUsingDefaultWorkspace: Bool {
+        guard let activeWorkspaceURL else { return true }
+        return activeWorkspaceURL.standardizedFileURL == defaultWorkspaceURL.standardizedFileURL
+    }
 
     private let bookmarkStorageKey = "mimir.workspace.bookmarks"
     private var lastSavedCodeContent = ""
@@ -236,7 +259,7 @@ final class WorkspaceManager {
             .filter { item in
                 guard !item.isDirectory, let url = item.url else { return false }
                 return url.standardizedFileURL.path.hasPrefix(root + "/")
-                    && WorkspaceFileTypes.isTextLike(name: item.name, extension: item.fileExtension)
+                    && item.category == .code
             }
             .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
     }
@@ -454,7 +477,11 @@ final class WorkspaceManager {
             modifiedAt: Date(),
             fileExtension: url.pathExtension.lowercased(),
             url: url,
-            category: WorkspaceFileTypes.category(for: url.lastPathComponent, extension: url.pathExtension.lowercased())
+            category: WorkspaceFileTypes.category(
+                for: url.lastPathComponent,
+                extension: url.pathExtension.lowercased(),
+                isText: true
+            )
         )
         upsertFile(updated)
         currentActiveCodeFile = updated

@@ -44,6 +44,8 @@ final class ChatMessage {
     var promptTokens: Int = 0
     var completionTokens: Int = 0
     var reasoningTokens: Int = 0
+    var modelID: String = ""
+    var priceCostUSD: Double = -1
     var orderIndex: Int = 0
 
     /// 同一位置的其他回答版本（重新生成产生）。
@@ -97,6 +99,17 @@ extension ChatMessage {
             completionTokens = newValue.completionTokens
             reasoningTokens = newValue.reasoningTokens
         }
+    }
+
+    var estimatedCostUSD: Double? {
+        if priceCostUSD >= 0 { return priceCostUSD }
+        if agentName == "Beam Synthesis" { return nil }
+        guard promptTokens + completionTokens + reasoningTokens > 0 else { return nil }
+        return ModelPricingCatalog.costUSD(
+            modelID: modelID,
+            promptTokens: promptTokens,
+            outputTokens: completionTokens + reasoningTokens
+        )
     }
 
     var hasVisibleThinking: Bool {

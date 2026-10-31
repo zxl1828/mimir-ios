@@ -48,6 +48,9 @@ public struct AssistantMainView: View {
     @State private var toast: String?
     @State private var previewImage: UIImage?
     @State private var showToolsDrawer = false
+    @State private var showBeamSetup = false
+    @State private var beamModelDraft = "gpt-4o-mini, deepseek-chat"
+    @State private var beamPromptDraft = ""
     @State private var showWeatherDetail = false
     @State private var isImageGenerationMode = false
     @State private var isGeneratingImage = false
@@ -65,19 +68,16 @@ public struct AssistantMainView: View {
     public var body: some View {
         ZStack(alignment: .top) {
             // Task 3: Split-Prism Arena 对比浮层
-            if let chat, chat.showPrismArena {
-                SplitPrismArenaView(
-                    modelAName: chat.dualStreamModelA,
-                    modelBName: chat.dualStreamModelB,
-                    responseA: chat.dualStreamResponseA,
-                    responseB: chat.dualStreamResponseB,
-                    isStreaming: chat.isDualStreaming,
-                    onSelectWinner: { model, text in
-                        chat.commitWinningBranch(model: model, response: text)
-                    },
-                    onDismiss: {
-                        chat.showPrismArena = false
-                    }
+            if let chat, chat.showBeamArena {
+                BeamSynthesisView(
+                    responses: chat.beamResponses,
+                    isStreaming: chat.isBeamStreaming,
+                    synthesis: chat.beamSynthesis,
+                    synthesisError: chat.beamSynthesisError,
+                    isSynthesizing: chat.isBeamSynthesizing,
+                    onSynthesize: { chat.synthesizeBeamResponses() },
+                    onCommit: { response, synthesized in chat.commitBeamResponse(response, synthesized: synthesized) },
+                    onDismiss: { chat.showBeamArena = false }
                 )
                 .padding(.top, 64)
                 .transition(.scale(scale: 0.95).combined(with: .opacity))
@@ -96,6 +96,9 @@ public struct AssistantMainView: View {
                 }
         }
         .task { await bootstrap() }
+        .sheet(isPresented: $showBeamSetup) {
+            beamSetupSheet
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                 isKeyboardVisible = true
@@ -575,6 +578,21 @@ public struct AssistantMainView: View {
 
             quickActionBar
 
+            Button {
+                beamPromptDraft = chat?.inputText ?? ""
+                showBeamSetup = true
+            } label: {
+                Label("Beam 并行", systemImage: "diamond.inset.filled")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .liquidGlass(.regular.tint(accent.opacity(0.10)), in: .capsule)
+                    .overlay(Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8))
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+
             MessageInputBar(
                 text: Binding(
                     get: { chat?.inputText ?? "" },
@@ -628,6 +646,55 @@ public struct AssistantMainView: View {
             .allowsHitTesting(false)
         }
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+    }
+
+    private var beamSetupSheet: some View {
+        NavigationStack {
+            Form {
+                Section("参与模型 · 2 至 4 个") {
+                    TextEditor(text: $beamModelDraft)
+                        .font(.system(size: 13, design: .monospaced))
+                        .frame(minHeight: 90)
+                    Text("每行一个模型 ID。所有请求使用当前 API 凭据与服务地址；网关需开放这些模型。")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                Section("本次问题") {
+                    TextEditor(text: $beamPromptDraft)
+                        .frame(minHeight: 72)
+                    if beamPromptDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("先在这里写入要比较的问题。")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                Section {
+                    Text("候选模型并行流式回答，随后由当前会话模型裁判融合。所有并行调用都会分别计入 API 成本。")
+                        .font(.system(size: 12))
+                }
+            }
+            .navigationTitle("Beam Synthesis")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { showBeamSetup = false }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("开始") {
+                        let ids = beamModelDraft
+                            .components(separatedBy: CharacterSet(charactersIn: ",\n"))
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                        guard (2...4).contains(Set(ids).count) else { return }
+                        chat?.triggerBeamSynthesis(prompt: beamPromptDraft, modelIDs: ids, images: chat?.attachedImages ?? [])
+                        showBeamSetup = false
+                    }
+                    .disabled(beamPromptDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || !(2...4).contains(Set(beamModelDraft.components(separatedBy: CharacterSet(charactersIn: ",\n")).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }).count))
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 
     /// 输入框上方的浮层：思考强度浮动卡片、MCP 工具进度、技能选择器与意图推荐

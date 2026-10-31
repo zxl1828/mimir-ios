@@ -28,6 +28,7 @@ struct MessageBubble: View {
     /// 工具调用遥测（内存态，用于卡片底部的审计胶囊）
     @State private var telemetry = ToolCallTelemetry.shared
     @State private var showTelemetrySheet = false
+    @AppStorage("mimir.cost.usdToCNY") private var usdToCNY = 7.2
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -479,6 +480,13 @@ struct MessageBubble: View {
                         .foregroundStyle(AppUI.label3)
                 }
                 .buttonStyle(.plain)
+            }
+
+            if let cost = message.estimatedCostUSD {
+                Text(String(format: "$%.5f · ¥%.4f", cost, cost * usdToCNY))
+                    .font(AppUI.caption)
+                    .foregroundStyle(AppUI.label3)
+                    .help("基于 Mimir 内置参考价估算；价格与缓存折扣会因服务商和套餐变化。")
             }
 
             Text(message.createdAt, format: .dateTime.hour().minute())

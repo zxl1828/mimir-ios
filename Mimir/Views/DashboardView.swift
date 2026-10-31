@@ -23,9 +23,18 @@ struct DashboardView: View {
     private var memories: [MemoryEntry]
     @Query
     private var scheduledTasks: [ScheduledTask]
+    @Query
+    private var messages: [ChatMessage]
 
     @State private var showSettings = false
     @State private var showHelpGuide = false
+
+    init() {
+        let monthStart = Calendar.current.dateInterval(of: .month, for: .now)?.start ?? .distantPast
+        let sevenDayStart = Calendar.current.date(byAdding: .day, value: -6, to: Calendar.current.startOfDay(for: .now)) ?? monthStart
+        let historyStart = min(monthStart, sevenDayStart)
+        _messages = Query(filter: #Predicate<ChatMessage> { $0.createdAt >= historyStart })
+    }
     @State private var showAgentManager = false
     @State private var showSkillManager = false
     @State private var showMCPServers = false
@@ -55,6 +64,9 @@ struct DashboardView: View {
 
                 workflowOverview
                     .staggerCascade(index: 1)
+
+                CostTrendCard(messages: messages)
+                    .staggerCascade(index: 2)
 
                 // 2. 顶部快捷指令行（Quick Tools Grid）
                 quickToolsRow

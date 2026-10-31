@@ -8,7 +8,7 @@ struct FloatingTabBar: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(AppTab.allCases) { tab in
+            ForEach(AppTab.bottomNavigationCases) { tab in
                 tabButton(tab)
             }
         }
@@ -62,9 +62,7 @@ struct FloatingTabBar: View {
         return Button {
             if selectedTab != tab {
                 Haptics.selectionChanged()
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    selectedTab = tab
-                }
+                selectedTab.wrappedValue = tab
             }
         } label: {
             HStack(spacing: 5) {

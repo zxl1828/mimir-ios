@@ -100,7 +100,7 @@ struct RootView: View {
         .onOpenURL { url in
             guard url.scheme == "mimir" else { return }
             let coordinator = TabNavigationCoordinator.shared
-            coordinator.selectedTab = .assistant
+            coordinator.setTab(.assistant)
             coordinator.pendingPromptToChat = ""
         }
     }

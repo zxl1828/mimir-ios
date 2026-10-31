@@ -264,7 +264,8 @@ struct FilesAssetsView: View {
     // MARK: - 3. 本地文件夹安全挂载横幅 (Local Workspace Banner)
 
     private var workspaceMountBanner: some View {
-        HStack(spacing: 12) {
+        let usesDefault = workspace.isUsingDefaultWorkspace
+        return HStack(spacing: 12) {
             ZStack {
                 Circle()
                     .fill(accent.opacity(0.16))
@@ -276,7 +277,7 @@ struct FilesAssetsView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 if let active = workspace.activeWorkspaceURL {
-                    Text("已挂载手机工作区：\(active.lastPathComponent)")
+                    Text(usesDefault ? "默认手机工作区" : "已挂载手机工作区：\(active.lastPathComponent)")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                         .lineLimit(1)
@@ -299,7 +300,7 @@ struct FilesAssetsView: View {
                 Haptics.impact(.light)
                 showFolderImporter = true
             } label: {
-                Text(isMountingWorkspace ? "正在读取…" : (workspace.activeWorkspaceURL == nil ? "选择目录" : "重新选择"))
+                Text(isMountingWorkspace ? "正在读取…" : (workspace.isUsingDefaultWorkspace ? "选择目录" : "重新选择"))
                     .font(.system(size: 11.5, weight: .bold))
                     .foregroundStyle(accent)
                     .padding(.horizontal, 10)

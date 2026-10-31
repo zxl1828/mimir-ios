@@ -102,6 +102,8 @@ struct MarkdownText: View {
         case .code(let language, let content):
             if language.lowercased() == "mermaid" {
                 MermaidBlockView(source: content)
+            } else if ArtifactPreviewView.supports(language: language, code: content) {
+                ArtifactPreviewView(language: language, code: content)
             } else {
                 CodeBlockView(language: language, code: content)
             }

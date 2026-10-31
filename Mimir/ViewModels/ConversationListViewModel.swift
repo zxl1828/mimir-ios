@@ -95,6 +95,7 @@ final class ConversationListViewModel {
         copy.agentName = conversation.agentName
         copy.agentPrompt = conversation.agentPrompt
         copy.rollingSummary = conversation.rollingSummary
+        copy.thinkingMode = conversation.thinkingMode
         modelContext.insert(copy)
         for message in conversation.orderedMessages {
             let clone = ChatMessage(
@@ -107,6 +108,14 @@ final class ConversationListViewModel {
             clone.thinkingText = message.thinkingText
             clone.agentName = message.agentName
             clone.skillName = message.skillName
+            clone.attachmentData = message.attachmentData
+            clone.attachmentKind = message.attachmentKind
+            clone.attachmentCaption = message.attachmentCaption
+            clone.promptTokens = message.promptTokens
+            clone.completionTokens = message.completionTokens
+            clone.reasoningTokens = message.reasoningTokens
+            clone.modelID = message.modelID
+            clone.priceCostUSD = message.priceCostUSD
             modelContext.insert(clone)
             clone.conversation = copy
         }

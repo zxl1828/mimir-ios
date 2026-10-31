@@ -223,16 +223,17 @@ struct CodeWorkspaceCLIView: View {
                 Button {
                     showFolderImporter = true
                 } label: {
-                    Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 38, height: 38)
-                        .contentShape(Circle())
-                        .liquidGlass(.regular, in: .circle)
-                        .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
+                    Label("选择文件夹", systemImage: "folder.badge.plus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .frame(height: 38)
+                        .contentShape(Capsule())
+                        .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .capsule)
+                        .overlay { Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isLoadingWorkspace)
-                .accessibilityLabel("选择项目文件夹")
+                .accessibilityHint("从文件 App 中选择要编辑的项目目录")
 
                 Button {
                     showFilePicker = true

@@ -8,6 +8,8 @@ enum AppTab: Int, CaseIterable, Identifiable, Sendable {
     case files = 2       // 知识资产库
     case code = 3        // 代码工坊
 
+    static var bottomNavigationCases: [AppTab] { [.dashboard, .files] }
+
     var id: Int { rawValue }
 
     var title: String {
@@ -37,6 +39,12 @@ final class TabNavigationCoordinator {
     static let shared = TabNavigationCoordinator()
 
     var selectedTab: AppTab = .assistant
+    var assistantCodeTab: AppTab = .assistant
+
+    func setTab(_ tab: AppTab) {
+        selectedTab = tab
+        if tab == .assistant || tab == .code { assistantCodeTab = tab }
+    }
     var isTabBarVisible: Bool = true
 
     /// 跨工作区向助手注入的 Prompt 与上下文附件
@@ -49,6 +57,7 @@ final class TabNavigationCoordinator {
     private init() {}
 
     func switchToTab(_ tab: AppTab) {
+        if tab == .assistant || tab == .code { assistantCodeTab = tab }
         withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
             selectedTab = tab
         }
