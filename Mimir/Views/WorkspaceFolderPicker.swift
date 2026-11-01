@@ -30,8 +30,8 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
     }
 
     /// 后台脱离主线程执行安全权限获取与书签生成，彻底杜绝主线程阻塞与数据竞态
-    static func resolveFolderAccess(folder: URL) async -> Result<(Data, Bool), String> {
-        await Task.detached(priority: .userInitiated) {
+    static func resolveFolderAccess(folder: URL) async throws -> (Data, Bool) {
+        try await Task.detached(priority: .userInitiated) {
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                 .standardizedFileURL.path
             let isAppDocument = folder.standardizedFileURL.path == documentsPath
@@ -39,7 +39,7 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
             let didStartAccess = folder.startAccessingSecurityScopedResource()
 
             guard didStartAccess || isAppDocument else {
-                return .failure("无法获取所选文件夹安全权限，请选择 Mimir 文件夹或重新授权。")
+                throw LLMError.unsupported("无法获取所选文件夹安全权限，请选择 Mimir 文件夹或重新授权。")
             }
 
             do {
@@ -48,10 +48,10 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
                     includingResourceValuesForKeys: nil,
                     relativeTo: nil
                 )
-                return .success((bookmark, didStartAccess))
+                return (bookmark, didStartAccess)
             } catch {
                 if didStartAccess { folder.stopAccessingSecurityScopedResource() }
-                return .failure(error.localizedDescription)
+                throw error
             }
         }.value
     }
@@ -73,15 +73,18 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
             }
 
             Task { @MainActor [weak self] in
-                let result = await WorkspaceFolderPicker.resolveFolderAccess(folder: folder)
-                controller.dismiss(animated: true) {
-                    guard let self else { return }
-                    self.parent.isPresented = false
-                    switch result {
-                    case .success(let (bookmark, didStartAccess)):
+                do {
+                    let (bookmark, didStartAccess) = try await WorkspaceFolderPicker.resolveFolderAccess(folder: folder)
+                    controller.dismiss(animated: true) {
+                        guard let self else { return }
+                        self.parent.isPresented = false
                         self.parent.onPick(folder, bookmark, didStartAccess)
-                    case .failure(let error):
-                        self.parent.onError(error)
+                    }
+                } catch {
+                    controller.dismiss(animated: true) {
+                        guard let self else { return }
+                        self.parent.isPresented = false
+                        self.parent.onError(error.localizedDescription)
                     }
                 }
             }
