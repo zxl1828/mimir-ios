@@ -141,31 +141,21 @@ public struct FluidMorphContainer<Collapsed: View, Expanded: View>: View {
     }
 
     public var body: some View {
-        ZStack {
-            if isExpanded {
-                expanded()
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.90, anchor: .bottom)
-                                .combined(with: .opacity)
-                                .combined(with: .offset(y: 8)),
-                            removal: .scale(scale: 0.92, anchor: .bottom)
-                                .combined(with: .opacity)
-                                .combined(with: .offset(y: 6))
-                        )
-                    )
-            } else {
-                collapsed()
-                    .transition(
-                        .scale(scale: 0.96)
-                            .combined(with: .opacity)
-                    )
+        Grid(verticalSpacing: 0) {
+            GridRow {
+                Group {
+                    if isExpanded {
+                        expanded()
+                            .transition(.opacity.combined(with: .offset(y: 8)))
+                    } else {
+                        collapsed()
+                            .transition(.opacity)
+                    }
+                }
+                .gridCellColumns(1)
             }
         }
-        .animation(
-            .interpolatingSpring(stiffness: 280, damping: 24),
-            value: isExpanded
-        )
+        .animation(.interpolatingSpring(stiffness: 1200, damping: 80), value: isExpanded)
     }
 }
 
@@ -245,7 +235,7 @@ public struct SharedElementTransitionView<Content: View>: View {
                                     if abs(dragOffset.height) > 130 || abs(velocity) > 650 {
                                         dismissWithSpring()
                                     } else {
-                                        withAnimation(.spring(response: 0.36, dampingFraction: 0.78)) {
+                                        withAnimation(.interpolatingSpring(stiffness: 1200, damping: 80)) {
                                             dragOffset = .zero
                                         }
                                     }

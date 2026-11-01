@@ -1217,45 +1217,35 @@ private struct CentralAssistantCard: View {
         )
 
         VStack(spacing: isCompact ? 5 : 10) {
-            MimirMascot(size: mascotSize * 0.92, mood: .calm)
-                .frame(width: mascotSize, height: mascotSize)
-                .background {
-                    orbitalDecorations(height: orbitalHeight)
-                }
-                .shadow(color: accent.opacity(scheme == .dark ? 0.36 : 0.24), radius: mascotSize * 0.2, y: 4)
-                .scaleEffect(isBreathing ? 1.025 : 0.99, anchor: .center)
+            MimirMascot(size: 72, mood: .calm, animated: false)
+                .frame(width: 72, height: 72)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .frame(height: max(isCompact ? 144 : 188, mascotSize * 1.38))
+                .frame(height: 80)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Mimir 猫头鹰助手")
 
             HStack(spacing: 7) {
                 Circle().fill(Color.green).frame(width: 5, height: 5)
-                Text("MIMIR · READY")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                Text("Mimir 已就绪")
+                    .font(.system(size: 12, weight: .regular))
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
             }
 
             Text(greeting)
-                .font(.system(size: isCompact ? 18 : 22, weight: .bold, design: .rounded))
+                .font(.system(size: 30, weight: .bold))
                 .foregroundStyle(AppUI.label)
                 .lineLimit(2)
                 .minimumScaleFactor(0.88)
                 .multilineTextAlignment(.center)
 
             Text("把复杂问题，一步一步想清楚。")
-                .font(.system(size: isCompact ? 11 : 13, weight: .medium))
+                .font(.system(size: 13, weight: .regular))
                 .foregroundStyle(AppUI.label2)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, isCompact ? 10 : 20)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
-                isBreathing = true
-            }
-        }
     }
 
     private var greeting: String {

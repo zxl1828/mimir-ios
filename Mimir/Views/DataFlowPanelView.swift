@@ -14,7 +14,7 @@ struct DataFlowPanelView: View {
 
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 18) {
                     summaryCard
                     localSection
                     cloudSection

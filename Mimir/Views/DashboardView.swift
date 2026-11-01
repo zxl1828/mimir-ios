@@ -57,7 +57,7 @@ struct DashboardView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 18) {
+            LazyVStack(spacing: 18) {
                 // 1. 顶部导航行（Header Bar）
                 topHeaderRow
                     .staggerCascade(index: 0)
@@ -140,22 +140,11 @@ struct DashboardView: View {
 
     private var topHeaderRow: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(accent.opacity(scheme == .dark ? 0.18 : 0.10))
-                    .frame(width: 48, height: 48)
-                    .overlay {
-                        Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                    }
-                MimirMascot(size: 36, mood: .calm)
-            }
+            MimirMascot(size: 72, mood: .calm, animated: false)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("MIMIR  /  PERSONAL AI")
-                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(accent)
                 Text(settings.profileName.isEmpty ? "让想法开始流动" : "欢迎回来，\(settings.profileName)")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -196,11 +185,8 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("MIMIR / WORKSPACE")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(accent)
                     Text("工作流概览")
-                        .font(.system(size: 19, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 }
                 Spacer()
@@ -816,7 +802,7 @@ struct DashboardView: View {
     private var helpGuideSheet: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     Text("Mimir 全局架构与工作区指南")
                         .font(.title2.bold())
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))

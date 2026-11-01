@@ -18,7 +18,7 @@ struct BeamSynthesisView: View {
         VStack(spacing: 10) {
             header
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 10) {
                     ForEach(responses) { response in
                         responseCard(response)
                     }

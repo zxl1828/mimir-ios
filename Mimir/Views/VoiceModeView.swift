@@ -159,7 +159,7 @@ struct VoiceModeView: View {
     private func transcriptArea(_ session: VoiceSessionViewModel) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 10) {
                     if session.lines.isEmpty && session.partialText.isEmpty {
                         Text("说点什么，我会在你说完后自动回应。")
                             .font(AppFont.hint)

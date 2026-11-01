@@ -31,30 +31,30 @@ enum AppUI {
     /// 画布主背景：深色使用梅子紫夜色，浅色使用纯白与淡薰衣草紫。
     static var canvas: Color {
         Color.adaptive(
-            light: UIColor(red: 0.973, green: 0.965, blue: 0.992, alpha: 1.0),
-            dark: UIColor(red: 0.071, green: 0.051, blue: 0.114, alpha: 1.0)
+            light: UIColor(red: 0.961, green: 0.961, blue: 0.953, alpha: 1.0),
+            dark: UIColor(red: 0.043, green: 0.043, blue: 0.039, alpha: 1.0)
         )
     }
 
     /// 分组背景 follows the app's light lavender and deep plum foundations.
     static var groupCanvas: Color {
         Color.adaptive(
-            light: UIColor(red: 0.973, green: 0.965, blue: 0.992, alpha: 1.0),
-            dark: UIColor(red: 0.071, green: 0.051, blue: 0.114, alpha: 1.0)
+            light: UIColor(red: 0.961, green: 0.961, blue: 0.953, alpha: 1.0),
+            dark: UIColor(red: 0.043, green: 0.043, blue: 0.039, alpha: 1.0)
         )
     }
 
     static var secondary: Color {
         Color.adaptive(
-            light: UIColor(red: 0.973, green: 0.965, blue: 0.992, alpha: 1.0),
-            dark: UIColor(red: 0.141, green: 0.098, blue: 0.212, alpha: 1.0)
+            light: UIColor(red: 0.988, green: 0.988, blue: 0.984, alpha: 1.0),
+            dark: UIColor(red: 0.082, green: 0.082, blue: 0.078, alpha: 1.0)
         )
     }
 
     static var fill: Color {
         Color.adaptive(
-            light: UIColor(red: 0.965, green: 0.953, blue: 0.992, alpha: 0.84),
-            dark: UIColor(red: 0.18, green: 0.13, blue: 0.27, alpha: 0.68)
+            light: UIColor(red: 0.953, green: 0.953, blue: 0.945, alpha: 1),
+            dark: UIColor(red: 0.102, green: 0.102, blue: 0.098, alpha: 1)
         )
     }
 
@@ -104,12 +104,12 @@ enum AppUI {
     // MARK: - 字体（SF Pro / 系统默认）
 
     static var navTitle: Font { .system(size: 17, weight: .semibold) }
-    static var body: Font { .system(size: 16) }
+    static var body: Font { .system(size: 15) }
     static var subheadline: Font { .system(size: 15) }
     static var footnote: Font { .system(size: 13) }
     static var caption: Font { .system(size: 12) }
     static var chip: Font { .system(size: 13, weight: .medium) }
-    static var rowTitle: Font { .system(size: 16) }
+    static var rowTitle: Font { .system(size: 16, weight: .semibold) }
     static var sectionTitle: Font { .system(size: 13, weight: .semibold) }
 
     // MARK: - 动效
@@ -168,19 +168,8 @@ enum AppUI {
 
     /// 规范要求的纯白/极淡紫至极深紫渐变背景（深色模式自适应为极深高级紫 #120D1D -> #1A122B）。
     static func ambientBackground(scheme: ColorScheme) -> LinearGradient {
-        if scheme == .dark {
-            return LinearGradient(
-                colors: [Color(hex: "120D1D"), Color(hex: "1A122B")],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        } else {
-            return LinearGradient(
-                colors: [Color.white, Color(hex: "F8F6FD")],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
+        let canvas = scheme == .dark ? Color(hex: "151515") : Color(hex: "F5F5F3")
+        return LinearGradient(colors: [canvas, canvas], startPoint: .top, endPoint: .bottom)
     }
 
     /// 软玻璃卡片的 1pt 双向微光描边。
@@ -203,28 +192,17 @@ struct SoftGlassCardModifier: ViewModifier {
     @Environment(\.appAccent) private var accent
 
     func body(content: Content) -> some View {
+        let radius = min(max(cornerRadius, 12), 16)
         content
-            // A translucent theme wash keeps copy legible without turning glass opaque.
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(
-                        scheme == .dark
-                            ? Color(hex: "241936").opacity(0.55)
-                            : Color.white.opacity(0.62)
-                    )
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(scheme == .dark ? Color(hex: "1A1A19") : Color(hex: "FCFCFB"))
             }
-            .liquidGlass(.regular.tint(accent.opacity(0.08)), in: .rect(cornerRadius: cornerRadius))
             .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(AppUI.softGlassCardBorder(accent: accent, scheme: scheme), lineWidth: 1)
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(scheme == .dark ? Color.white.opacity(0.025) : Color.black.opacity(0.025), lineWidth: 1)
                     .allowsHitTesting(false)
             }
-            .shadow(
-                color: accent.opacity(scheme == .dark ? 0.17 : 0.09),
-                radius: 22,
-                x: 0,
-                y: 10
-            )
     }
 }
 

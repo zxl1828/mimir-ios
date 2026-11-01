@@ -151,7 +151,7 @@ public struct VoiceCodeRefactorOverlay: View {
 
             // ② 差异比对核心滚动视图
             ScrollView([.vertical, .horizontal], showsIndicators: true) {
-                VStack(alignment: .leading, spacing: 1) {
+                LazyVStack(alignment: .leading, spacing: 1) {
                     ForEach(diffLines) { line in
                         diffLineRow(line)
                     }

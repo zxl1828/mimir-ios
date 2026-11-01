@@ -22,6 +22,7 @@ struct FilesAssetsView: View {
     @State private var workspaceImportError: String?
     @State private var newDocTitle = ""
     @State private var newDocContent = ""
+    @State private var previewContent = "正在读取文件…"
 
     private var coordinator: TabNavigationCoordinator {
         TabNavigationCoordinator.shared
@@ -30,7 +31,7 @@ struct FilesAssetsView: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 16) {
+                LazyVStack(spacing: 16) {
                     // 1. 顶部标题与视图模式切换
                     headerBar
                         .staggerCascade(index: 0)
@@ -86,6 +87,7 @@ struct FilesAssetsView: View {
             allowedContentTypes: [.folder],
             allowsMultipleSelection: false
         ) { result in
+            showFolderImporter = false
             switch result {
             case .success(let urls):
                 if let folder = urls.first {
@@ -100,6 +102,7 @@ struct FilesAssetsView: View {
             allowedContentTypes: [.item],
             allowsMultipleSelection: true
         ) { result in
+            showFileImporter = false
             switch result {
             case .success(let urls):
                 Task {
@@ -132,11 +135,8 @@ struct FilesAssetsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("FILES / LIBRARY")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(accent)
                     Text("知识资产库")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
@@ -171,7 +171,7 @@ struct FilesAssetsView: View {
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                Text("\(workspace.filteredFiles.count) ITEMS")
+                Text("\(workspace.filteredFiles.count) 个文件")
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
                     .monospacedDigit()
@@ -193,7 +193,7 @@ struct FilesAssetsView: View {
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
 
                 TextField("搜索知识库、Prompt 与文件...", text: $workspace.searchText)
-                    .font(.system(size: 14))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                     .autocorrectionDisabled()
 
@@ -236,11 +236,9 @@ struct FilesAssetsView: View {
                             )
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .liquidGlass(
-                                isSelected
-                                    ? .regular.tint(accent.opacity(0.85))
-                                    : .clear,
-                                in: .capsule
+                            .background(
+                                isSelected ? accent : AppUI.fill,
+                                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
                             )
                             .overlay(
                                 Capsule(style: .continuous)
@@ -305,10 +303,7 @@ struct FilesAssetsView: View {
                     .foregroundStyle(accent)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .liquidGlass(
-                        .regular.tint(accent.opacity(0.25)),
-                        in: .capsule
-                    )
+                    .background(AppUI.fill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .overlay(
                         Capsule(style: .continuous)
                             .strokeBorder(accent.opacity(0.35), lineWidth: 0.8)
@@ -344,9 +339,8 @@ struct FilesAssetsView: View {
         let columns = [GridItem(.adaptive(minimum: 168, maximum: 280), spacing: 12)]
 
         return LazyVGrid(columns: columns, spacing: 12) {
-            ForEach(Array(workspace.filteredFiles.enumerated()), id: \.element.id) { index, item in
+            ForEach(workspace.filteredFiles) { item in
                 assetGridCard(item)
-                    .staggeredSlideEntrance(index: index)
             }
         }
     }
@@ -369,15 +363,9 @@ struct FilesAssetsView: View {
                 if item.category == .media {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color(hex: "2E1D5B"), Color(hex: "171033")],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
+                            .fill(Color(hex: scheme == .dark ? "20201E" : "F5F5F3"))
                             .frame(height: 72)
-                        Image(systemName: "sparkles")
+                        Image(systemName: "photo.fill")
                             .font(.system(size: 26))
                             .foregroundStyle(AppUI.auroraViolet)
                     }
@@ -400,7 +388,7 @@ struct FilesAssetsView: View {
 
                 // 文件名
                 Text(item.name)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                     .lineLimit(1)
 
@@ -410,7 +398,8 @@ struct FilesAssetsView: View {
                     Spacer()
                     Text(item.relativeTime)
                 }
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 12, weight: .regular))
+                .monospacedDigit()
                 .foregroundStyle(AppUI.textCaption(scheme: scheme))
             }
             .padding(12)
@@ -418,8 +407,7 @@ struct FilesAssetsView: View {
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(accent, lineWidth: 1.8)
-                        .shadow(color: accent.opacity(0.4), radius: 6)
+                        .strokeBorder(accent, lineWidth: 1.5)
                 }
             }
         }
@@ -452,8 +440,7 @@ struct FilesAssetsView: View {
             }
             if item.category == .code {
                 Button {
-                    workspace.currentActiveCodeFile = item
-                    workspace.currentCodeContent = workspace.readFileContent(for: item)
+                    workspace.selectCodeFile(item)
                     coordinator.switchToTab(.code)
                 } label: {
                     Label("在代码工坊中打开", systemImage: "chevron.left.forwardslash.chevron.right")
@@ -465,8 +452,8 @@ struct FilesAssetsView: View {
     // MARK: - 4. 列表视图
 
     private var assetListSection: some View {
-        VStack(spacing: 8) {
-            ForEach(Array(workspace.filteredFiles.enumerated()), id: \.element.id) { index, item in
+        LazyVStack(spacing: 8) {
+            ForEach(workspace.filteredFiles) { item in
                 let isSelected = selectedFileForAction?.id == item.id
                 Button {
                     Haptics.selectionChanged()
@@ -488,7 +475,7 @@ struct FilesAssetsView: View {
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name)
-                                .font(.system(size: 14, weight: .bold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(AppUI.textTitle(scheme: scheme))
                                 .lineLimit(1)
                             HStack(spacing: 8) {
@@ -496,7 +483,7 @@ struct FilesAssetsView: View {
                                 Text("•")
                                 Text(item.relativeTime)
                             }
-                            .font(.system(size: 11))
+                            .font(.system(size: 12))
                             .foregroundStyle(AppUI.textCaption(scheme: scheme))
                         }
 
@@ -510,7 +497,6 @@ struct FilesAssetsView: View {
                     .softGlassCard(cornerRadius: 14)
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
-                .staggeredSlideEntrance(index: index)
             }
         }
     }
@@ -749,7 +735,7 @@ struct FilesAssetsView: View {
     private func fileDetailSheet(_ item: WorkspaceFileItem) -> some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                LazyVStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Image(systemName: item.systemIcon)
                             .font(.system(size: 24))
@@ -761,7 +747,7 @@ struct FilesAssetsView: View {
                     }
                     .padding(.bottom, 8)
 
-                    Text(workspace.readFileContent(for: item))
+                    Text(previewContent)
                         .font(.system(size: 13, design: .monospaced))
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -776,6 +762,9 @@ struct FilesAssetsView: View {
             }
             .navigationTitle("文件详情")
             .navigationBarTitleDisplayMode(.inline)
+            .task(id: item.id) {
+                previewContent = await workspace.readFileContentAsync(for: item)
+            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { previewFileItem = nil }

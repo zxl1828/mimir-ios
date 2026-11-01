@@ -94,23 +94,7 @@ struct MessageBubble: View {
                     .textSelection(.enabled)
                     .padding(.horizontal, 15)
                     .padding(.vertical, 11)
-                    .liquidGlass(.regular.tint(accent.opacity(scheme == .dark ? 0.65 : 0.90)), in: .rect(cornerRadius: AppUI.bubbleRadius))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.65),
-                                        accent.opacity(0.90),
-                                        AppUI.neonViolet.opacity(0.75)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.15
-                            )
-                    )
-                    .shadow(color: accent.opacity(scheme == .dark ? 0.45 : 0.28), radius: 12, y: 4)
+                    .background(accent, in: RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous))
             }
 
             metaRow(isUser: true)
@@ -195,8 +179,7 @@ struct MessageBubble: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Agent Turn 卡片：液态玻璃底衬
-        .liquidGlass(cornerRadius: AppUI.bubbleRadius, glowIntensity: 0.18)
+        .background(AppUI.secondary, in: RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous))
         .overlay {
             if isHighlighted {
                 RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
@@ -235,8 +218,12 @@ struct MessageBubble: View {
                 .foregroundStyle(accent)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .liquidGlass(cornerRadius: 13, glowIntensity: 0.35)
-                .contentShape(Capsule(style: .continuous))
+                .background(AppUI.fill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(AppUI.separator, lineWidth: 0.6)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("查看工具调用与数据访问详情")
@@ -251,7 +238,8 @@ struct MessageBubble: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(accent)
                 .frame(width: 28, height: 28)
-                .liquidGlass(cornerRadius: 14, isHighlighted: isSpeaking, glowIntensity: 0.5)
+                .background(AppUI.fill, in: Circle())
+                .overlay(Circle().strokeBorder(isSpeaking ? accent : AppUI.separator, lineWidth: isSpeaking ? 1 : 0.6))
                 .contentShape(Circle())
         }
         .buttonStyle(StaticButtonFeedbackStyle())

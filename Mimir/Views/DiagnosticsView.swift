@@ -49,6 +49,10 @@ struct DiagnosticsView: View {
                         \(log)
                         """
                         copied = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(2_500))
+                            withAnimation(.easeOut(duration: 0.18)) { copied = false }
+                        }
                     }
                 }
             }

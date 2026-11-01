@@ -272,30 +272,20 @@ final class WorkspaceManager {
         securityScopeAlreadyStarted: Bool = false
     ) async throws {
         let needsSecurityScope = !isInAppDocuments(url)
-        let startedHere = needsSecurityScope && !securityScopeAlreadyStarted
-        if startedHere && !url.startAccessingSecurityScopedResource() {
-            throw WorkspaceAccessError.accessDenied
-        }
-        defer {
-            if startedHere || securityScopeAlreadyStarted { url.stopAccessingSecurityScopedResource() }
-        }
-
-        // Keep the security-scoped bookmark so the selected folder can be restored after relaunch.
-        let bookmarkData: Data
-        if let providedBookmark {
-            bookmarkData = providedBookmark
-        } else {
-            bookmarkData = try url.bookmarkData(
-                options: [],
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            )
-        }
-        if needsSecurityScope { saveBookmark(bookmarkData, for: url) }
-        addFolderURL(url)
-        let scannedItems = await Task.detached(priority: .userInitiated) {
-            WorkspaceFolderScanner.scan(url)
+        let (bookmarkData, scannedItems) = try await Task.detached(priority: .userInitiated) { () throws -> (Data?, [WorkspaceFileItem]) in
+            let startedHere = needsSecurityScope && !securityScopeAlreadyStarted
+            if startedHere && !url.startAccessingSecurityScopedResource() {
+                throw WorkspaceAccessError.accessDenied
+            }
+            defer { if startedHere || securityScopeAlreadyStarted { url.stopAccessingSecurityScopedResource() } }
+            let bookmark = needsSecurityScope
+                ? try (providedBookmark ?? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil))
+                : nil
+            let files = WorkspaceFolderScanner.scan(url)
+            return (bookmark, files)
         }.value
+        addFolderURL(url)
+        if let bookmarkData { saveBookmark(bookmarkData, for: url) }
         guard activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL else { return }
         applyScannedItems(scannedItems)
     }
@@ -310,20 +300,18 @@ final class WorkspaceManager {
     /// 扫描挂载目录内容。
     func scanFolder(url: URL) async {
         let needsSecurityScope = !isInAppDocuments(url)
-        let startedAccess = !needsSecurityScope || url.startAccessingSecurityScopedResource()
-        guard startedAccess else {
+        let scannedItems = await Task.detached(priority: .userInitiated) { () -> [WorkspaceFileItem]? in
+            if needsSecurityScope && !url.startAccessingSecurityScopedResource() { return nil }
+            defer { if needsSecurityScope { url.stopAccessingSecurityScopedResource() } }
+            return WorkspaceFolderScanner.scan(url)
+        }.value
+        guard let scannedItems else {
             if activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL {
                 activeWorkspaceURL = defaultWorkspaceURL
                 await scanFolder(url: defaultWorkspaceURL)
             }
             return
         }
-        defer {
-            if needsSecurityScope { url.stopAccessingSecurityScopedResource() }
-        }
-        let scannedItems = await Task.detached(priority: .userInitiated) {
-            WorkspaceFolderScanner.scan(url)
-        }.value
         guard activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL else { return }
         applyScannedItems(scannedItems)
     }
@@ -338,11 +326,7 @@ final class WorkspaceManager {
         } ?? false
 
         if let selectedPath, let refreshed = scannedItems.first(where: { $0.url?.standardizedFileURL.path == selectedPath }) {
-            currentActiveCodeFile = refreshed
-            if currentCodeContent == lastSavedCodeContent {
-                currentCodeContent = readFileContent(for: refreshed)
-                lastSavedCodeContent = currentCodeContent
-            }
+            if currentCodeContent == lastSavedCodeContent { selectCodeFile(refreshed) }
         } else if !selectionBelongsToWorkspace {
             selectCodeFile(scannedItems.first(where: { $0.category == .code && $0.fileExtension == "swift" })
                 ?? scannedItems.first(where: { $0.category == .code }))
@@ -418,9 +402,30 @@ final class WorkspaceManager {
         return "// 文件内容为空或二进制不可读"
     }
 
-    func saveFileContent(item: WorkspaceFileItem, newContent: String) throws {
+    func readFileContentAsync(for item: WorkspaceFileItem) async -> String {
+        guard let url = item.url else { return "// 文件内容为空或不可读取。" }
+        let localLibraryPath = localLibraryURL.standardizedFileURL.path
+        let localLibraryFile = url.standardizedFileURL.path.hasPrefix(localLibraryPath + "/")
+        let scopeRoot = activeWorkspaceURL.flatMap { root in
+            url.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") ? root : nil
+        }
+        let accessURL = localLibraryFile ? nil : (scopeRoot ?? url)
+        let needsSecurityScope = accessURL.map { !isInAppDocuments($0) } ?? false
+        return await Task.detached(priority: .userInitiated) {
+            let accessing = !needsSecurityScope || (accessURL?.startAccessingSecurityScopedResource() ?? true)
+            guard accessing else { return "// 无法访问此文件。" }
+            defer { if needsSecurityScope { accessURL?.stopAccessingSecurityScopedResource() } }
+            guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+                  Int64(values.fileSize ?? 0) <= WorkspaceFileTypes.maxTextFileBytes else {
+                return "// 文件超过 4 MB，编辑器不会加载。"
+            }
+            return Self.decodeText(at: url) ?? "// 文件内容为空或不是可读取的文本格式。"
+        }.value
+    }
+
+    func saveFileContent(item: WorkspaceFileItem, newContent: String) async throws {
         guard let path = relativePath(for: item) else { throw WorkspaceAccessError.invalidPath }
-        try writeWorkspaceText(path: path, content: newContent)
+        try await writeWorkspaceText(path: path, content: newContent)
         currentCodeContent = newContent
         lastSavedCodeContent = newContent
     }
@@ -434,8 +439,15 @@ final class WorkspaceManager {
         }
         guard item.category == .code, item.url != nil else { return }
         currentActiveCodeFile = item
-        currentCodeContent = readFileContent(for: item)
-        lastSavedCodeContent = currentCodeContent
+        currentCodeContent = ""
+        lastSavedCodeContent = ""
+        Task { [weak self] in
+            guard let self else { return }
+            let content = await self.readFileContentAsync(for: item)
+            guard self.currentActiveCodeFile?.id == item.id else { return }
+            self.currentCodeContent = content
+            self.lastSavedCodeContent = content
+        }
     }
 
     func relativePath(for item: WorkspaceFileItem) -> String? {
@@ -445,44 +457,66 @@ final class WorkspaceManager {
         return String(file.dropFirst(root.count + 1))
     }
 
-    func readWorkspaceText(path: String) throws -> String {
+    func readWorkspaceText(path: String) async throws -> String {
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
         let needsSecurityScope = !isInAppDocuments(root)
-        let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
-        guard accessing else { throw WorkspaceAccessError.accessDenied }
-        defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
-        let url = try validatedWorkspaceURL(path: path)
-        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
-        guard values.isRegularFile == true else { throw WorkspaceAccessError.invalidPath }
-        guard Int64(values.fileSize ?? 0) <= WorkspaceFileTypes.maxTextFileBytes else { throw WorkspaceAccessError.fileTooLarge }
-        guard let text = Self.decodeText(at: url) else { throw WorkspaceAccessError.unreadableFile }
-        return text
+        return try await Task.detached(priority: .utility) {
+            let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
+            guard accessing else { throw WorkspaceAccessError.accessDenied }
+            defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
+            let rootURL = root.standardizedFileURL
+            let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+            guard !parts.isEmpty, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+                throw WorkspaceAccessError.invalidPath
+            }
+            let url = rootURL.appending(path: path).standardizedFileURL
+            guard url.path.hasPrefix(rootURL.path + "/"),
+                  url.resolvingSymlinksInPath().path.hasPrefix(rootURL.resolvingSymlinksInPath().path + "/") else {
+                throw WorkspaceAccessError.invalidPath
+            }
+            let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            guard values.isRegularFile == true else { throw WorkspaceAccessError.invalidPath }
+            guard Int64(values.fileSize ?? 0) <= WorkspaceFileTypes.maxTextFileBytes else { throw WorkspaceAccessError.fileTooLarge }
+            guard let text = Self.decodeText(at: url) else { throw WorkspaceAccessError.unreadableFile }
+            return text
+        }.value
     }
 
-    func writeWorkspaceText(path: String, content: String) throws {
+    func writeWorkspaceText(path: String, content: String) async throws {
         guard Int64(content.utf8.count) <= WorkspaceFileTypes.maxTextFileBytes else { throw WorkspaceAccessError.fileTooLarge }
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
         let needsSecurityScope = !isInAppDocuments(root)
-        let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
-        guard accessing else { throw WorkspaceAccessError.accessDenied }
-        defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
-        let url = try validatedWorkspaceURL(path: path)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try content.write(to: url, atomically: true, encoding: .utf8)
-        let updated = WorkspaceFileItem(
-            name: url.lastPathComponent,
-            path: url.path,
-            isDirectory: false,
-            size: Int64(content.utf8.count),
-            modifiedAt: Date(),
-            fileExtension: url.pathExtension.lowercased(),
-            url: url,
-            category: WorkspaceFileTypes.category(
-                for: url.lastPathComponent,
-                extension: url.pathExtension.lowercased(),
-                isText: true
+        let updated = try await Task.detached(priority: .userInitiated) { () throws -> WorkspaceFileItem in
+            let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
+            guard accessing else { throw WorkspaceAccessError.accessDenied }
+            defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
+            let rootURL = root.standardizedFileURL
+            let parts = path.split(separator: "/", omittingEmptySubsequences: false)
+            guard !parts.isEmpty, parts.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+                throw WorkspaceAccessError.invalidPath
+            }
+            let url = rootURL.appending(path: path).standardizedFileURL
+            guard url.path.hasPrefix(rootURL.path + "/"),
+                  url.resolvingSymlinksInPath().path.hasPrefix(rootURL.resolvingSymlinksInPath().path + "/") else {
+                throw WorkspaceAccessError.invalidPath
+            }
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try content.write(to: url, atomically: true, encoding: .utf8)
+            return WorkspaceFileItem(
+                name: url.lastPathComponent,
+                path: url.path,
+                isDirectory: false,
+                size: Int64(content.utf8.count),
+                modifiedAt: Date(),
+                fileExtension: url.pathExtension.lowercased(),
+                url: url,
+                category: WorkspaceFileTypes.category(
+                    for: url.lastPathComponent,
+                    extension: url.pathExtension.lowercased(),
+                    isText: true
+                )
             )
-        )
+        }.value
         upsertFile(updated)
         currentActiveCodeFile = updated
         currentCodeContent = content

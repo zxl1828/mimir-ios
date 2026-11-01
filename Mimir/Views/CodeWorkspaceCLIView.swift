@@ -115,6 +115,7 @@ struct CodeWorkspaceCLIView: View {
             allowedContentTypes: [.folder],
             allowsMultipleSelection: false
         ) { result in
+            showFolderImporter = false
             switch result {
             case .success(let urls):
                 guard let folder = urls.first else { return }
@@ -163,7 +164,7 @@ struct CodeWorkspaceCLIView: View {
         }
         .onDisappear {
             saveTask?.cancel()
-            persistCurrentFile()
+            Task { await persistCurrentFile() }
         }
     }
 
@@ -190,11 +191,8 @@ struct CodeWorkspaceCLIView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("CODE / LIVE WORKSPACE")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(accent)
                     Text("代码工坊")
-                        .font(.system(size: 23, weight: .bold, design: .rounded))
+                        .font(.system(size: 30, weight: .bold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 }
                 Spacer(minLength: 4)
@@ -488,10 +486,12 @@ struct CodeWorkspaceCLIView: View {
         NavigationStack {
             List(workspace.sourceFiles) { file in
                 Button {
-                    persistCurrentFile()
-                    workspace.selectCodeFile(file)
-                    saveState = "已载入"
-                    showFilePicker = false
+                    Task {
+                        await persistCurrentFile()
+                        workspace.selectCodeFile(file)
+                        saveState = "已载入"
+                        showFilePicker = false
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: file.systemIcon).foregroundStyle(accent)
@@ -718,7 +718,7 @@ struct CodeWorkspaceCLIView: View {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             do {
-                try workspace.saveFileContent(item: file, newContent: content)
+                try await workspace.saveFileContent(item: file, newContent: content)
                 saveState = "已保存"
             } catch {
                 saveError = error.localizedDescription
@@ -727,12 +727,12 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
-    private func persistCurrentFile() {
+    private func persistCurrentFile() async {
         saveTask?.cancel()
         guard let file = workspace.currentActiveCodeFile,
               workspace.currentCodeContent != "" else { return }
         do {
-            try workspace.saveFileContent(item: file, newContent: workspace.currentCodeContent)
+            try await workspace.saveFileContent(item: file, newContent: workspace.currentCodeContent)
             saveState = "已保存"
         } catch {
             saveError = error.localizedDescription
@@ -743,10 +743,12 @@ struct CodeWorkspaceCLIView: View {
     private func submitDraft() {
         let prompt = draft
         guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        persistCurrentFile()
         draft = ""
         composerFocused = false
-        Task { await agent.send(prompt, workspace: workspace, settings: settings) }
+        Task {
+            await persistCurrentFile()
+            await agent.send(prompt, workspace: workspace, settings: settings)
+        }
     }
 
     // MARK: - Task 2: Spoken Code Refactor Actions
@@ -866,11 +868,14 @@ struct CodeWorkspaceCLIView: View {
     private func commitRefactoredCode(_ newCode: String) {
         guard let currentFile = workspace.currentActiveCodeFile else { return }
         do {
-            try workspace.saveFileContent(item: currentFile, newContent: newCode)
-            saveState = "已提交重构"
-            Haptics.notify(.success)
-        } catch {
-            saveError = "保存失败: \(error.localizedDescription)"
+        Task {
+            do {
+                try await workspace.saveFileContent(item: currentFile, newContent: newCode)
+                saveState = "已提交重构"
+                Haptics.notify(.success)
+            } catch {
+                saveError = "保存失败: \(error.localizedDescription)"
+            }
         }
     }
 }

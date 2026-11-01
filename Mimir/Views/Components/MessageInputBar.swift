@@ -61,14 +61,14 @@ struct MessageInputBar: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             // Dispatch Omni-Bar：液态玻璃大圆角悬浮胶囊 + 高位白光折射描边
-            .liquidGlass(cornerRadius: 27, isHighlighted: focus.wrappedValue, glowIntensity: 0.26)
+            .liquidGlass(cornerRadius: 16, isHighlighted: focus.wrappedValue, glowIntensity: 0.12)
             .overlay {
-                RoundedRectangle(cornerRadius: 27, style: .continuous)
-                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: focus.wrappedValue ? 0 : 0.6)
                     .allowsHitTesting(false)
             }
             .overlay(alignment: .top) {
-                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
@@ -85,10 +85,11 @@ struct MessageInputBar: View {
                     .allowsHitTesting(false)
             }
             .shadow(
-                color: accent.opacity(focus.wrappedValue ? (scheme == .dark ? 0.30 : 0.17) : 0.06),
-                radius: focus.wrappedValue ? 18 : 8,
-                y: 3
+                color: accent.opacity(focus.wrappedValue ? 0.30 : 0),
+                radius: 0,
+                y: 0
             )
+            .shadow(color: accent.opacity(focus.wrappedValue ? 0.16 : 0), radius: 2, y: 0)
             .animation(.spring(response: 0.32, dampingFraction: 0.84), value: focus.wrappedValue)
         }
         .animation(AppAnimation.chip, value: attachments.count)

@@ -36,7 +36,7 @@ struct VoiceMinutesView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 10) {
                         Image(systemName: "text.badge.checkmark").foregroundStyle(AppColor.brandPurple)
                         VStack(alignment: .leading, spacing: 3) {
@@ -79,6 +79,10 @@ struct VoiceMinutesView: View {
                     Button {
                         UIPasteboard.general.string = text
                         copied = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(2_500))
+                            withAnimation(.easeOut(duration: 0.18)) { copied = false }
+                        }
                     } label: { Label(copied ? "已复制" : "复制", systemImage: copied ? "checkmark" : "doc.on.doc") }
                     .disabled(isLoading || text.isEmpty)
                 }

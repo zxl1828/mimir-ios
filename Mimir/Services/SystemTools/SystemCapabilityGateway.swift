@@ -127,8 +127,8 @@ enum SystemCapabilityGateway {
         case poiTool: return await poiSearch(args)
         case exportTool: return exportFile(args)
         case workspaceListTool: return workspaceList()
-        case workspaceReadTool: return workspaceRead(args)
-        case workspaceWriteTool: return workspaceWrite(args)
+        case workspaceReadTool: return await workspaceRead(args)
+        case workspaceWriteTool: return await workspaceWrite(args)
         default: return "未知的系统工具：" + name
         }
     }
@@ -370,25 +370,25 @@ enum SystemCapabilityGateway {
     }
 
     /// 读取工作区里某个文件的完整内容。
-    static func workspaceRead(_ args: Arguments) -> String {
+    static func workspaceRead(_ args: Arguments) async -> String {
         guard let name = args.string("name") else { return "缺少文件名。" }
         guard let file = findWorkspaceFile(named: name) else {
             return "工作区里没有找到「" + name + "」。可以先用 system_workspace_list 看看有哪些文件。"
         }
-        let content = WorkspaceManager.shared.readFileContent(for: file)
+        let content = await WorkspaceManager.shared.readFileContentAsync(for: file)
         guard !content.isEmpty else { return "文件是空的或无法读取。" }
         return "文件 " + file.name + " 的内容：\n" + content
     }
 
     /// 写入 / 覆盖工作区文件；`saveFileContent` 会更新工作区状态，
     /// 代码工坊面板据此实时刷新。
-    static func workspaceWrite(_ args: Arguments) -> String {
+    static func workspaceWrite(_ args: Arguments) async -> String {
         guard let name = args.string("name"), let content = args.string("content") else {
             return "缺少 name 或 content 参数。"
         }
         if let file = findWorkspaceFile(named: name) {
             do {
-                try WorkspaceManager.shared.saveFileContent(item: file, newContent: content)
+                try await WorkspaceManager.shared.saveFileContent(item: file, newContent: content)
                 return "已更新工作区文件「" + file.name + "」（" + String(content.count) + " 字符）。"
             } catch {
                 return "写入失败：" + error.localizedDescription

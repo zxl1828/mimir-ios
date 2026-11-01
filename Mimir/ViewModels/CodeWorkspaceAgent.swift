@@ -93,7 +93,7 @@ final class CodeWorkspaceAgent {
                     turns.append(CodeAgentTurn(kind: .activity, text: Self.activityLabel(for: call)))
                     let result: String
                     do {
-                        result = try Self.invoke(call, workspace: workspace)
+                        result = try await Self.invoke(call, workspace: workspace)
                         turns[activityIndex].text += " · 完成"
                     } catch {
                         result = "工具执行失败：\(error.localizedDescription)"
@@ -133,7 +133,7 @@ final class CodeWorkspaceAgent {
         )
     ]
 
-    private static func invoke(_ call: LLMToolCall, workspace: WorkspaceManager) throws -> String {
+    private static func invoke(_ call: LLMToolCall, workspace: WorkspaceManager) async throws -> String {
         guard let data = call.argumentsJSON.data(using: .utf8),
               let arguments = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw WorkspaceAccessError.invalidPath
@@ -145,11 +145,11 @@ final class CodeWorkspaceAgent {
             return paths.isEmpty ? "工作区没有可编辑的源文件。" : paths.joined(separator: "\n")
         case "workspace_read":
             guard let path = arguments["path"] as? String else { throw WorkspaceAccessError.invalidPath }
-            return try workspace.readWorkspaceText(path: path)
+            return try await workspace.readWorkspaceText(path: path)
         case "workspace_write":
             guard let path = arguments["path"] as? String,
                   let content = arguments["content"] as? String else { throw WorkspaceAccessError.invalidPath }
-            try workspace.writeWorkspaceText(path: path, content: content)
+            try await workspace.writeWorkspaceText(path: path, content: content)
             return "已保存 \(path)（\(content.utf8.count) bytes）。"
         default:
             throw WorkspaceAccessError.invalidPath

@@ -24,10 +24,7 @@ struct MarkdownText: View {
     /// 流式期间的轻量渲染。
     private var streamingBody: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(raw)
-                .font(AppUI.body)
-                .foregroundStyle(AppUI.label)
-                .fixedSize(horizontal: false, vertical: true)
+            StreamingText(raw: raw)
             StreamingCursor()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -59,6 +56,7 @@ struct MarkdownText: View {
                 .foregroundStyle(AppUI.label)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
+                .lineBreakStrategy(.pushOut)
 
         case .bullet(let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -70,6 +68,7 @@ struct MarkdownText: View {
                     .font(AppUI.body)
                     .foregroundStyle(AppUI.label)
                     .fixedSize(horizontal: false, vertical: true)
+                    .lineBreakStrategy(.pushOut)
             }
 
         case .numbered(let marker, let text):
@@ -82,6 +81,7 @@ struct MarkdownText: View {
                     .font(AppUI.body)
                     .foregroundStyle(AppUI.label)
                     .fixedSize(horizontal: false, vertical: true)
+                    .lineBreakStrategy(.pushOut)
             }
 
         case .quote(let text):
@@ -93,6 +93,7 @@ struct MarkdownText: View {
                     .font(AppUI.body)
                     .foregroundStyle(AppUI.label2)
                     .fixedSize(horizontal: false, vertical: true)
+                    .lineBreakStrategy(.pushOut)
             }
             .fixedSize(horizontal: false, vertical: true)
 
@@ -163,6 +164,99 @@ struct StreamingCursor: View {
                     visible = false
                 }
             }
+    }
+}
+
+/// 流式输出的逐字渲染。每个新字符独立从轻微模糊过渡到清晰，避免整段文本反复重绘。
+private struct StreamingText: View {
+    let raw: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(raw.split(separator: "\n", omittingEmptySubsequences: false).enumerated()), id: \.offset) { lineIndex, line in
+                CharacterFlowLayout {
+                    ForEach(Array(line.enumerated()), id: \.offset) { index, character in
+                        StreamingGlyph(character: String(character), index: lineIndex * 1000 + index)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: line.isEmpty ? 20 : nil, alignment: .leading)
+            }
+        }
+        .font(AppUI.body)
+        .foregroundStyle(AppUI.label)
+        .fixedSize(horizontal: false, vertical: true)
+        .lineBreakStrategy(.pushOut)
+    }
+}
+
+private struct StreamingGlyph: View {
+    let character: String
+    let index: Int
+    @State private var revealed = false
+
+    var body: some View {
+        Text(character == " " ? "\u{00A0}" : character)
+            .opacity(revealed ? 1 : 0)
+            .blur(radius: revealed ? 0 : 6)
+            .animation(
+                .timingCurve(0.215, 0.61, 0.355, 1, duration: 0.09)
+                    .delay(Double(index % 1000) * 0.03),
+                value: revealed
+            )
+            .onAppear { revealed = true }
+    }
+}
+
+/// 简单的可换行字符布局，保证逐字动画不会破坏消息宽度。
+private struct CharacterFlowLayout: Layout {
+    func sizeThatFits(_ proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .greatestFiniteMagnitude
+        let rows = makeRows(maxWidth: maxWidth, subviews: subviews)
+        let width = rows.map(\.width).max() ?? 0
+        let height = rows.reduce(0) { $0 + $1.height }
+        return CGSize(width: min(width, maxWidth), height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = makeRows(maxWidth: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        for row in rows {
+            var x = bounds.minX
+            for index in row.indices {
+                let size = subviews[index].sizeThatFits(.unspecified)
+                subviews[index].place(
+                    at: CGPoint(x: x + size.width / 2, y: y + row.height / 2),
+                    anchor: .center,
+                    proposal: ProposedViewSize(size)
+                )
+                x += size.width
+            }
+            y += row.height
+        }
+    }
+
+    private struct Row {
+        var indices: [Int] = []
+        var width: CGFloat = 0
+        var height: CGFloat = 0
+    }
+
+    private func makeRows(maxWidth: CGFloat, subviews: Subviews) -> [Row] {
+        var rows: [Row] = []
+        var current = Row()
+        for index in subviews.indices {
+            let size = subviews[index].sizeThatFits(.unspecified)
+            if !current.indices.isEmpty && current.width + size.width > maxWidth {
+                rows.append(current)
+                current = Row()
+            }
+            current.indices.append(index)
+            current.width += size.width
+            current.height = max(current.height, size.height)
+        }
+        if !current.indices.isEmpty { rows.append(current) }
+        return rows
     }
 }
 
@@ -436,7 +530,7 @@ struct CodeBlockView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: copied ? "checkmark" : "square.on.square")
-                    Text(copied ? "已复制" : "1-tap Copy")
+                    Text(copied ? "已复制" : "复制代码")
                 }
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(copied ? Color(red: 0.20, green: 0.80, blue: 0.40) : AppUI.label)
@@ -458,7 +552,7 @@ struct CodeBlockView: View {
                 .contentShape(Capsule(style: .continuous))
             }
             .buttonStyle(StaticButtonFeedbackStyle())
-            .animation(.easeInOut(duration: 0.2), value: copied)
+            .animation(.interpolatingSpring(stiffness: 380, damping: 18), value: copied)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
@@ -480,7 +574,7 @@ struct CodeBlockView: View {
 
     private var codeArea: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 11) {
+            LazyHStack(alignment: .top, spacing: 11) {
                 VStack(alignment: .trailing, spacing: 0) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { index, _ in
                         Text("\(index + 1)")
@@ -515,9 +609,9 @@ struct CodeBlockView: View {
         UIPasteboard.general.string = code
         Haptics.impact(.light)
         copied = true
-        Task {
-            try? await Task.sleep(for: .seconds(2))
-            copied = false
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(2_500))
+            withAnimation(.easeOut(duration: 0.18)) { copied = false }
         }
     }
 }
@@ -534,7 +628,7 @@ struct MarkdownTableView: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 row(header, isHeader: true)
                 ForEach(Array(rows.enumerated()), id: \.offset) { index, values in
                     Divider().opacity(index == rows.count - 1 ? 0 : 0.35)
