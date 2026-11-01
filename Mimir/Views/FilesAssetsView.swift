@@ -15,14 +15,12 @@ struct FilesAssetsView: View {
     @State private var showFolderImporter = false
     @State private var showFileImporter = false
     @State private var showNewDocSheet = false
-    @State private var showFABMenu = false
     @State private var selectedFileForAction: WorkspaceFileItem?
     @State private var previewFileItem: WorkspaceFileItem?
     @State private var isMountingWorkspace = false
     @State private var workspaceImportError: String?
     @State private var newDocTitle = ""
     @State private var newDocContent = ""
-    @State private var previewContent = "正在读取文件…"
 
     private var coordinator: TabNavigationCoordinator {
         TabNavigationCoordinator.shared
@@ -31,7 +29,7 @@ struct FilesAssetsView: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 16) {
+                VStack(spacing: 16) {
                     // 1. 顶部标题与视图模式切换
                     headerBar
                         .staggerCascade(index: 0)
@@ -82,27 +80,22 @@ struct FilesAssetsView: View {
             AppUI.ambientBackground(scheme: scheme)
                 .ignoresSafeArea()
         }
-        .fileImporter(
-            isPresented: $showFolderImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            showFolderImporter = false
-            switch result {
-            case .success(let urls):
-                if let folder = urls.first {
+        .sheet(isPresented: $showFolderImporter) {
+            WorkspaceFolderPicker(
+                isPresented: $showFolderImporter,
+                onPick: { folder, bookmark, didStartAccess in
                     mountWorkspace(urls: [folder])
+                },
+                onError: { err in
+                    workspaceImportError = err
                 }
-            case .failure:
-                break
-            }
+            )
         }
         .fileImporter(
             isPresented: $showFileImporter,
             allowedContentTypes: [.item],
             allowsMultipleSelection: true
         ) { result in
-            showFileImporter = false
             switch result {
             case .success(let urls):
                 Task {
@@ -135,31 +128,90 @@ struct FilesAssetsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
+                    Text("FILES / LIBRARY")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accent)
                     Text("知识资产库")
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                         .lineLimit(1)
                         .minimumScaleFactor(0.82)
                 }
                 Spacer(minLength: 8)
-                Button {
-                    Haptics.impact(.light)
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                        isGridView.toggle()
-                    }
-                } label: {
-                    Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
-                        .frame(width: 36, height: 36)
-                        .liquidGlass(.clear, in: .rect(cornerRadius: 12))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                                .allowsHitTesting(false)
+                HStack(spacing: 8) {
+                    Button {
+                        Haptics.impact(.light)
+                        showFolderImporter = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("挂载文件夹")
+                                .font(.system(size: 11, weight: .semibold))
                         }
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .liquidGlass(.regular.tint(accent.opacity(0.10)), in: .capsule)
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8))
+                    }
+                    .buttonStyle(StaticButtonFeedbackStyle())
+
+                    Button {
+                        Haptics.impact(.light)
+                        showFileImporter = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "doc.badge.plus")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("导入")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .liquidGlass(.regular.tint(accent.opacity(0.10)), in: .capsule)
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8))
+                    }
+                    .buttonStyle(StaticButtonFeedbackStyle())
+
+                    Button {
+                        Haptics.impact(.light)
+                        showNewDocSheet = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.pencil")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("新建")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .liquidGlass(.regular.tint(accent.opacity(0.10)), in: .capsule)
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8))
+                    }
+                    .buttonStyle(StaticButtonFeedbackStyle())
+
+                    Button {
+                        Haptics.impact(.light)
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            isGridView.toggle()
+                        }
+                    } label: {
+                        Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
+                            .frame(width: 32, height: 32)
+                            .liquidGlass(.clear, in: .rect(cornerRadius: 10))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
+                                    .allowsHitTesting(false)
+                            }
+                    }
+                    .buttonStyle(StaticButtonFeedbackStyle())
                 }
-                .buttonStyle(StaticButtonFeedbackStyle())
             }
 
             HStack(spacing: 7) {
@@ -171,7 +223,7 @@ struct FilesAssetsView: View {
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                Text("\(workspace.filteredFiles.count) 个文件")
+                Text("\(workspace.filteredFiles.count) ITEMS")
                     .font(.system(size: 9, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
                     .monospacedDigit()
@@ -193,7 +245,7 @@ struct FilesAssetsView: View {
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
 
                 TextField("搜索知识库、Prompt 与文件...", text: $workspace.searchText)
-                    .font(.system(size: 15))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                     .autocorrectionDisabled()
 
@@ -236,9 +288,11 @@ struct FilesAssetsView: View {
                             )
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .background(
-                                isSelected ? accent : AppUI.fill,
-                                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .liquidGlass(
+                                isSelected
+                                    ? .regular.tint(accent.opacity(0.85))
+                                    : .clear,
+                                in: .capsule
                             )
                             .overlay(
                                 Capsule(style: .continuous)
@@ -303,7 +357,10 @@ struct FilesAssetsView: View {
                     .foregroundStyle(accent)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(AppUI.fill, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .liquidGlass(
+                        .regular.tint(accent.opacity(0.25)),
+                        in: .capsule
+                    )
                     .overlay(
                         Capsule(style: .continuous)
                             .strokeBorder(accent.opacity(0.35), lineWidth: 0.8)
@@ -339,8 +396,9 @@ struct FilesAssetsView: View {
         let columns = [GridItem(.adaptive(minimum: 168, maximum: 280), spacing: 12)]
 
         return LazyVGrid(columns: columns, spacing: 12) {
-            ForEach(workspace.filteredFiles) { item in
+            ForEach(Array(workspace.filteredFiles.enumerated()), id: \.element.id) { index, item in
                 assetGridCard(item)
+                    .staggeredSlideEntrance(index: index)
             }
         }
     }
@@ -363,9 +421,15 @@ struct FilesAssetsView: View {
                 if item.category == .media {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color(hex: scheme == .dark ? "20201E" : "F5F5F3"))
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "2E1D5B"), Color(hex: "171033")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                             .frame(height: 72)
-                        Image(systemName: "photo.fill")
+                        Image(systemName: "sparkles")
                             .font(.system(size: 26))
                             .foregroundStyle(AppUI.auroraViolet)
                     }
@@ -388,7 +452,7 @@ struct FilesAssetsView: View {
 
                 // 文件名
                 Text(item.name)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                     .lineLimit(1)
 
@@ -398,8 +462,7 @@ struct FilesAssetsView: View {
                     Spacer()
                     Text(item.relativeTime)
                 }
-                .font(.system(size: 12, weight: .regular))
-                .monospacedDigit()
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(AppUI.textCaption(scheme: scheme))
             }
             .padding(12)
@@ -407,7 +470,8 @@ struct FilesAssetsView: View {
             .overlay {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(accent, lineWidth: 1.5)
+                        .strokeBorder(accent, lineWidth: 1.8)
+                        .shadow(color: accent.opacity(0.4), radius: 6)
                 }
             }
         }
@@ -440,7 +504,8 @@ struct FilesAssetsView: View {
             }
             if item.category == .code {
                 Button {
-                    workspace.selectCodeFile(item)
+                    workspace.currentActiveCodeFile = item
+                    workspace.currentCodeContent = workspace.readFileContent(for: item)
                     coordinator.switchToTab(.code)
                 } label: {
                     Label("在代码工坊中打开", systemImage: "chevron.left.forwardslash.chevron.right")
@@ -452,8 +517,8 @@ struct FilesAssetsView: View {
     // MARK: - 4. 列表视图
 
     private var assetListSection: some View {
-        LazyVStack(spacing: 8) {
-            ForEach(workspace.filteredFiles) { item in
+        VStack(spacing: 8) {
+            ForEach(Array(workspace.filteredFiles.enumerated()), id: \.element.id) { index, item in
                 let isSelected = selectedFileForAction?.id == item.id
                 Button {
                     Haptics.selectionChanged()
@@ -475,7 +540,7 @@ struct FilesAssetsView: View {
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name)
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 14, weight: .bold))
                                 .foregroundStyle(AppUI.textTitle(scheme: scheme))
                                 .lineLimit(1)
                             HStack(spacing: 8) {
@@ -483,7 +548,7 @@ struct FilesAssetsView: View {
                                 Text("•")
                                 Text(item.relativeTime)
                             }
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                             .foregroundStyle(AppUI.textCaption(scheme: scheme))
                         }
 
@@ -497,6 +562,7 @@ struct FilesAssetsView: View {
                     .softGlassCard(cornerRadius: 14)
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
+                .staggeredSlideEntrance(index: index)
             }
         }
     }
@@ -549,85 +615,7 @@ struct FilesAssetsView: View {
         .softGlassCard(cornerRadius: 26)
     }
 
-    // MARK: - 5. 浮动操作按钮 (FAB)
-
-    private var fabMenuButton: some View {
-        VStack(alignment: .trailing, spacing: 10) {
-            if showFABMenu {
-                VStack(alignment: .trailing, spacing: 8) {
-                    fabSubAction(title: "挂载项目文件夹", icon: "folder.badge.plus") {
-                        showFolderImporter = true
-                    }
-                    fabSubAction(title: "导入本地文件", icon: "doc.badge.plus") {
-                        showFileImporter = true
-                    }
-                    fabSubAction(title: "新建知识文档", icon: "square.and.pencil") {
-                        showNewDocSheet = true
-                    }
-                }
-                .transition(.scale(scale: 0.85, anchor: .bottomTrailing).combined(with: .opacity))
-            }
-
-            Button {
-                Haptics.impact(.medium)
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
-                    showFABMenu.toggle()
-                }
-            } label: {
-                Image(systemName: showFABMenu ? "xmark" : "plus")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .frame(width: 52, height: 52)
-                    .background {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [accent.opacity(0.85), accent],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
-                    .liquidGlass(.regular.tint(accent.opacity(0.60)), in: .circle)
-                    .overlay {
-                        Circle()
-                            .strokeBorder(Color.white.opacity(0.65), lineWidth: 1.2)
-                            .allowsHitTesting(false)
-                    }
-                    .shadow(color: accent.opacity(0.55), radius: 12, y: 5)
-                    .rotationEffect(.degrees(showFABMenu ? 90 : 0))
-            }
-            .buttonStyle(StaticButtonFeedbackStyle())
-        }
-    }
-
-    private func fabSubAction(title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button {
-            showFABMenu = false
-            action()
-        } label: {
-            HStack(spacing: 8) {
-                Text(title)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(accent)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .liquidGlass(.regular, in: .capsule)
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(Color.white.opacity(scheme == .dark ? 0.35 : 0.70), lineWidth: 0.8)
-                    .allowsHitTesting(false)
-            }
-            .shadow(color: accent.opacity(scheme == .dark ? 0.20 : 0.08), radius: 8, y: 3)
-        }
-        .buttonStyle(StaticButtonFeedbackStyle())
-    }
-
-    // MARK: - 6. 底部“送入当前对话上下文”浮动条
+    // MARK: - 6. 底部附着栏
 
     private func bottomAttachBar(for item: WorkspaceFileItem) -> some View {
         HStack(spacing: 12) {
@@ -735,7 +723,7 @@ struct FilesAssetsView: View {
     private func fileDetailSheet(_ item: WorkspaceFileItem) -> some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         Image(systemName: item.systemIcon)
                             .font(.system(size: 24))
@@ -747,7 +735,7 @@ struct FilesAssetsView: View {
                     }
                     .padding(.bottom, 8)
 
-                    Text(previewContent)
+                    Text(workspace.readFileContent(for: item))
                         .font(.system(size: 13, design: .monospaced))
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -762,9 +750,6 @@ struct FilesAssetsView: View {
             }
             .navigationTitle("文件详情")
             .navigationBarTitleDisplayMode(.inline)
-            .task(id: item.id) {
-                previewContent = await workspace.readFileContentAsync(for: item)
-            }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { previewFileItem = nil }

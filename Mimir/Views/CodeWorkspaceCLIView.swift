@@ -32,10 +32,6 @@ struct CodeWorkspaceCLIView: View {
     @FocusState private var composerFocused: Bool
 
     // MARK: - Task 2: Voice-to-AST Diff Engine
-    @State private var transcriptionService = AudioTranscriptionService.shared
-    @State private var isRefactoring = false
-    @State private var pendingDiffOverlay: (prompt: String, original: String, refactored: String)?
-    @State private var voiceRefactorError: String?
 
     private let codeTabBarClearance: CGFloat = 66 + 12 + 28
 
@@ -80,29 +76,6 @@ struct CodeWorkspaceCLIView: View {
             .background {
                 AppUI.ambientBackground(scheme: scheme).ignoresSafeArea()
             }
-            .overlay(alignment: .bottomTrailing) {
-                voiceRefactorFloatingButton
-                    .padding(.trailing, 16)
-                    .padding(.bottom, composerBottomClearance + 80)
-            }
-            .overlay {
-                if let diff = pendingDiffOverlay {
-                    VoiceCodeRefactorOverlay(
-                        prompt: diff.prompt,
-                        originalCode: diff.original,
-                        refactoredCode: diff.refactored,
-                        onCommit: {
-                            commitRefactoredCode(diff.refactored)
-                            pendingDiffOverlay = nil
-                        },
-                        onReject: {
-                            pendingDiffOverlay = nil
-                        }
-                    )
-                    .transition(.scale(scale: 0.96).combined(with: .opacity))
-                    .zIndex(200)
-                }
-            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             isKeyboardVisible = true
@@ -110,19 +83,16 @@ struct CodeWorkspaceCLIView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
-        .fileImporter(
-            isPresented: $showFolderImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            showFolderImporter = false
-            switch result {
-            case .success(let urls):
-                guard let folder = urls.first else { return }
-                loadWorkspace(from: folder)
-            case .failure(let error):
-                workspaceLoadError = error.localizedDescription
-            }
+        .sheet(isPresented: $showFolderImporter) {
+            WorkspaceFolderPicker(
+                isPresented: $showFolderImporter,
+                onPick: { folder, bookmark, didStartAccess in
+                    loadWorkspace(from: folder)
+                },
+                onError: { err in
+                    workspaceLoadError = err
+                }
+            )
         }
         .sheet(isPresented: $showFilePicker) {
             sourceFilePicker
@@ -157,14 +127,14 @@ struct CodeWorkspaceCLIView: View {
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
-                if TabNavigationCoordinator.shared.selectedTab == .code {
+                if TabNavigationCoordinator.shared.selectedTab == .code || (TabNavigationCoordinator.shared.selectedTab == .home && TabNavigationCoordinator.shared.topMode == .code) {
                     await workspace.refreshCurrentCodeFile()
                 }
             }
         }
         .onDisappear {
             saveTask?.cancel()
-            Task { await persistCurrentFile() }
+            persistCurrentFile()
         }
     }
 
@@ -191,8 +161,11 @@ struct CodeWorkspaceCLIView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
+                    Text("CODE / LIVE WORKSPACE")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accent)
                     Text("代码工坊")
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.system(size: 23, weight: .bold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 }
                 Spacer(minLength: 4)
@@ -486,12 +459,10 @@ struct CodeWorkspaceCLIView: View {
         NavigationStack {
             List(workspace.sourceFiles) { file in
                 Button {
-                    Task {
-                        await persistCurrentFile()
-                        workspace.selectCodeFile(file)
-                        saveState = "已载入"
-                        showFilePicker = false
-                    }
+                    persistCurrentFile()
+                    workspace.selectCodeFile(file)
+                    saveState = "已载入"
+                    showFilePicker = false
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: file.systemIcon).foregroundStyle(accent)
@@ -718,7 +689,7 @@ struct CodeWorkspaceCLIView: View {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             do {
-                try await workspace.saveFileContent(item: file, newContent: content)
+                try workspace.saveFileContent(item: file, newContent: content)
                 saveState = "已保存"
             } catch {
                 saveError = error.localizedDescription
@@ -727,12 +698,12 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
-    private func persistCurrentFile() async {
+    private func persistCurrentFile() {
         saveTask?.cancel()
         guard let file = workspace.currentActiveCodeFile,
               workspace.currentCodeContent != "" else { return }
         do {
-            try await workspace.saveFileContent(item: file, newContent: workspace.currentCodeContent)
+            try workspace.saveFileContent(item: file, newContent: workspace.currentCodeContent)
             saveState = "已保存"
         } catch {
             saveError = error.localizedDescription
@@ -743,138 +714,11 @@ struct CodeWorkspaceCLIView: View {
     private func submitDraft() {
         let prompt = draft
         guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        persistCurrentFile()
         draft = ""
         composerFocused = false
-        Task {
-            await persistCurrentFile()
-            await agent.send(prompt, workspace: workspace, settings: settings)
-        }
+        Task { await agent.send(prompt, workspace: workspace, settings: settings) }
     }
 
-    // MARK: - Task 2: Spoken Code Refactor Actions
 
-    private var voiceRefactorFloatingButton: some View {
-        Button {
-            toggleVoiceRefactor()
-        } label: {
-            HStack(spacing: 7) {
-                if isRefactoring {
-                    ProgressView().controlSize(.small).tint(.white)
-                    Text("AST 分析中…")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                } else if transcriptionService.isRecording {
-                    Circle().fill(Color.red).frame(width: 8, height: 8)
-                        .scaleEffect(1.0 + CGFloat(transcriptionService.audioLevel) * 0.8)
-                    Text("聆听指令…")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                } else {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 12, weight: .bold))
-                    Text("语音重构")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                }
-            }
-            .foregroundStyle(Color.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background {
-                Capsule()
-                    .fill(Color(hex: "7D52F4").opacity(0.92))
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.9))
-                    .shadow(color: Color(hex: "7D52F4").opacity(0.40), radius: 10, y: 4)
-            }
-        }
-        .buttonStyle(StaticButtonFeedbackStyle())
-        .disabled(isRefactoring || workspace.currentActiveCodeFile == nil)
-        .accessibilityLabel("按住或轻点以语音重构当前代码")
-    }
-
-    private func toggleVoiceRefactor() {
-        if transcriptionService.isRecording {
-            let prompt = transcriptionService.stopRecording()
-            if !prompt.isEmpty {
-                performSpokenRefactor(prompt: prompt)
-            }
-        } else {
-            Haptics.impact(.medium)
-            Task {
-                try? await transcriptionService.startRecording()
-            }
-        }
-    }
-
-    private func performSpokenRefactor(prompt: String) {
-        guard let currentFile = workspace.currentActiveCodeFile else { return }
-        let currentCode = workspace.currentCodeContent
-        guard !currentCode.isEmpty else { return }
-
-        isRefactoring = true
-        Haptics.notify(.success)
-
-        Task {
-            defer { isRefactoring = false }
-            let credential = settings.resolvedCredential
-            guard !credential.key.isEmpty else {
-                voiceRefactorError = "请先配置 API Key"
-                return
-            }
-
-            let client = LLMClientFactory.make(for: credential)
-            var parameters = settings.parameters
-            parameters.modelID = credential.modelID
-            parameters.temperature = 0.2
-
-            let systemPrompt = """
-            你是专业的 AST 语法级代码重构专家。
-            请根据用户的语音指令，对给定的源码进行重构。
-            注意：直接输出重构后的完整源码，不要包裹 Markdown 代码块标记（如不要输出 ```swift），不要包含任何额外的解释文字。
-            """
-
-            let userPrompt = "【重构指令】：\(prompt)\n\n【原始源码】：\n\(currentCode)"
-
-            let messages = [
-                LLMChatMessage(role: .system, text: systemPrompt),
-                LLMChatMessage(role: .user, text: userPrompt)
-            ]
-
-            var refactoredOutput = ""
-            do {
-                let stream = client.streamChat(messages: messages, parameters: parameters, credential: credential, tools: [])
-                for try await event in stream {
-                    if case .textDelta(let text) = event {
-                        refactoredOutput += text
-                    }
-                }
-
-                var cleaned = refactoredOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-                if cleaned.hasPrefix("```") {
-                    let lines = cleaned.components(separatedBy: "\n")
-                    if lines.count >= 2 {
-                        let inner = lines.dropFirst().dropLast()
-                        cleaned = inner.joined(separator: "\n")
-                    }
-                }
-
-                if !cleaned.isEmpty {
-                    pendingDiffOverlay = (prompt: prompt, original: currentCode, refactored: cleaned)
-                }
-            } catch {
-                voiceRefactorError = error.localizedDescription
-            }
-        }
-    }
-
-    private func commitRefactoredCode(_ newCode: String) {
-        guard let currentFile = workspace.currentActiveCodeFile else { return }
-        Task {
-            do {
-                try await workspace.saveFileContent(item: currentFile, newContent: newCode)
-                saveState = "已提交重构"
-                Haptics.notify(.success)
-            } catch {
-                saveError = "保存失败: \(error.localizedDescription)"
-            }
-        }
-    }
 }

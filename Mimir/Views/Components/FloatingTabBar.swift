@@ -1,59 +1,75 @@
 import SwiftUI
 
-/// Floating command dock with an expanding active destination.
+/// 底部三大核心导航命令坞（Floating Glass Command Dock）。
+///
+/// 严格遵循 Mimir Design DNA：
+/// 1. 采用原生液态玻璃修饰符 `liquidGlass` / `glassEffect` 与 `GlassContainer`；
+/// 2. 严禁普通 Material 模糊与不透明纯色遮挡；
+/// 3. 支持主页、文件库与 AI 生图三大导航切位；
+/// 4. 刚性触控反馈，杜绝边缘异动与紫色光晕炸裂。
 struct FloatingTabBar: View {
 
     @Binding var selectedTab: AppTab
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(AppTab.bottomNavigationCases) { tab in
-                tabButton(tab)
+        GlassContainer {
+            HStack(spacing: 4) {
+                ForEach(AppTab.bottomNavigationCases) { tab in
+                    tabButton(tab)
+                }
             }
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 7)
-        .frame(height: 66)
-        .background {
-            Capsule(style: .continuous)
-                .fill((scheme == .dark ? Color(hex: "120D1D") : Color.white).opacity(0.82))
-        }
-        .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.08)), in: .capsule)
-        .overlay {
-            Capsule(style: .continuous)
-                .strokeBorder(
-                    Color.white.opacity(0.86),
-                    lineWidth: 1.0
-                )
-                .allowsHitTesting(false)
-        }
-        .overlay(alignment: .top) {
-            Capsule(style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.72),
-                            Color.white.opacity(0.30),
-                            .clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(height: 64)
+            .background {
+                Capsule(style: .continuous)
+                    .fill((scheme == .dark ? Color(hex: "120D1D") : Color.white).opacity(scheme == .dark ? 0.76 : 0.84))
+            }
+            .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.09)), in: .capsule)
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.88),
+                                Color(hex: "7D52F4").opacity(0.35),
+                                Color.white.opacity(0.20)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.0
                     )
-                )
-                .frame(height: 22)
-                .padding(.horizontal, 1)
-                .padding(.top, 1)
-                .allowsHitTesting(false)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .top) {
+                Capsule(style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.72),
+                                Color.white.opacity(0.24),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(height: 22)
+                    .padding(.horizontal, 1)
+                    .padding(.top, 1)
+                    .allowsHitTesting(false)
+            }
+            .shadow(
+                color: Color(hex: "7D52F4").opacity(0.14),
+                radius: 20,
+                x: 0,
+                y: 8
+            )
+            .frame(maxWidth: 350)
+            .padding(.horizontal, 16)
         }
-        .shadow(
-            color: Color(hex: "7D52F4").opacity(0.12),
-            radius: 24,
-            x: 0,
-            y: 10
-        )
-        .frame(maxWidth: 360)
-        .padding(.horizontal, 16)
     }
 
     private func tabButton(_ tab: AppTab) -> some View {
@@ -65,47 +81,35 @@ struct FloatingTabBar: View {
                 selectedTab = tab
             }
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 17, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 16, weight: isSelected ? .bold : .medium))
                     .foregroundStyle(isSelected ? tab.functionColor : inactiveColor)
-                    .frame(width: 18)
+                    .frame(width: 20)
 
                 if isSelected {
                     Text(tab.shortTitle)
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(scheme == .dark ? Color(hex: "F8F6FD") : Color(hex: "35264A"))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(scheme == .dark ? Color(hex: "F8F6FD") : Color(hex: "120D1D"))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-                        .transition(.opacity)
+                        .transition(.opacity.combined(with: .scale(scale: 0.94)))
                 }
             }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 50)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 48)
             .background {
                 if isSelected {
                     Capsule(style: .continuous)
-                        .fill(tab.functionColor.opacity(0.12))
-                        .liquidGlass(.regular.tint(tab.functionColor.opacity(0.18)), in: .capsule)
+                        .fill(tab.functionColor.opacity(0.14))
+                        .liquidGlass(.regular.tint(tab.functionColor.opacity(0.20)), in: .capsule)
                         .overlay {
                             Capsule(style: .continuous)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.62), .clear],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .padding(0.8)
+                                .strokeBorder(Color.white.opacity(0.85), lineWidth: 0.9)
                         }
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.82), lineWidth: 1)
-                        )
-                        .shadow(color: tab.functionColor.opacity(0.18), radius: 9, y: 2)
+                        .shadow(color: tab.functionColor.opacity(0.18), radius: 8, y: 2)
                 }
             }
-            .animation(.easeInOut(duration: 0.18), value: isSelected)
+            .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
             .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
@@ -114,26 +118,6 @@ struct FloatingTabBar: View {
     }
 
     private var inactiveColor: Color {
-        scheme == .dark ? Color(hex: "D7CBE8").opacity(0.78) : Color(hex: "81768D")
-    }
-}
-
-private extension AppTab {
-    var functionColor: Color {
-        switch self {
-        case .assistant: return Color(hex: "7D52F4")
-        case .dashboard: return Color(hex: "3977E8")
-        case .files: return Color(hex: "28A89B")
-        case .code: return Color(hex: "D87B40")
-        }
-    }
-
-    var shortTitle: String {
-        switch self {
-        case .assistant: "Assist"
-        case .dashboard: "Home"
-        case .files: "Files"
-        case .code: "Code"
-        }
+        scheme == .dark ? Color(hex: "D7CBE8").opacity(0.72) : Color(hex: "81768D")
     }
 }

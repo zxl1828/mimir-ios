@@ -9,7 +9,7 @@ extension View {
 
     /// 原生液态玻璃效果（自动降级）。
     @ViewBuilder
-    func liquidGlass<S: Shape>(_ glass: Glass, in shape: S) -> some View {
+    func liquidGlass<S: Shape>(_ glass: Glass = .regular, in shape: S) -> some View {
         if #available(iOS 26.0, *) {
             self.glassEffect(glass, in: shape)
         } else {
@@ -145,5 +145,43 @@ struct AuroraBackground: View {
         .frame(width: size.width, height: size.height)
         .blendMode(scheme == .dark ? .plusLighter : .normal)
         .allowsHitTesting(false)
+    }
+}
+
+// MARK: - 原生液态玻璃容器编组 (GlassEffectContainer)
+
+/// 编组多个液态玻璃元素的容器，在 iOS 26+ 上统一焦散与折射。
+public struct GlassContainer<Content: View>: View {
+    private let spacing: CGFloat?
+    private let content: Content
+
+    public init(spacing: CGFloat? = nil, @ViewBuilder content: () -> Content) {
+        self.spacing = spacing
+        self.content = content()
+    }
+
+    public var body: some View {
+        if #available(iOS 26.0, *) {
+            if let spacing {
+                GlassEffectContainer(spacing: spacing) {
+                    content
+                }
+            } else {
+                GlassEffectContainer {
+                    content
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    public func inGlassContainer(spacing: CGFloat? = nil) -> some View {
+        GlassContainer(spacing: spacing) {
+            self
+        }
     }
 }
