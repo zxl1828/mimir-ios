@@ -1,35 +1,74 @@
 import SwiftUI
 import Observation
 
-/// 全局底部 Tab 选项定义。
-enum AppTab: Int, CaseIterable, Identifiable, Sendable {
-    case assistant = 0   // 智能助手
-    case dashboard = 1   // 工作台仪表盘
-    case files = 2       // 知识资产库
-    case code = 3        // 代码工坊
-    case imageGeneration = 4 // AI 生图
+/// 顶部“智能助手”与“代码工坊”双选模式。
+enum AssistantCodeMode: String, CaseIterable, Identifiable, Sendable {
+    case assistant = "智能助手"
+    case code = "代码工坊"
 
-    static var bottomNavigationCases: [AppTab] { [.dashboard, .files, .imageGeneration] }
+    var id: String { rawValue }
+
+    var title: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .assistant: return "sparkles"
+        case .code: return "chevron.left.forwardslash.chevron.right"
+        }
+    }
+}
+
+/// 全局底部三大核心导航 Tab。
+enum AppTab: Int, CaseIterable, Identifiable, Sendable {
+    case home = 0       // 主页 (承载 智能助手 / 代码工坊)
+    case files = 1      // 文件库 (知识资产库与本地文件夹)
+    case imageGen = 2   // AI生图 (独立创意生成面板)
+
+    // 历史兼容枚举值（防止其他模块遗留代码引用报错）
+    case assistant = 10
+    case code = 11
+    case dashboard = 12
+
+    /// 底部导航栏渲染的三大金刚入口
+    static var bottomNavigationCases: [AppTab] { [.home, .files, .imageGen] }
 
     var id: Int { rawValue }
 
     var title: String {
         switch self {
-        case .assistant: return "AI Assistant"
-        case .dashboard: return "Dashboard"
-        case .files: return "Files"
-        case .code: return "Code"
-        case .imageGeneration: return "Image"
+        case .home, .assistant, .dashboard: return "主页"
+        case .files: return "文件库"
+        case .imageGen: return "AI生图"
+        case .code: return "代码工坊"
+        }
+    }
+
+    var shortTitle: String {
+        switch self {
+        case .home, .assistant, .dashboard: return "主页"
+        case .files: return "文件库"
+        case .imageGen: return "AI生图"
+        case .code: return "代码"
         }
     }
 
     var icon: String {
         switch self {
-        case .assistant: return "sparkles"
+        case .home, .assistant: return "sparkles"
         case .dashboard: return "square.grid.2x2"
-        case .files: return "folder"
+        case .files: return "folder.fill"
+        case .imageGen: return "wand.and.stars"
         case .code: return "chevron.left.forwardslash.chevron.right"
-        case .imageGeneration: return "photo.badge.plus"
+        }
+    }
+
+    var functionColor: Color {
+        switch self {
+        case .home, .assistant: return Color(hex: "7D52F4") // Iris Violet
+        case .dashboard: return Color(hex: "3977E8")
+        case .files: return Color(hex: "28A89B") // Teal
+        case .imageGen: return Color(hex: "E056FD") // Iridescent Magenta
+        case .code: return Color(hex: "D87B40") // Amber
         }
     }
 }
@@ -41,13 +80,18 @@ final class TabNavigationCoordinator {
 
     static let shared = TabNavigationCoordinator()
 
-    var selectedTab: AppTab = .assistant
-    var assistantCodeTab: AppTab = .assistant
+    /// 底部选中的 Tab（主页 / 文件库 / AI生图）
+    var selectedTab: AppTab = .home
 
-    func setTab(_ tab: AppTab) {
-        selectedTab = tab
-        if tab == .assistant || tab == .code { assistantCodeTab = tab }
+    /// 顶部双选切换栏模式（智能助手 vs 代码工坊）
+    var topMode: AssistantCodeMode = .assistant
+
+    /// 兼容已有代码
+    var assistantCodeTab: AppTab {
+        get { topMode == .code ? .code : .assistant }
+        set { topMode = (newValue == .code ? .code : .assistant) }
     }
+
     var isTabBarVisible: Bool = true
 
     /// 跨工作区向助手注入的 Prompt 与上下文附件
@@ -60,41 +104,71 @@ final class TabNavigationCoordinator {
     private init() {}
 
     func switchToTab(_ tab: AppTab) {
-        if tab == .assistant || tab == .code { assistantCodeTab = tab }
         withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-            selectedTab = tab
+            switch tab {
+            case .home:
+                selectedTab = .home
+            case .assistant:
+                topMode = .assistant
+                selectedTab = .home
+            case .code:
+                topMode = .code
+                selectedTab = .home
+            case .files:
+                selectedTab = .files
+            case .imageGen:
+                selectedTab = .imageGen
+            case .dashboard:
+                selectedTab = .home
+            }
+        }
+    }
+
+    func setTab(_ tab: AppTab) {
+        switchToTab(tab)
+    }
+
+    func switchToMode(_ mode: AssistantCodeMode) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            topMode = mode
+            selectedTab = .home
         }
     }
 
     func startNewChat() {
         shouldStartNewChat = true
-        switchToTab(.assistant)
+        topMode = .assistant
+        switchToTab(.home)
     }
 
     func navigateToAssistant(withPrompt prompt: String) {
         pendingPromptToChat = prompt
-        switchToTab(.assistant)
+        topMode = .assistant
+        switchToTab(.home)
     }
 
     func navigateToAssistantForImageGeneration(withPrompt prompt: String = "描述你想生成的图片：") {
         pendingImageGenerationPromptToChat = prompt
-        switchToTab(.assistant)
+        switchToTab(.imageGen)
     }
 
     func openConversation(id: UUID) {
         pendingOpenConversationID = id
-        switchToTab(.assistant)
+        topMode = .assistant
+        switchToTab(.home)
     }
 
     func attachFileToChat(_ file: WorkspaceFileItem) {
         pendingAttachedFile = file
         pendingPromptToChat = "请分析以下文件【\(file.name)】的内容与逻辑结构："
-        switchToTab(.assistant)
+        topMode = .assistant
+        switchToTab(.home)
     }
 
     func askAIToRefactorCode(prompt: String, file: WorkspaceFileItem?) {
         pendingAttachedFile = file
         pendingPromptToChat = prompt
-        switchToTab(.assistant)
+        topMode = .assistant
+        switchToTab(.home)
     }
 }

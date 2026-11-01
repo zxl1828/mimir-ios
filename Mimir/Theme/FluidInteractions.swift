@@ -326,7 +326,7 @@ extension View {
 struct StaticButtonFeedbackStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .brightness(configuration.isPressed ? 0.035 : 0)
+            .opacity(configuration.isPressed ? 0.75 : 1.0)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed { Haptics.impact(.light) }
             }

@@ -8,6 +8,7 @@ enum ImageGenerationService {
         var model: String
         var prompt: String
         var n = 1
+        var size: String?
     }
 
     private struct ResponseBody: Decodable {
@@ -18,7 +19,12 @@ enum ImageGenerationService {
         var data: [Image]?
     }
 
-    static func generate(prompt: String, modelID: String, credential: APICredential) async throws -> Data {
+    static func generate(
+        prompt: String,
+        modelID: String,
+        size: String? = nil,
+        credential: APICredential
+    ) async throws -> Data {
         guard credential.format == .openAI else {
             throw LLMError.unsupported("图像生成需要 OpenAI 兼容接口。")
         }
@@ -41,7 +47,7 @@ enum ImageGenerationService {
         for (header, value) in credential.extraHeaders {
             request.setValue(value, forHTTPHeaderField: header)
         }
-        request.httpBody = try JSONEncoder().encode(RequestBody(model: modelID, prompt: prompt))
+        request.httpBody = try JSONEncoder().encode(RequestBody(model: modelID, prompt: prompt, n: 1, size: size))
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {

@@ -31,6 +31,8 @@ struct CodeWorkspaceCLIView: View {
     @State private var buildResult: GitHubBuildResult?
     @FocusState private var composerFocused: Bool
 
+    // MARK: - Task 2: Voice-to-AST Diff Engine
+
     private let codeTabBarClearance: CGFloat = 66 + 12 + 28
 
     private var composerBottomClearance: CGFloat {
@@ -79,19 +81,16 @@ struct CodeWorkspaceCLIView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
-        .fileImporter(
-            isPresented: $showFolderImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            showFolderImporter = false
-            switch result {
-            case .success(let urls):
-                guard let folder = urls.first else { return }
-                loadWorkspace(from: folder)
-            case .failure(let error):
-                workspaceLoadError = error.localizedDescription
-            }
+        .sheet(isPresented: $showFolderImporter) {
+            WorkspaceFolderPicker(
+                isPresented: $showFolderImporter,
+                onPick: { folder, bookmark, didStartAccess in
+                    loadWorkspace(from: folder, bookmarkData: bookmark, securityScopeAlreadyStarted: didStartAccess)
+                },
+                onError: { err in
+                    workspaceLoadError = err
+                }
+            )
         }
         .sheet(isPresented: $showFilePicker) {
             sourceFilePicker
@@ -126,7 +125,7 @@ struct CodeWorkspaceCLIView: View {
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
-                if TabNavigationCoordinator.shared.selectedTab == .code {
+                if TabNavigationCoordinator.shared.selectedTab == .code || (TabNavigationCoordinator.shared.selectedTab == .home && TabNavigationCoordinator.shared.topMode == .code) {
                     await workspace.refreshCurrentCodeFile()
                 }
             }
@@ -137,7 +136,7 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
-    private func loadWorkspace(from folder: URL) {
+    private func loadWorkspace(from folder: URL, bookmarkData: Data? = nil, securityScopeAlreadyStarted: Bool = false) {
         isLoadingWorkspace = true
         workspaceLoadError = nil
         Task {
@@ -145,8 +144,8 @@ struct CodeWorkspaceCLIView: View {
             do {
                 try await workspace.mountFolder(
                     url: folder,
-                    bookmarkData: nil,
-                    securityScopeAlreadyStarted: false
+                    bookmarkData: bookmarkData,
+                    securityScopeAlreadyStarted: securityScopeAlreadyStarted
                 )
                 workspace.selectCodeFile(workspace.sourceFiles.first)
                 saveState = "已载入工作区"
@@ -160,8 +159,11 @@ struct CodeWorkspaceCLIView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 8) {
                 VStack(alignment: .leading, spacing: 3) {
+                    Text("CODE / LIVE WORKSPACE")
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(accent)
                     Text("代码工坊")
-                        .font(.system(size: 30, weight: .bold))
+                        .font(.system(size: 23, weight: .bold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
                 }
                 Spacer(minLength: 4)
@@ -194,8 +196,9 @@ struct CodeWorkspaceCLIView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 10)
                         .frame(height: 38)
-                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .contentShape(Capsule())
+                        .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .capsule)
+                        .overlay { Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isLoadingWorkspace)
@@ -207,8 +210,9 @@ struct CodeWorkspaceCLIView: View {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .font(.system(size: 14, weight: .semibold))
                         .frame(width: 38, height: 38)
-                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .contentShape(Circle())
+                        .liquidGlass(.regular, in: .circle)
+                        .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .accessibilityLabel("选择源码文件")
@@ -345,12 +349,17 @@ struct CodeWorkspaceCLIView: View {
             }
         }
         .frame(height: height)
-        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         }
+        .shadow(color: accent.opacity(scheme == .dark ? 0.13 : 0.09), radius: 20, y: 9)
     }
 
     private var agentPanel: some View {
@@ -409,10 +418,10 @@ struct CodeWorkspaceCLIView: View {
                 .accessibilityLabel("发送给代码 Agent")
             }
             .padding(.horizontal, 6)
-            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .liquidGlass(.regular, in: .rect(cornerRadius: 20))
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                     .allowsHitTesting(false)
             }
         }
@@ -712,5 +721,6 @@ struct CodeWorkspaceCLIView: View {
             await agent.send(prompt, workspace: workspace, settings: settings)
         }
     }
+
 
 }
