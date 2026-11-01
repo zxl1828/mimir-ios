@@ -238,7 +238,7 @@ struct DashboardView: View {
         HStack(spacing: 12) {
                 // 图像生成使用单独的服务商模型配置，不依赖当前聊天模型。
             Button {
-                coordinator.setTab(.imageGeneration)
+                coordinator.setTab(.imageGen)
             } label: {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 6) {
