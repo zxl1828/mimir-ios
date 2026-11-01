@@ -62,11 +62,7 @@ struct FilesAssetsView: View {
             }
             .correctedSoftFadeMask(topFade: 16, bottomFade: 40)
 
-            // 5. 右下角悬浮玻璃圆球 + 操作按钮 (FAB)
-            fabMenuButton
-                .padding(.trailing, 20)
-                .padding(.bottom, 82)
-                .zIndex(5)
+
 
             // 6. 底部“送入当前对话上下文”浮动栏
             if let target = selectedFileForAction {

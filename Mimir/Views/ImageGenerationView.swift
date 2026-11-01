@@ -14,6 +14,7 @@ public struct ImageGenerationView: View {
     @Environment(AppSettings.self) private var settings
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
+    @Environment(\.modelContext) private var modelContext
 
     @State private var promptText: String = ""
     @State private var selectedRatio: AspectRatioOption = .square
@@ -63,7 +64,7 @@ public struct ImageGenerationView: View {
             }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView()
+            SettingsView(list: ConversationListViewModel(modelContext: modelContext, settings: settings))
         }
         .onAppear {
             if let pending = TabNavigationCoordinator.shared.pendingImageGenerationPromptToChat {

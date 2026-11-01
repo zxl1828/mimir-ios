@@ -134,7 +134,7 @@ struct CodeWorkspaceCLIView: View {
         }
         .onDisappear {
             saveTask?.cancel()
-            persistCurrentFile()
+            Task { await persistCurrentFile() }
         }
     }
 
@@ -459,10 +459,12 @@ struct CodeWorkspaceCLIView: View {
         NavigationStack {
             List(workspace.sourceFiles) { file in
                 Button {
-                    persistCurrentFile()
-                    workspace.selectCodeFile(file)
-                    saveState = "已载入"
-                    showFilePicker = false
+                    Task {
+                        await persistCurrentFile()
+                        workspace.selectCodeFile(file)
+                        saveState = "已载入"
+                        showFilePicker = false
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: file.systemIcon).foregroundStyle(accent)
@@ -689,7 +691,7 @@ struct CodeWorkspaceCLIView: View {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             do {
-                try workspace.saveFileContent(item: file, newContent: content)
+                try await workspace.saveFileContent(item: file, newContent: content)
                 saveState = "已保存"
             } catch {
                 saveError = error.localizedDescription
@@ -698,12 +700,12 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
-    private func persistCurrentFile() {
+    private func persistCurrentFile() async {
         saveTask?.cancel()
         guard let file = workspace.currentActiveCodeFile,
               workspace.currentCodeContent != "" else { return }
         do {
-            try workspace.saveFileContent(item: file, newContent: workspace.currentCodeContent)
+            try await workspace.saveFileContent(item: file, newContent: workspace.currentCodeContent)
             saveState = "已保存"
         } catch {
             saveError = error.localizedDescription
@@ -714,10 +716,12 @@ struct CodeWorkspaceCLIView: View {
     private func submitDraft() {
         let prompt = draft
         guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        persistCurrentFile()
         draft = ""
         composerFocused = false
-        Task { await agent.send(prompt, workspace: workspace, settings: settings) }
+        Task {
+            await persistCurrentFile()
+            await agent.send(prompt, workspace: workspace, settings: settings)
+        }
     }
 
 
