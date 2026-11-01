@@ -79,7 +79,6 @@ struct MarkdownText: View {
                     .font(AppUI.body)
                     .foregroundStyle(AppUI.label)
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineBreakStrategy(.pushOut)
             }
 
         case .quote(let text):
@@ -91,7 +90,6 @@ struct MarkdownText: View {
                     .font(AppUI.body)
                     .foregroundStyle(AppUI.label2)
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineBreakStrategy(.pushOut)
             }
             .fixedSize(horizontal: false, vertical: true)
 
@@ -184,7 +182,6 @@ private struct StreamingText: View {
         .font(AppUI.body)
         .foregroundStyle(AppUI.label)
         .fixedSize(horizontal: false, vertical: true)
-        .lineBreakStrategy(.pushOut)
     }
 }
 
