@@ -56,7 +56,6 @@ struct MarkdownText: View {
                 .foregroundStyle(AppUI.label)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-                .lineBreakStrategy(.pushOut)
 
         case .bullet(let text):
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -68,7 +67,6 @@ struct MarkdownText: View {
                     .font(AppUI.body)
                     .foregroundStyle(AppUI.label)
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineBreakStrategy(.pushOut)
             }
 
         case .numbered(let marker, let text):
@@ -210,7 +208,7 @@ private struct StreamingGlyph: View {
 
 /// 简单的可换行字符布局，保证逐字动画不会破坏消息宽度。
 private struct CharacterFlowLayout: Layout {
-    func sizeThatFits(_ proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let maxWidth = proposal.width ?? .greatestFiniteMagnitude
         let rows = makeRows(maxWidth: maxWidth, subviews: subviews)
         let width = rows.map(\.width).max() ?? 0
