@@ -118,14 +118,14 @@ private enum WorkspaceFileTypes {
     }
 
     static func category(for name: String, extension ext: String, isText: Bool = false) -> WorkspaceFileItem.AssetCategory {
+        if name.localizedCaseInsensitiveContains("prompt") || ext == "prompt" {
+            return .prompt
+        }
         if isText || isTextLike(name: name, extension: ext) {
             return .code
         }
         if ["png", "jpg", "jpeg", "webp", "gif", "svg", "heic"].contains(ext) {
             return .media
-        }
-        if name.localizedCaseInsensitiveContains("prompt") || ext == "prompt" {
-            return .prompt
         }
         return .document
     }
@@ -202,6 +202,7 @@ final class WorkspaceManager {
     private var workspaceFiles: [WorkspaceFileItem] = []
     private var libraryFiles: [WorkspaceFileItem] = []
     private var libraryRevision = 0
+    private var activeSecurityScopedURL: URL?
 
     private var documentsURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -272,18 +273,29 @@ final class WorkspaceManager {
         securityScopeAlreadyStarted: Bool = false
     ) async throws {
         let needsSecurityScope = !isInAppDocuments(url)
+        let isAlreadyMountedWithScope = activeSecurityScopedURL?.standardizedFileURL == url.standardizedFileURL
+        let shouldStartScope = needsSecurityScope && !securityScopeAlreadyStarted && !isAlreadyMountedWithScope
         let (bookmarkData, scannedItems) = try await Task.detached(priority: .userInitiated) { () throws -> (Data?, [WorkspaceFileItem]) in
-            let startedHere = needsSecurityScope && !securityScopeAlreadyStarted
-            if startedHere && !url.startAccessingSecurityScopedResource() {
+            if shouldStartScope && !url.startAccessingSecurityScopedResource() {
                 throw WorkspaceAccessError.accessDenied
             }
-            defer { if startedHere || securityScopeAlreadyStarted { url.stopAccessingSecurityScopedResource() } }
-            let bookmark = needsSecurityScope
-                ? try (providedBookmark ?? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil))
-                : nil
-            let files = WorkspaceFolderScanner.scan(url)
-            return (bookmark, files)
+            do {
+                let bookmark = needsSecurityScope
+                    ? try (providedBookmark ?? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil))
+                    : nil
+                return (bookmark, WorkspaceFolderScanner.scan(url))
+            } catch {
+                if shouldStartScope { url.stopAccessingSecurityScopedResource() }
+                throw error
+            }
         }.value
+        if let oldScope = activeSecurityScopedURL, oldScope.standardizedFileURL != url.standardizedFileURL {
+            oldScope.stopAccessingSecurityScopedResource()
+            activeSecurityScopedURL = nil
+        }
+        if shouldStartScope || securityScopeAlreadyStarted || isAlreadyMountedWithScope {
+            activeSecurityScopedURL = url
+        }
         addFolderURL(url)
         if let bookmarkData { saveBookmark(bookmarkData, for: url) }
         guard activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL else { return }
@@ -300,9 +312,11 @@ final class WorkspaceManager {
     /// 扫描挂载目录内容。
     func scanFolder(url: URL) async {
         let needsSecurityScope = !isInAppDocuments(url)
+        let scopeAlreadyHeld = activeSecurityScopedURL?.standardizedFileURL == url.standardizedFileURL
         let scannedItems = await Task.detached(priority: .userInitiated) { () -> [WorkspaceFileItem]? in
-            if needsSecurityScope && !url.startAccessingSecurityScopedResource() { return nil }
-            defer { if needsSecurityScope { url.stopAccessingSecurityScopedResource() } }
+            let started = needsSecurityScope && !scopeAlreadyHeld && url.startAccessingSecurityScopedResource()
+            if needsSecurityScope && !scopeAlreadyHeld && !started { return nil }
+            defer { if started { url.stopAccessingSecurityScopedResource() } }
             return WorkspaceFolderScanner.scan(url)
         }.value
         guard let scannedItems else {
@@ -387,9 +401,10 @@ final class WorkspaceManager {
             }
             let accessURL = isLocalLibraryFile ? nil : (scopeRoot ?? url)
             let needsSecurityScope = accessURL.map { !isInAppDocuments($0) } ?? false
-            let accessing = !needsSecurityScope || (accessURL?.startAccessingSecurityScopedResource() ?? true)
+            let scopeAlreadyHeld = accessURL.map { activeSecurityScopedURL?.standardizedFileURL == $0.standardizedFileURL } ?? false
+            let accessing = !needsSecurityScope || scopeAlreadyHeld || (accessURL?.startAccessingSecurityScopedResource() ?? true)
             guard accessing else { return "// 文件内容为空或二进制不可读" }
-            defer { if needsSecurityScope { accessURL?.stopAccessingSecurityScopedResource() } }
+            defer { if needsSecurityScope && !scopeAlreadyHeld { accessURL?.stopAccessingSecurityScopedResource() } }
             if let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
                let size = values.fileSize,
                Int64(size) > WorkspaceFileTypes.maxTextFileBytes {
@@ -411,10 +426,11 @@ final class WorkspaceManager {
         }
         let accessURL = localLibraryFile ? nil : (scopeRoot ?? url)
         let needsSecurityScope = accessURL.map { !isInAppDocuments($0) } ?? false
+        let scopeAlreadyHeld = accessURL.map { activeSecurityScopedURL?.standardizedFileURL == $0.standardizedFileURL } ?? false
         return await Task.detached(priority: .userInitiated) {
-            let accessing = !needsSecurityScope || (accessURL?.startAccessingSecurityScopedResource() ?? true)
+            let accessing = !needsSecurityScope || scopeAlreadyHeld || (accessURL?.startAccessingSecurityScopedResource() ?? true)
             guard accessing else { return "// 无法访问此文件。" }
-            defer { if needsSecurityScope { accessURL?.stopAccessingSecurityScopedResource() } }
+            defer { if needsSecurityScope && !scopeAlreadyHeld { accessURL?.stopAccessingSecurityScopedResource() } }
             guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
                   Int64(values.fileSize ?? 0) <= WorkspaceFileTypes.maxTextFileBytes else {
                 return "// 文件超过 4 MB，编辑器不会加载。"
@@ -694,6 +710,13 @@ final class WorkspaceManager {
             ) {
                 if !mountedWorkspaces.contains(resolvedURL) {
                     mountedWorkspaces.append(resolvedURL)
+                }
+                if !isInAppDocuments(resolvedURL), resolvedURL.startAccessingSecurityScopedResource() {
+                    if let previousScope = activeSecurityScopedURL,
+                       previousScope.standardizedFileURL != resolvedURL.standardizedFileURL {
+                        previousScope.stopAccessingSecurityScopedResource()
+                    }
+                    activeSecurityScopedURL = resolvedURL
                 }
                 // The most recently saved bookmark wins over the private default workspace.
                 activeWorkspaceURL = resolvedURL

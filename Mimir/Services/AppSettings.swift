@@ -75,6 +75,7 @@ final class AppSettings {
         static let selectedAgent = "settings.agent.selected.v1"
         static let customModels = "settings.custom.models.v1"
         static let imageGenerationModelID = "settings.image-generation.model-id.v1"
+        static let imageGenerationBaseURL = "settings.image-generation.base-url.v1"
         static let webSearch = "settings.websearch.v1"
         static let appearance = "settings.appearance.v1"
         static let accent = "settings.accent.v1"
@@ -88,6 +89,7 @@ final class AppSettings {
         static let profileAvatarFilename = "settings.profile.avatar-filename.v1"
         static let biometricLock = "settings.privacy.biometric-lock.v1"
         static let secretAccount = "app.api.key"
+        static let imageGenerationSecretAccount = "app.image-generation.api.key"
         static let webSearchSecretAccount = "websearch.api.key"
         static let githubSecretAccount = "github.actions.token"
     }
@@ -144,6 +146,10 @@ final class AppSettings {
     /// Optional OpenAI-compatible image model, independent from the chat model.
     var imageGenerationModelID: String {
         didSet { defaults.set(imageGenerationModelID, forKey: Key.imageGenerationModelID) }
+    }
+
+    var imageGenerationBaseURL: String {
+        didSet { defaults.set(imageGenerationBaseURL, forKey: Key.imageGenerationBaseURL) }
     }
 
     var webSearch: WebSearchConfiguration {
@@ -237,6 +243,7 @@ final class AppSettings {
         self.selectedAgentName = defaults.string(forKey: Key.selectedAgent) ?? ""
         self.customModels = Self.load([CustomModelEntry].self, from: defaults, key: Key.customModels) ?? []
         self.imageGenerationModelID = defaults.string(forKey: Key.imageGenerationModelID) ?? ""
+        self.imageGenerationBaseURL = defaults.string(forKey: Key.imageGenerationBaseURL) ?? "https://api.openai.com/v1"
         self.webSearch = Self.load(WebSearchConfiguration.self, from: defaults, key: Key.webSearch)
             ?? WebSearchConfiguration()
         self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")
@@ -291,6 +298,26 @@ final class AppSettings {
         if value.baseURL.isEmpty { value.baseURL = value.format.defaultBaseURL }
         if value.modelID.isEmpty { value.modelID = value.format.defaultModelID }
         return value
+    }
+
+    var resolvedImageGenerationCredential: APICredential {
+        APICredential(
+            key: keychain.string(for: Key.imageGenerationSecretAccount) ?? "",
+            format: .openAI,
+            baseURL: imageGenerationBaseURL,
+            modelID: imageGenerationModelID
+        )
+    }
+
+    func storeImageGenerationCredential(key: String, baseURL: String, modelID: String) throws {
+        let trimmedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedKey.isEmpty {
+            try keychain.remove(account: Key.imageGenerationSecretAccount)
+        } else {
+            try keychain.setString(trimmedKey, for: Key.imageGenerationSecretAccount)
+        }
+        imageGenerationBaseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        imageGenerationModelID = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var resolvedGitHubToken: String {

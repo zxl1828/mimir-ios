@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 /// 页面一：工作台仪表盘（DashboardView）。
 ///
@@ -50,9 +51,8 @@ struct DashboardView: View {
     }
 
     private var imageGenerationAvailable: Bool {
-        settings.credential.format == .openAI
-            && !settings.credential.baseURL.lowercased().contains("deepseek.com")
-            && !settings.imageGenerationModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let credential = settings.resolvedImageGenerationCredential
+        return !credential.key.isEmpty && !credential.modelID.isEmpty && !credential.baseURL.isEmpty
     }
 
     var body: some View {
@@ -87,10 +87,7 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity)
         }
         .correctedSoftFadeMask(topFade: 16, bottomFade: 40)
-        .background {
-            AppUI.ambientBackground(scheme: scheme)
-                .ignoresSafeArea()
-        }
+        .background(Color.clear)
         .sheet(isPresented: $showSettings) {
             SettingsView(list: ConversationListViewModel(modelContext: modelContext, settings: settings))
         }
@@ -241,7 +238,7 @@ struct DashboardView: View {
         HStack(spacing: 12) {
                 // 图像生成使用单独的服务商模型配置，不依赖当前聊天模型。
             Button {
-                coordinator.navigateToAssistantForImageGeneration()
+                coordinator.setTab(.imageGeneration)
             } label: {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 6) {
@@ -672,26 +669,12 @@ struct DashboardView: View {
                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .liquidGlass(
-                        .regular.tint(accent.opacity(0.40)),
-                        in: .capsule
-                    )
+                    .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay {
-                        Capsule(style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(scheme == .dark ? 0.50 : 0.85),
-                                        accent.opacity(0.50)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.1
-                            )
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .strokeBorder(accent.opacity(0.16), lineWidth: 1)
                             .allowsHitTesting(false)
                     }
-                    .shadow(color: accent.opacity(scheme == .dark ? 0.35 : 0.16), radius: 10, y: 3)
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .padding(.top, 4)

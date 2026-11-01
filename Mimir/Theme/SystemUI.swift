@@ -269,15 +269,19 @@ struct AppBackgroundView: View {
             //    注意：壁纸必须放在动态环境层**之下**，否则会把环境光/流光整层盖住，
             //    这正是此前「环境光实时融合完全没体现」的原因。
             if let name = background.assetName {
-                Image(name)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
-                    .overlay(
-                        AppUI.ambientBackground(scheme: scheme)
-                            .opacity(scheme == .dark ? 0.68 : 0.82)
-                    )
+                GeometryReader { proxy in
+                    Image(name)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                        .ignoresSafeArea()
+                        .overlay(
+                            AppUI.ambientBackground(scheme: scheme)
+                                .opacity(scheme == .dark ? 0.68 : 0.82)
+                        )
+                }
+                .ignoresSafeArea()
             }
 
             // 3. 动态环境层：低功耗现实环境光实时融合 vs 模拟动态流光

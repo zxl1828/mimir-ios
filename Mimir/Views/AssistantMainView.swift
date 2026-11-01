@@ -86,14 +86,7 @@ public struct AssistantMainView: View {
 
             // Status-bar lighting and blur sit behind controls so they never frost the top bar.
             mainColumn
-                .background {
-                    ZStack(alignment: .top) {
-                        AppBackgroundView(background: settings.background)
-                        topStatusBarAmbientGlow
-                        topBlurScrim
-                    }
-                    .ignoresSafeArea()
-                }
+                .background { topStatusBarAmbientGlow }
         }
         .task { await bootstrap() }
         .sheet(isPresented: $showBeamSetup) {
@@ -348,14 +341,14 @@ public struct AssistantMainView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 22))
+        .liquidGlass(.regular, in: .rect(cornerRadius: 16))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         }
         .overlay(alignment: .top) {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [Color.white.opacity(scheme == .dark ? 0.20 : 0.50), .clear],
@@ -587,8 +580,8 @@ public struct AssistantMainView: View {
                     .foregroundStyle(accent)
                     .padding(.horizontal, 11)
                     .padding(.vertical, 7)
-                    .liquidGlass(.regular.tint(accent.opacity(0.10)), in: .capsule)
-                    .overlay(Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8))
+                    .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -862,8 +855,8 @@ public struct AssistantMainView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 12))
-        .glassHairline(cornerRadius: 12)
+        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
     }
 
     private var toolsDrawerContent: some View {
@@ -921,8 +914,7 @@ public struct AssistantMainView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(accent)
                     .frame(width: 44, height: 44)
-                    .liquidGlass(.regular, in: .circle)
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.8))
+                    .background(Color(uiColor: .secondarySystemBackground), in: Circle())
 
                 Text(title)
                     .font(.system(size: 12, weight: .medium))
@@ -1000,9 +992,10 @@ public struct AssistantMainView: View {
     }
 
     private var imageGenerationAvailable: Bool {
-        settings.credential.format == .openAI
-            && !settings.credential.baseURL.lowercased().contains("deepseek.com")
-            && !settings.imageGenerationModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let credential = settings.resolvedImageGenerationCredential
+        return !credential.key.isEmpty
+            && !credential.baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !credential.modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func generateImage() {
@@ -1020,8 +1013,8 @@ public struct AssistantMainView: View {
         let prompt = chat.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty else { return }
 
-        let credential = settings.resolvedCredential
-        let imageModelID = settings.imageGenerationModelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let credential = settings.resolvedImageGenerationCredential
+        let imageModelID = credential.modelID.trimmingCharacters(in: .whitespacesAndNewlines)
         let userMessage = ChatMessage(
             role: .user,
             text: "生成图片：\(prompt)",

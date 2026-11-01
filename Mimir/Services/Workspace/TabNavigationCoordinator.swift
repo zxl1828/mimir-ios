@@ -7,8 +7,9 @@ enum AppTab: Int, CaseIterable, Identifiable, Sendable {
     case dashboard = 1   // 工作台仪表盘
     case files = 2       // 知识资产库
     case code = 3        // 代码工坊
+    case imageGeneration = 4 // AI 生图
 
-    static var bottomNavigationCases: [AppTab] { [.dashboard, .files] }
+    static var bottomNavigationCases: [AppTab] { [.dashboard, .files, .imageGeneration] }
 
     var id: Int { rawValue }
 
@@ -18,6 +19,7 @@ enum AppTab: Int, CaseIterable, Identifiable, Sendable {
         case .dashboard: return "Dashboard"
         case .files: return "Files"
         case .code: return "Code"
+        case .imageGeneration: return "Image"
         }
     }
 
@@ -27,6 +29,7 @@ enum AppTab: Int, CaseIterable, Identifiable, Sendable {
         case .dashboard: return "square.grid.2x2"
         case .files: return "folder"
         case .code: return "chevron.left.forwardslash.chevron.right"
+        case .imageGeneration: return "photo.badge.plus"
         }
     }
 }

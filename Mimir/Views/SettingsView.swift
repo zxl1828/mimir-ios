@@ -448,6 +448,8 @@ private struct APIConfigSettingsView: View {
     @State private var isValidating = false
     @State private var discoveredModelIDs: [String] = []
     @State private var isFetchingModels = false
+    @State private var imageKeyDraft = ""
+    @State private var imageSaveMessage: String?
 
     var body: some View {
         @Bindable var settings = settings
@@ -491,18 +493,6 @@ private struct APIConfigSettingsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(AppFont.codeSmall)
-
-                TextField("图像生成模型 ID（可选）", text: $settings.imageGenerationModelID)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(AppFont.codeSmall)
-                    .disabled(!supportsImageGenerationProvider)
-
-                if !supportsImageGenerationProvider {
-                    Text("图像生成需要非 DeepSeek 的 OpenAI 兼容服务，并支持 /images/generations。")
-                        .font(AppFont.hint)
-                        .foregroundStyle(AppUI.label2)
-                }
 
                 if !discoveredModelIDs.isEmpty {
                     Picker("已解析模型", selection: $settings.credential.modelID) {
@@ -549,7 +539,40 @@ private struct APIConfigSettingsView: View {
             } header: {
                 Text("接入")
             } footer: {
-                Text("Key 只保存在本机钥匙串中。可填写服务商 Base URL 并读取 /models 列表；也可以直接输入模型 ID。图像生成使用单独配置的模型 ID，并调用兼容服务商的 /images/generations 接口。")
+                Text("Key 只保存在本机钥匙串中。可填写服务商 Base URL 并读取 /models 列表；也可以直接输入模型 ID。")
+            }
+
+            Section {
+                SecureField("图像服务 Key", text: $imageKeyDraft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                TextField("图像 Base URL", text: $settings.imageGenerationBaseURL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                TextField("图像模型 ID", text: $settings.imageGenerationModelID)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Button("保存图像服务配置") {
+                    do {
+                        try settings.storeImageGenerationCredential(
+                            key: imageKeyDraft,
+                            baseURL: settings.imageGenerationBaseURL,
+                            modelID: settings.imageGenerationModelID
+                        )
+                        imageSaveMessage = "图像服务配置已保存"
+                    } catch {
+                        imageSaveMessage = error.localizedDescription
+                    }
+                }
+                if let imageSaveMessage {
+                    Text(imageSaveMessage)
+                        .font(AppFont.hint)
+                        .foregroundStyle(AppUI.label2)
+                }
+            } header: {
+                Text("AI 生图")
+            } footer: {
+                Text("使用独立的 Base URL、Key 和模型 ID，不会改变聊天模型配置。服务需兼容 /images/generations。")
             }
 
             Section {
@@ -595,6 +618,7 @@ private struct APIConfigSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             keyDraft = settings.resolvedCredential.key
+            imageKeyDraft = settings.resolvedImageGenerationCredential.key
             discoveredModelIDs = settings.customModels
                 .filter { $0.baseURL == settings.credential.baseURL && $0.format == settings.credential.format }
                 .map(\.modelID)
@@ -643,11 +667,6 @@ private struct APIConfigSettingsView: View {
         } catch {
             validationMessage = error.localizedDescription
         }
-    }
-
-    private var supportsImageGenerationProvider: Bool {
-        settings.credential.format == .openAI
-            && !settings.credential.baseURL.lowercased().contains("deepseek.com")
     }
 
     private func draftCredential() -> APICredential {

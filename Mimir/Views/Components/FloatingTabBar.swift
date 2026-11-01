@@ -16,12 +16,12 @@ struct FloatingTabBar: View {
         .padding(.vertical, 7)
         .frame(height: 66)
         .background {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill((scheme == .dark ? Color(hex: "120D1D") : Color.white).opacity(0.82))
         }
-        .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.08)), in: .capsule)
+        .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.08)), in: .rect(cornerRadius: 16))
         .overlay {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
                     Color.white.opacity(0.86),
                     lineWidth: 1.0
@@ -29,7 +29,7 @@ struct FloatingTabBar: View {
                 .allowsHitTesting(false)
         }
         .overlay(alignment: .top) {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -46,12 +46,6 @@ struct FloatingTabBar: View {
                 .padding(.top, 1)
                 .allowsHitTesting(false)
         }
-        .shadow(
-            color: Color(hex: "7D52F4").opacity(0.12),
-            radius: 24,
-            x: 0,
-            y: 10
-        )
         .frame(maxWidth: 360)
         .padding(.horizontal, 16)
     }
@@ -84,11 +78,11 @@ struct FloatingTabBar: View {
             .frame(maxWidth: .infinity, minHeight: 50)
             .background {
                 if isSelected {
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(tab.functionColor.opacity(0.12))
-                        .liquidGlass(.regular.tint(tab.functionColor.opacity(0.18)), in: .capsule)
+                        .liquidGlass(.regular.tint(tab.functionColor.opacity(0.18)), in: .rect(cornerRadius: 12))
                         .overlay {
-                            Capsule(style: .continuous)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .fill(
                                     LinearGradient(
                                         colors: [Color.white.opacity(0.62), .clear],
@@ -99,14 +93,14 @@ struct FloatingTabBar: View {
                                 .padding(0.8)
                         }
                         .overlay(
-                            Capsule(style: .continuous)
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.82), lineWidth: 1)
                         )
-                        .shadow(color: tab.functionColor.opacity(0.18), radius: 9, y: 2)
+                        .shadow(color: tab.functionColor.opacity(0.12), radius: 4, y: 1)
                 }
             }
             .animation(.easeInOut(duration: 0.18), value: isSelected)
-            .contentShape(Capsule(style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel(tab.title)
@@ -125,6 +119,7 @@ private extension AppTab {
         case .dashboard: return Color(hex: "3977E8")
         case .files: return Color(hex: "28A89B")
         case .code: return Color(hex: "D87B40")
+        case .imageGeneration: return Color(hex: "7D52F4")
         }
     }
 
@@ -134,6 +129,7 @@ private extension AppTab {
         case .dashboard: "Home"
         case .files: "Files"
         case .code: "Code"
+        case .imageGeneration: "生图"
         }
     }
 }

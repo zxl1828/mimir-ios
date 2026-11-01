@@ -78,10 +78,7 @@ struct FilesAssetsView: View {
                     .zIndex(6)
             }
         }
-        .background {
-            AppUI.ambientBackground(scheme: scheme)
-                .ignoresSafeArea()
-        }
+        .background(Color.clear)
         .fileImporter(
             isPresented: $showFolderImporter,
             allowedContentTypes: [.folder],
@@ -93,8 +90,8 @@ struct FilesAssetsView: View {
                 if let folder = urls.first {
                     mountWorkspace(urls: [folder])
                 }
-            case .failure:
-                break
+            case .failure(let error):
+                workspaceImportError = error.localizedDescription
             }
         }
         .fileImporter(
@@ -142,24 +139,20 @@ struct FilesAssetsView: View {
                         .minimumScaleFactor(0.82)
                 }
                 Spacer(minLength: 8)
-                Button {
-                    Haptics.impact(.light)
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                        isGridView.toggle()
+                Menu {
+                    Button(isGridView ? "切换为列表" : "切换为网格") {
+                        withAnimation(.easeInOut(duration: 0.18)) { isGridView.toggle() }
                     }
+                    Button("选择项目文件夹") { showFolderImporter = true }
+                    Button("导入本地文件") { showFileImporter = true }
+                    Button("新建文档") { showNewDocSheet = true }
                 } label: {
-                    Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
-                        .font(.system(size: 15, weight: .medium))
+                    Label("文件操作", systemImage: "ellipsis.circle")
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                         .frame(width: 36, height: 36)
-                        .liquidGlass(.clear, in: .rect(cornerRadius: 12))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                                .allowsHitTesting(false)
-                        }
                 }
-                .buttonStyle(StaticButtonFeedbackStyle())
+                .buttonStyle(.plain)
             }
 
             HStack(spacing: 7) {
@@ -179,7 +172,7 @@ struct FilesAssetsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .softGlassCard(cornerRadius: 24)
+        .softGlassCard(cornerRadius: 16)
     }
 
     // MARK: - 2. 搜索与分类过滤栏
@@ -314,7 +307,7 @@ struct FilesAssetsView: View {
             .disabled(isMountingWorkspace)
         }
         .padding(12)
-        .softGlassCard(cornerRadius: 18)
+        .softGlassCard(cornerRadius: 16)
     }
 
     private func mountWorkspace(urls: [URL]) {
@@ -412,21 +405,6 @@ struct FilesAssetsView: View {
             }
         }
         .buttonStyle(StaticButtonFeedbackStyle())
-        .interactiveGlassCard(
-            cornerRadius: 16,
-            actions: [
-                GlassCardAction(title: "挂载上下文", icon: "arrowshape.turn.up.right") {
-                    coordinator.attachFileToChat(item)
-                },
-                GlassCardAction(title: "快速预览", icon: "eye") {
-                    previewFileItem = item
-                },
-                GlassCardAction(title: "删除文件", icon: "trash", role: .destructive) {
-                    do { try workspace.deleteFile(item) }
-                    catch { workspaceImportError = error.localizedDescription }
-                }
-            ]
-        )
         .contextMenu {
             Button {
                 coordinator.attachFileToChat(item)
@@ -445,6 +423,12 @@ struct FilesAssetsView: View {
                 } label: {
                     Label("在代码工坊中打开", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
+            }
+            Button(role: .destructive) {
+                do { try workspace.deleteFile(item) }
+                catch { workspaceImportError = error.localizedDescription }
+            } label: {
+                Label("删除文件", systemImage: "trash")
             }
         }
     }
@@ -494,7 +478,7 @@ struct FilesAssetsView: View {
                             .foregroundStyle(isSelected ? accent : AppUI.textCaption(scheme: scheme))
                     }
                     .padding(12)
-                    .softGlassCard(cornerRadius: 14)
+                    .softGlassCard(cornerRadius: 16)
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
             }
@@ -546,7 +530,7 @@ struct FilesAssetsView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 30)
         .frame(maxWidth: .infinity)
-        .softGlassCard(cornerRadius: 26)
+        .softGlassCard(cornerRadius: 16)
     }
 
     // MARK: - 5. 浮动操作按钮 (FAB)
@@ -588,7 +572,6 @@ struct FilesAssetsView: View {
                                 )
                             )
                     }
-                    .liquidGlass(.regular.tint(accent.opacity(0.60)), in: .circle)
                     .overlay {
                         Circle()
                             .strokeBorder(Color.white.opacity(0.65), lineWidth: 1.2)
@@ -616,7 +599,6 @@ struct FilesAssetsView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .liquidGlass(.regular, in: .capsule)
             .overlay {
                 Capsule(style: .continuous)
                     .strokeBorder(Color.white.opacity(scheme == .dark ? 0.35 : 0.70), lineWidth: 0.8)
@@ -660,12 +642,9 @@ struct FilesAssetsView: View {
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .liquidGlass(
-                    .regular.tint(accent.opacity(0.85)),
-                    in: .capsule
-                )
+                .background(accent, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay {
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.40), lineWidth: 0.9)
                         .allowsHitTesting(false)
                 }

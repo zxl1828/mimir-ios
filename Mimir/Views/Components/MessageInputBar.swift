@@ -60,36 +60,18 @@ struct MessageInputBar: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            // Dispatch Omni-Bar：液态玻璃大圆角悬浮胶囊 + 高位白光折射描边
-            .liquidGlass(cornerRadius: 16, isHighlighted: focus.wrappedValue, glowIntensity: 0.12)
+            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: focus.wrappedValue ? 0 : 0.6)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(accent.opacity(focus.wrappedValue ? 0.42 : 0.08), lineWidth: 1)
                     .allowsHitTesting(false)
             }
-            .overlay(alignment: .top) {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(focus.wrappedValue ? 0.36 : 0.22),
-                                Color.white.opacity(0.06),
-                                .clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(height: 25)
-                    .padding(.horizontal, 1)
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(accent.opacity(focus.wrappedValue ? 0.18 : 0), lineWidth: 3)
+                    .padding(-3)
                     .allowsHitTesting(false)
             }
-            .shadow(
-                color: accent.opacity(focus.wrappedValue ? 0.30 : 0),
-                radius: 0,
-                y: 0
-            )
-            .shadow(color: accent.opacity(focus.wrappedValue ? 0.16 : 0), radius: 2, y: 0)
             .animation(.spring(response: 0.32, dampingFraction: 0.84), value: focus.wrappedValue)
         }
         .animation(AppAnimation.chip, value: attachments.count)
@@ -106,10 +88,7 @@ struct MessageInputBar: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppUI.label)
                 .frame(width: 36, height: 36)
-                .liquidGlass(
-                    showAttachMenu ? .regular.tint(accent.opacity(0.35)) : .clear,
-                    in: .circle
-                )
+                .background(showAttachMenu ? accent.opacity(0.16) : Color(uiColor: .tertiarySystemBackground), in: Circle())
                 .overlay(
                     Circle()
                         .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
@@ -151,7 +130,6 @@ struct MessageInputBar: View {
                     Circle()
                         .fill(accent.opacity(0.18))
                         .frame(width: 36, height: 36)
-                        .liquidGlass(.clear, in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(accent.opacity(0.6), lineWidth: 1)
@@ -169,12 +147,10 @@ struct MessageInputBar: View {
                             )
                         )
                         .frame(width: 36, height: 36)
-                        .liquidGlass(.regular.tint(accent.opacity(0.60)), in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(Color.white.opacity(0.45), lineWidth: 0.9)
                         )
-                        .shadow(color: accent.opacity(scheme == .dark ? 0.65 : 0.35), radius: 10, y: 2)
                     Image(systemName: "arrow.up")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(.white)
@@ -191,7 +167,6 @@ struct MessageInputBar: View {
                             )
                         )
                         .frame(width: 36, height: 36)
-                        .liquidGlass(.regular.tint(accent.opacity(0.25)), in: .circle)
                         .overlay(
                             Circle()
                                 .strokeBorder(accent.opacity(0.45), lineWidth: 0.9)

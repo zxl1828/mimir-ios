@@ -7,13 +7,16 @@ import UIKit
 /// - Tab 1: 智能助手 (AI Assistant) —— 核心对话、多轮推理与星尘阶梯滑块（AssistantMainView）
 /// - Tab 2: 工作台仪表盘 (Dashboard) —— 综合监控、快速技能与任务总览（DashboardView）
 /// - Tab 3: 知识资产库 (Files & Assets) —— 手机本地工作区挂载、RAG 资料库与多模态资产（FilesAssetsView）
-/// - Tab 4: 代码工坊 (Code Workspace) —— 沉浸式代码审查、Web 实时预览与 MCP 编译控制台（CodeWorkspaceCLIView）
+/// - 顶部切换：代码工坊 (Code Workspace)
+/// - 底部独立入口：AI 生图 (ImageGenerationView)
 ///
 /// 键盘弹起精准避让与 TabBar 智能隐藏：
 /// 1. 移除根容器盲目添加的 `.ignoresSafeArea(.keyboard)`；
 /// 2. 激活输入时 TabBar 沿 Y 轴平滑下沉 100pt 并淡出（offset: 100, opacity: 0）；
 /// 3. 四大工作区常驻内存，保持状态不被重置。
 public struct RootContainerView: View {
+
+    @Environment(AppSettings.self) private var settings
 
     @State private var coordinator = TabNavigationCoordinator.shared
     @State private var isKeyboardVisible = false
@@ -24,6 +27,11 @@ public struct RootContainerView: View {
         @Bindable var coord = coordinator
 
         ZStack(alignment: .bottom) {
+            AppBackgroundView(background: settings.background)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .ignoresSafeArea()
+                .zIndex(-1)
+
             // 4 大页面常驻栈（保持各页面独立滚动与交互状态）
             ZStack {
                 AssistantMainView()
@@ -45,6 +53,11 @@ public struct RootContainerView: View {
                     .opacity(coordinator.selectedTab == .code ? 1 : 0)
                     .allowsHitTesting(coordinator.selectedTab == .code)
                     .zIndex(coordinator.selectedTab == .code ? 2 : 1)
+
+                ImageGenerationView()
+                    .opacity(coordinator.selectedTab == .imageGeneration ? 1 : 0)
+                    .allowsHitTesting(coordinator.selectedTab == .imageGeneration)
+                    .zIndex(coordinator.selectedTab == .imageGeneration ? 2 : 1)
             }
             .animation(.easeInOut(duration: 0.18), value: coordinator.selectedTab)
 
@@ -64,8 +77,8 @@ public struct RootContainerView: View {
             AssistantCodeSwitcher(selectedTab: coordinator.assistantCodeTab) { tab in
                 coordinator.switchToTab(tab)
             }
-                .padding(.top, 5)
-                .padding(.bottom, 5)
+            .padding(.top, 5)
+            .padding(.bottom, 5)
         }
         .simultaneousGesture(
             DragGesture(minimumDistance: 60)
