@@ -867,7 +867,6 @@ struct CodeWorkspaceCLIView: View {
 
     private func commitRefactoredCode(_ newCode: String) {
         guard let currentFile = workspace.currentActiveCodeFile else { return }
-        do {
         Task {
             do {
                 try await workspace.saveFileContent(item: currentFile, newContent: newCode)
