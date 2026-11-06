@@ -6,6 +6,7 @@ struct MimirMascot: View {
     var size: CGFloat = 72
     var mood: Mood = .calm
     var animated: Bool = false
+    var showsOrbit: Bool = true
 
     var body: some View {
         Canvas { context, canvasSize in
@@ -17,13 +18,15 @@ struct MimirMascot: View {
             let metalDeep = Color(hex: "17102E")
             let neon = Color(hex: "B18CFF")
 
-            var orbit = Path()
-            for index in 0...80 {
-                let a = Double(index) / 80 * Double.pi * 2
-                let point = p(50 + CGFloat(cos(a)) * 44, 50 + CGFloat(sin(a)) * 14)
-                if index == 0 { orbit.move(to: point) } else { orbit.addLine(to: point) }
+            if showsOrbit {
+                var orbit = Path()
+                for index in 0...80 {
+                    let a = Double(index) / 80 * Double.pi * 2
+                    let point = p(50 + CGFloat(cos(a)) * 44, 50 + CGFloat(sin(a)) * 14)
+                    if index == 0 { orbit.move(to: point) } else { orbit.addLine(to: point) }
+                }
+                context.stroke(orbit, with: .color(neon.opacity(0.68)), lineWidth: 1.0 * s)
             }
-            context.stroke(orbit, with: .color(neon.opacity(0.68)), lineWidth: 1.0 * s)
 
             let torso = Path(roundedRect: CGRect(x: 33 * s, y: 34 * s, width: 34 * s, height: 38 * s), cornerRadius: 13 * s)
             context.fill(torso, with: .linearGradient(Gradient(colors: [metalTop, metalMid, metalDeep]), startPoint: p(42, 32), endPoint: p(60, 72)))
