@@ -28,6 +28,9 @@ struct FilesAssetsView: View {
 
     @State private var showFileImporter = false
 
+    /// 同一层级只用一个 presentation 槽位：新建文档与文件预览都走这张表。
+    @State private var activeSheet: FilesAssetsSheet?
+
     @State private var selectedFileForAction: WorkspaceFileItem?
 
     @State private var isMountingWorkspace = false
@@ -139,6 +142,8 @@ struct FilesAssetsView: View {
                 }
                 Spacer(minLength: 8)
                 Menu {
+
+                    Button("新建知识文档", systemImage: "square.and.pencil") { activeSheet = .newDocument }
 
                     Button("导入本地文件", systemImage: "doc.badge.plus") { showFileImporter = true }
 
@@ -290,7 +295,7 @@ struct FilesAssetsView: View {
 
             Button {
                 Haptics.impact(.light)
-
+                presentFolderPicker()
             } label: {
                 Text(isMountingWorkspace ? "正在读取…" : (workspace.isUsingDefaultWorkspace ? "选择目录" : "重新选择"))
                     .font(.system(size: 11.5, weight: .bold))
@@ -452,7 +457,7 @@ struct FilesAssetsView: View {
                 Label("送入当前对话上下文", systemImage: "arrowshape.turn.up.right")
             }
             Button {
-
+                activeSheet = .preview(item)
             } label: {
                 Label("查看文件详情/代码", systemImage: "doc.text.magnifyingglass")
             }
@@ -493,7 +498,7 @@ struct FilesAssetsView: View {
                 Label("送入当前对话上下文", systemImage: "arrowshape.turn.up.right")
             }
             Button {
-
+                activeSheet = .preview(item)
             } label: {
                 Label("查看文件详情/代码", systemImage: "doc.text.magnifyingglass")
             }

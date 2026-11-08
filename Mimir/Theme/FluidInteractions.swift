@@ -323,10 +323,15 @@ extension View {
 
 // MARK: - 7. Static button feedback
 
+/// 全局按钮按压反馈：只做 iOS 原生的轻微缩小与透明度变化，不画水波纹、不发光。
 struct StaticButtonFeedbackStyle: ButtonStyle {
+    var pressedScale: CGFloat = 0.97
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.75 : 1.0)
+            .scaleEffect(configuration.isPressed ? pressedScale : 1.0)
+            .opacity(configuration.isPressed ? 0.82 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed { Haptics.impact(.light) }
             }
