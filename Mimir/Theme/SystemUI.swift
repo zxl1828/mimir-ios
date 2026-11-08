@@ -294,6 +294,12 @@ struct AppBackgroundView: View {
                 meshGradientOverlay
                     .opacity(background.assetName == nil ? 1.0 : 0.55)
             }
+
+            // 4. 细点阵纹理：给均匀的渐变底加一层"纸张"颗粒。
+            //    这是参照截图里最容易忽略、却最像"人做的"的细节——纯渐变永远像程序生成的。
+            DotGridTexture()
+                .opacity(scheme == .dark ? 0.6 : 0.8)
+                .allowsHitTesting(false)
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.25), value: background)
@@ -552,6 +558,38 @@ struct LiquidGlassModifier: ViewModifier {
                 y: 4
             )
             .animation(AppUI.snap, value: isHighlighted)
+    }
+}
+
+/// 22pt 间距的细点阵纹理。
+///
+/// 纯 `Canvas` 绘制，不占图片资源；`rendersAsynchronously` 让它在主线程之外栅格化，
+/// 滚动时不会掉帧。深色下点用白色、浅色下用黑色，透明度都压到 5% 左右——
+/// 只在斜着看屏幕时"隐约有格"。
+struct DotGridTexture: View {
+
+    @Environment(\.colorScheme) private var scheme
+
+    var spacing: CGFloat = 22
+    var dotSize: CGFloat = 1.1
+
+    var body: some View {
+        Canvas(rendersAsynchronously: true) { context, size in
+            let color = scheme == .dark
+                ? Color.white.opacity(0.06)
+                : Color.black.opacity(0.05)
+            var y: CGFloat = 0
+            while y < size.height {
+                var x: CGFloat = 0
+                while x < size.width {
+                    let rect = CGRect(x: x, y: y, width: dotSize, height: dotSize)
+                    context.fill(Path(ellipseIn: rect), with: .color(color))
+                    x += spacing
+                }
+                y += spacing
+            }
+        }
+        .ignoresSafeArea()
     }
 }
 

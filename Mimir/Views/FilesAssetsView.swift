@@ -73,16 +73,30 @@ struct FilesAssetsView: View {
             }
         }
         .background(Color.clear)
-        .sheet(isPresented: $showFolderImporter) {
-            WorkspaceFolderPicker(
-                isPresented: $showFolderImporter,
-                onPick: { folder, bookmark, didStartAccess in
-                    mountWorkspace(urls: [folder], bookmarkData: bookmark, securityScopeAlreadyStarted: didStartAccess)
-                },
-                onError: { err in
-                    workspaceImportError = err
+        .fileImporter(
+            isPresented: $showFolderImporter,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let folder = urls.first else { return }
+                Task {
+                    do {
+                        let access = try await WorkspaceFolderAccess.resolve(folder)
+                        mountWorkspace(
+                            urls: [folder],
+                            bookmarkData: access.bookmark,
+                            securityScopeAlreadyStarted: access.scopeStarted
+                        )
+                    } catch {
+                        workspace.noteMountFailure(error)
+                        workspaceImportError = "无法读取该文件夹：\(error.localizedDescription)"
+                    }
                 }
-            )
+            case .failure(let error):
+                workspaceImportError = error.localizedDescription
+            }
         }
         .fileImporter(
             isPresented: $showFileImporter,

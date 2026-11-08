@@ -83,7 +83,12 @@ enum ChatActivityManager {
             state.previewText = String(preview.suffix(120))
             state.isGenerating = false
             state.updatedAt = Date()
-            await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .after(.now + 20))
+            if state.isResident {
+                // 常驻待命态只更新内容，绝不能 end——它要一直挂在锁屏/灵动岛上。
+                await activity.update(.init(state: state, staleDate: nil))
+            } else {
+                await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .after(.now + 20))
+            }
         }
     }
 

@@ -364,37 +364,8 @@ final class WorkspaceManager {
             let started = needsSecurityScope && url.startAccessingSecurityScopedResource()
             if needsSecurityScope && !started { throw WorkspaceAccessError.accessDenied }
             defer { if started { url.stopAccessingSecurityScopedResource() } }
-            let target = destination
-            try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
-            let skipped: Set<String> = [".git", ".build", "Build", "DerivedData", "node_modules", "Pods", "Carthage"]
-            guard let enumerator = FileManager.default.enumerator(
-                at: url,
-                includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey],
-                options: [.skipsHiddenFiles]
-            ) else { return [] }
-            var copiedBytes: Int64 = 0
-            let budget: Int64 = 120 * 1_024 * 1_024
-            for case let item as URL in enumerator {
-                let relative = item.path.dropFirst(url.path.count).drop(while: { $0 == "/" })
-                if relative.isEmpty { continue }
-                let values = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
-                let isDirectory = values?.isDirectory ?? false
-                if isDirectory, skipped.contains(item.lastPathComponent) {
-                    enumerator.skipDescendants()
-                    continue
-                }
-                let target = destination.appendingPathComponent(String(relative))
-                if isDirectory {
-                    try? FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
-                    continue
-                }
-                if copiedBytes + Int64(values?.fileSize ?? 0) > budget {
-                    throw WorkspaceAccessError.fileTooLarge
-                }
-                try? FileManager.default.removeItem(at: target)
-                try? FileManager.default.copyItem(at: item, to: target)
-                copiedBytes += Int64(values?.fileSize ?? 0)
-            }
+            // 复制交给同步函数：`FileManager.enumerator` 的迭代器在 async 上下文里不可用。
+            try Self.copyTree(from: url, to: destination)
             return WorkspaceFolderScanner.scan(destination)
         }.value
         let mountedFolder = destination
@@ -407,6 +378,43 @@ final class WorkspaceManager {
             scopeHeld: false
         )
         return mountedFolder
+    }
+
+    /// 同步复制整棵目录树（跳过构建产物），总字节上限 120MB。
+    ///
+    /// 抽成 `nonisolated static` 同步函数是因为 `FileManager.enumerator` 的迭代器
+    /// 在 async 上下文里编译不过（`makeIterator is unavailable from asynchronous contexts`）。
+    nonisolated static func copyTree(from source: URL, to destination: URL) throws {
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        let skipped: Set<String> = [".git", ".build", "Build", "DerivedData", "node_modules", "Pods", "Carthage"]
+        guard let enumerator = FileManager.default.enumerator(
+            at: source,
+            includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+        var copiedBytes: Int64 = 0
+        let budget: Int64 = 120 * 1_024 * 1_024
+        for case let item as URL in enumerator {
+            let relative = item.path.dropFirst(source.path.count).drop(while: { $0 == "/" })
+            if relative.isEmpty { continue }
+            let values = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+            let isDirectory = values?.isDirectory ?? false
+            if isDirectory, skipped.contains(item.lastPathComponent) {
+                enumerator.skipDescendants()
+                continue
+            }
+            let target = destination.appendingPathComponent(String(relative))
+            if isDirectory {
+                try? FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+                continue
+            }
+            if copiedBytes + Int64(values?.fileSize ?? 0) > budget {
+                throw WorkspaceAccessError.fileTooLarge
+            }
+            try? FileManager.default.removeItem(at: target)
+            try? FileManager.default.copyItem(at: item, to: target)
+            copiedBytes += Int64(values?.fileSize ?? 0)
+        }
     }
 
     /// 卸载当前外部工作区并退回 App 默认工作区。

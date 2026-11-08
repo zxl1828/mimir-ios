@@ -19,7 +19,7 @@ enum WorkspaceFolderAccess {
     ///
     /// - Returns: `(bookmark, scopeStarted)`；沙盒内目录不需要书签，返回 `nil`。
     static func resolve(_ folder: URL) async throws -> (bookmark: Data?, scopeStarted: Bool) {
-        try await Task.detached(priority: .userInitiated) { () throws -> (Data?, Bool) in
+        let outcome = try await Task.detached(priority: .userInitiated) { () throws -> (Data?, Bool) in
             let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                 .standardizedFileURL.path
             let path = folder.standardizedFileURL.path
@@ -51,6 +51,7 @@ enum WorkspaceFolderAccess {
                 throw error
             }
         }.value
+        return (bookmark: outcome.0, scopeStarted: outcome.1)
     }
 }
 
