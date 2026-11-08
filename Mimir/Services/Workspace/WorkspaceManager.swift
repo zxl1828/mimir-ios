@@ -635,7 +635,7 @@ final class WorkspaceManager {
         guard Int64(content.utf8.count) <= WorkspaceFileTypes.maxTextFileBytes else { throw WorkspaceAccessError.fileTooLarge }
         guard let root = activeWorkspaceURL else { throw WorkspaceAccessError.noFolder }
         let needsSecurityScope = !isInAppDocuments(root)
-        let updated = try await Task.detached(priority: .userInitiated) { () throws -> WorkspaceFileItem in
+        let result = try await Task.detached(priority: .userInitiated) { () throws -> (item: WorkspaceFileItem, added: Int, removed: Int) in
             let accessing = !needsSecurityScope || root.startAccessingSecurityScopedResource()
             guard accessing else { throw WorkspaceAccessError.accessDenied }
             defer { if needsSecurityScope { root.stopAccessingSecurityScopedResource() } }
@@ -650,8 +650,12 @@ final class WorkspaceManager {
                 throw WorkspaceAccessError.invalidPath
             }
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            // 落盘前先读旧内容，用于统计本次新增/删除行数（卡片要用）。
+            let previous = try? String(contentsOf: url, encoding: .utf8)
+
             try content.write(to: url, atomically: true, encoding: .utf8)
-            return WorkspaceFileItem(
+            let diff = LineDiff.counts(old: previous, new: content)
+            let item = WorkspaceFileItem(
                 name: url.lastPathComponent,
                 path: url.path,
                 isDirectory: false,
@@ -665,7 +669,10 @@ final class WorkspaceManager {
                     isText: true
                 )
             )
+            return (item, diff.added, diff.removed)
         }.value
+        let (updated, added, removed) = result
+        FileEditLedger.shared.record(path: path, added: added, removed: removed)
         upsertFile(updated)
         currentActiveCodeFile = updated
         currentCodeContent = content

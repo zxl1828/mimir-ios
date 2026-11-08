@@ -18,7 +18,7 @@ private struct AudioLevelMeter: View {
         GeometryReader { proxy in
             HStack(spacing: 3) {
                 ForEach(0..<28, id: \.self) { index in
-                    Capsule().fill(index < Int(level * 28) ? AppColor.brandPurple : .white.opacity(0.16)).frame(height: index.isMultiple(of: 4) ? 8 : 5)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous).fill(index < Int(level * 28) ? AppColor.brandPurple : .white.opacity(0.16)).frame(height: index.isMultiple(of: 4) ? 8 : 5)
                 }
             }.frame(width: proxy.size.width, height: proxy.size.height)
         }.animation(.easeOut(duration: 0.12), value: level)

@@ -221,7 +221,7 @@ public struct FloatingAudioDock: View {
                         let seed = Double(barIdx) * 0.85
                         let wave = (sin(time * 6.0 + seed) * 0.5 + 0.5)
                         let heightFactor = 0.35 + (audioLevel * 0.65) * wave + (audioLevel > 0.05 ? 0.25 : 0.0)
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .fill(Color.white)
                             .frame(width: 3.2, height: 24)
                             .scaleEffect(y: heightFactor, anchor: .center)

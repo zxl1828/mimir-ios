@@ -227,7 +227,7 @@ struct OnboardingView: View {
             Task { await validate() }
         } label: {
             ZStack {
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(buttonFill)
 
                 switch phase {

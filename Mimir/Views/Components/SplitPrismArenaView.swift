@@ -161,7 +161,7 @@ public struct SplitPrismArenaView: View {
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(Color.green.opacity(0.12)))
+                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.green.opacity(0.12)))
             }
 
             Button(action: onDismiss) {
@@ -206,9 +206,9 @@ public struct SplitPrismArenaView: View {
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
                 .background(
-                    Capsule()
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(badgeColor.opacity(0.22))
-                        .overlay(Capsule().strokeBorder(badgeColor.opacity(0.45), lineWidth: 0.8))
+                        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(badgeColor.opacity(0.45), lineWidth: 0.8))
                 )
 
                 if alignment == .leading { Spacer(minLength: 0) }
@@ -327,12 +327,12 @@ struct PrismDividerView: View {
 
             // 中置透光玻璃手柄胶囊（菱形/药丸光感，指示左右滑动）
             ZStack {
-                Capsule()
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(Color(hex: "1D1432").opacity(0.92))
                     .frame(width: 22, height: 44)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                     .overlay(
-                        Capsule()
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .strokeBorder(
                                 LinearGradient(
                                     colors: [Color.white, irisViolet, Color.white.opacity(0.4)],

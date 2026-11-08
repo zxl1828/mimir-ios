@@ -65,7 +65,7 @@ struct MemoryBrowserView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.88)))
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.88)))
                         .padding(.bottom, 18)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
@@ -198,7 +198,7 @@ struct MemoryBrowserView: View {
             .foregroundStyle(color)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(Capsule().fill(color.opacity(0.13)))
+            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(color.opacity(0.13)))
     }
 
     private var emptyState: some View {

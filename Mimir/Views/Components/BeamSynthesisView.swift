@@ -40,8 +40,8 @@ struct BeamSynthesisView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 14)
                             .frame(height: 40)
-                            .background(LinearGradient(colors: [accent, Color(hex: "A98AFF")], startPoint: .leading, endPoint: .trailing), in: Capsule())
-                            .overlay(Capsule().strokeBorder(Color.white.opacity(0.68), lineWidth: 0.9))
+                            .background(LinearGradient(colors: [accent, Color(hex: "A98AFF")], startPoint: .leading, endPoint: .trailing), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.68), lineWidth: 0.9))
                     }
                     .disabled(isSynthesizing || responses.allSatisfy { $0.text.isEmpty })
                     Spacer(minLength: 0)

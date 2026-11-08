@@ -165,6 +165,11 @@ struct MessageBubble: View {
                 memoryChips
             }
 
+            // 本轮真实落过盘时才出现：已编辑 N 个文件 / +新增 / -删除。
+            if !message.isStreaming {
+                FileEditSummaryCard(runID: message.id)
+            }
+
             if message.versionCount > 1 {
                 versionSwitcher
             }
@@ -415,7 +420,7 @@ struct MessageBubble: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(
-            Capsule(style: .continuous).fill(AppUI.fill)
+            RoundedRectangle(cornerRadius: 13, style: .continuous).fill(AppUI.fill)
         )
     }
 
@@ -435,7 +440,7 @@ struct MessageBubble: View {
                         .foregroundStyle(accent)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 5)
-                        .background(Capsule(style: .continuous).fill(accent.opacity(0.14)))
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(accent.opacity(0.14)))
                     }
                     .buttonStyle(.plain)
                 }
@@ -483,7 +488,7 @@ struct MessageBubble: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 3)
         .background(
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(AppUI.fill)
         )
         .frame(maxWidth: 120, alignment: .leading)

@@ -247,11 +247,11 @@ final class AppSettings {
         self.webSearch = Self.load(WebSearchConfiguration.self, from: defaults, key: Key.webSearch)
             ?? WebSearchConfiguration()
         self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")
-            ?? .system
+            ?? .dark
         self.accent = AppAccent(rawValue: defaults.string(forKey: Key.accent) ?? "")
-            ?? .purple
+            ?? .console
         self.background = AppBackground(rawValue: defaults.string(forKey: Key.background) ?? "")
-            ?? .plain
+            ?? .console
         self.dynamicBackgroundMode = DynamicBackgroundMode(rawValue: defaults.string(forKey: Key.dynamicBackgroundMode) ?? "")
             ?? .gradientMesh
         self.cameraAmbientGain = defaults.object(forKey: Key.cameraAmbientGain) as? Double ?? 0.35

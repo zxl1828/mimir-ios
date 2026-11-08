@@ -43,9 +43,9 @@ struct CyberOwlHeaderView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(
-            Capsule()
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(irisViolet.opacity(scheme == .dark ? 0.15 : 0.08))
-                .overlay(Capsule().strokeBorder(irisViolet.opacity(0.25), lineWidth: 0.8))
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(irisViolet.opacity(0.25), lineWidth: 0.8))
         )
     }
 
@@ -274,7 +274,7 @@ private struct FullSliceSheet: View {
                             .foregroundStyle(irisViolet)
                             .padding(.horizontal, 9)
                             .padding(.vertical, 4)
-                            .background(Capsule().fill(irisViolet.opacity(0.15)))
+                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(irisViolet.opacity(0.15)))
                         Spacer()
                     }
 

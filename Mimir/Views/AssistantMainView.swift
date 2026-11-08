@@ -18,6 +18,7 @@ public struct AssistantMainView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.appAccent) private var accent
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dismiss) private var dismiss
 
     @State private var chat: ChatViewModel?
     @State private var list: ConversationListViewModel?
@@ -63,7 +64,23 @@ public struct AssistantMainView: View {
     private let weatherSummaryText = "今天 晴 · 24°C"
     private let agendaSummaryText = "日程已同步"
 
-    public init() {}
+    /// 从首页 Push 进入时的入参。
+    /// - `initialConversationID`：直接打开指定会话；
+    /// - `startsNewConversation`：直接开一条新会话；
+    /// - `showsBackButton`：Push 场景下顶栏左侧显示返回键，根场景显示头像。
+    private let initialConversationID: UUID?
+    private let startsNewConversation: Bool
+    private let showsBackButton: Bool
+
+    public init(
+        initialConversationID: UUID? = nil,
+        startsNewConversation: Bool = false,
+        showsBackButton: Bool = false
+    ) {
+        self.initialConversationID = initialConversationID
+        self.startsNewConversation = startsNewConversation
+        self.showsBackButton = showsBackButton
+    }
 
     public var body: some View {
         ZStack(alignment: .top) {
@@ -287,30 +304,52 @@ public struct AssistantMainView: View {
 
     // MARK: - 3. 顶栏 Command Header
 
-    private var topBar: some View {
-        HStack(spacing: 10) {
-            Button {
-                if showReasoningCard {
-                    withAnimation(AppUI.snap) { showReasoningCard = false }
-                }
-                showSettings = true
-            } label: {
-                ProfileAvatarBadge(size: 30)
-                    .frame(width: 38, height: 38)
-                    .background(Circle().fill(headerGlassFill))
-                    .overlay(Circle().strokeBorder(headerHairline, lineWidth: 1))
-            }
-            .buttonStyle(StaticButtonFeedbackStyle())
-            .accessibilityLabel("个人资料与设置")
-            .contextMenu {
+    private var leadingHeaderButton: some View {
+        Group {
+            if showsBackButton {
                 Button {
                     Haptics.impact(.light)
-                    titleDraft = chat?.conversation?.title ?? ""
-                    editingTitle = true
+                    dismiss()
                 } label: {
-                    Label("重命名当前对话", systemImage: "pencil")
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppUI.label)
+                        .frame(width: 38, height: 38)
+                        .background(Circle().fill(headerGlassFill))
+                        .overlay(Circle().strokeBorder(headerHairline, lineWidth: 0.5))
+                }
+                .buttonStyle(StaticButtonFeedbackStyle())
+                .accessibilityLabel("返回")
+            } else {
+                Button {
+                    if showReasoningCard {
+                        withAnimation(AppUI.snap) { showReasoningCard = false }
+                    }
+                    showSettings = true
+                } label: {
+                    ProfileAvatarBadge(size: 30)
+                        .frame(width: 38, height: 38)
+                        .background(Circle().fill(headerGlassFill))
+                        .overlay(Circle().strokeBorder(headerHairline, lineWidth: 0.5))
+                }
+                .buttonStyle(StaticButtonFeedbackStyle())
+                .accessibilityLabel("个人资料与设置")
+                .contextMenu {
+                    Button {
+                        Haptics.impact(.light)
+                        titleDraft = chat?.conversation?.title ?? ""
+                        editingTitle = true
+                    } label: {
+                        Label("重命名当前对话", systemImage: "pencil")
+                    }
                 }
             }
+        }
+    }
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            leadingHeaderButton
 
             // 两行标题：第一行是会话名（粗体、可截断），第二行是"状态点 + 模型"。
             // 参照截图里这一块完全不加底色——顶栏是透明浮在页面上的，不是一条玻璃横条。
@@ -589,28 +628,9 @@ public struct AssistantMainView: View {
 
     private var bottomControlGroup: some View {
         VStack(spacing: 8) {
-            floatingPanels
-
             if let quoted = chat?.quotedMessage {
                 quotedBar(quoted)
             }
-
-            quickActionBar
-
-            Button {
-                beamPromptDraft = chat?.inputText ?? ""
-                showBeamSetup = true
-            } label: {
-                Label("Beam 并行", systemImage: "diamond.inset.filled")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(accent)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, alignment: .trailing)
 
             MessageInputBar(
                 text: Binding(
@@ -655,8 +675,8 @@ public struct AssistantMainView: View {
             LinearGradient(
                 colors: [
                     Color.clear,
-                    (scheme == .dark ? Color(hex: "120D1D") : Color(hex: "F8F6FD")).opacity(0.85),
-                    (scheme == .dark ? Color(hex: "1A122B") : Color.white).opacity(0.98)
+                    (scheme == .dark ? Color(hex: "060C16") : Color(hex: "F4F8FD")).opacity(0.85),
+                    (scheme == .dark ? Color(hex: "0A1626") : Color.white).opacity(0.98)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -716,143 +736,13 @@ public struct AssistantMainView: View {
         .presentationDetents([.medium, .large])
     }
 
-    /// 输入框上方的浮层：思考强度浮动卡片、MCP 工具进度、技能选择器与意图推荐
-    @ViewBuilder
-    private var floatingPanels: some View {
-        VStack(spacing: 10) {
-            if showReasoningCard {
-                ReasoningEffortCard(
-                    level: Binding(
-                        get: { chat?.thinkingMode ?? .thinking },
-                        set: { chat?.thinkingMode = $0 }
-                    ),
-                    options: currentModelOptions,
-                    selectedModelID: Binding(
-                        get: { currentModelID },
-                        set: { selectModel($0) }
-                    ),
-                    onOpenSettings: {
-                        withAnimation(AppUI.snap) { showReasoningCard = false }
-                        showSettings = true
-                    }
-                )
-                .padding(.horizontal, 16)
-                .transition(
-                    .asymmetric(
-                        insertion: .scale(scale: 0.90, anchor: .bottom)
-                            .combined(with: .opacity)
-                            .combined(with: .offset(y: 12)),
-                        removal: .scale(scale: 0.94, anchor: .bottom)
-                            .combined(with: .opacity)
-                    )
-                )
-            }
-
-            if let chat {
-                if !MCPClientManager.shared.activeCalls.isEmpty {
-                    ToolProgressView(calls: MCPClientManager.shared.activeCalls)
-                        .padding(.horizontal, 8)
-                } else if chat.isSkillPickerVisible {
-                    SkillPicker(
-                        skills: chat.filteredSkills,
-                        query: chat.slashQuery ?? "",
-                        highlightedIndex: chat.highlightedSkillIndex,
-                        onHighlight: { chat.highlightedSkillIndex = $0 },
-                        onSelect: { chat.applySkill($0) },
-                        onDismiss: { chat.dismissSkillPicker(removingCommand: false) }
-                    )
-                    .padding(.horizontal, 8)
-                } else if !chat.skillSuggestions.isEmpty || !chat.replySuggestions.isEmpty {
-                    SuggestionChips(
-                        skillSuggestions: chat.skillSuggestions,
-                        replySuggestions: chat.replySuggestions,
-                        confidence: chat.recommendationConfidence,
-                        onPickSkill: { chat.applySkill($0) },
-                        onPickReply: { reply in
-                            chat.inputText = reply
-                            isFieldFocused = true
-                        },
-                        onDismiss: { chat.dismissRecommendations() }
-                    )
-                    .padding(.horizontal, 8)
-                }
-            }
-        }
-        .padding(.bottom, 2)
-        .animation(.interpolatingSpring(stiffness: 280, damping: 24), value: showReasoningCard)
-    }
-
-    /// 输入框上方的快捷功能栏
-    private var quickActionBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ReasoningStatusChip(
-                    modelID: currentModelID,
-                    level: chat?.thinkingMode ?? .thinking,
-                    isExpanded: showReasoningCard
-                ) {
-                    withAnimation(.interpolatingSpring(stiffness: 280, damping: 24)) {
-                        showReasoningCard.toggle()
-                    }
-                }
-
-                Rectangle()
-                    .fill(AppUI.separator.opacity(0.5))
-                    .frame(width: 1, height: 18)
-                    .padding(.horizontal, 2)
-
-                if imageGenerationAvailable {
-                    UIQuickChip(icon: "photo", title: "生成图片") {
-                        isImageGenerationMode = true
-                        insertPrompt("描述你想生成的图片：")
-                    }
-                }
-
-                UIQuickChip(icon: "pencil", title: "撰写或编辑") {
-                    insertPrompt("帮我撰写或改写下面这段内容：")
-                }
-
-                UIQuickChip(icon: "globe", title: "搜索网页") {
-                    insertPrompt("联网搜索并总结：")
-                }
-
-                Rectangle()
-                    .fill(AppUI.separator.opacity(0.5))
-                    .frame(width: 1, height: 18)
-                    .padding(.horizontal, 2)
-
-                UIQuickChip(icon: "sparkles", title: "通用", isSelected: chat?.activeAgent == nil) {
-                    chat?.activeAgent = nil
-                }
-
-                ForEach(agents) { agent in
-                    UIQuickChip(
-                        icon: agent.icon,
-                        title: agent.name,
-                        isSelected: chat?.activeAgent?.id == agent.id
-                    ) {
-                        chat?.activeAgent = agent
-                        settings.selectedAgentName = agent.name
-                    }
-                }
-
-                UIQuickChip(icon: "slider.horizontal.3", title: "工具箱") {
-                    withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                        showToolsDrawer = true
-                    }
-                }
-            }
-            .padding(.horizontal, 1)
-            .padding(.vertical, 2)
-        }
-    }
 
     private func quotedBar(_ message: ChatMessage) -> some View {
         HStack(spacing: 8) {
             Rectangle()
                 .fill(accent)
                 .frame(width: 3)
-                .clipShape(Capsule())
+                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(message.role == .user ? "引用你的消息" : "引用 Mimir")
@@ -1139,10 +1029,10 @@ public struct AssistantMainView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.90))
                         .overlay(
-                            Capsule(style: .continuous)
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
                                 .strokeBorder(accent.opacity(0.45), lineWidth: 0.8)
                         )
                         .shadow(color: accent.opacity(0.30), radius: 10, y: 4)
@@ -1205,11 +1095,17 @@ public struct AssistantMainView: View {
             await MCPClientManager.shared.reconnectAll(configs: mcpConfigs)
         }
 
-        if let last = listViewModel.conversations.first {
+        // 首页 Push 进入：优先打开指定会话，其次新会话，最后才是"最近一条"。
+        if let target = initialConversationID.flatMap({ id in
+            listViewModel.conversations.first(where: { $0.id == id })
+        }) {
+            chatViewModel.attach(to: target)
+        } else if startsNewConversation {
+            chatViewModel.attach(to: listViewModel.createConversation())
+        } else if let last = listViewModel.conversations.first {
             chatViewModel.attach(to: last)
         } else {
-            let fresh = listViewModel.createConversation()
-            chatViewModel.attach(to: fresh)
+            chatViewModel.attach(to: listViewModel.createConversation())
         }
         listViewModel.applyRetentionPolicy()
     }

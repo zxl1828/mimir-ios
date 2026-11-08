@@ -106,7 +106,7 @@ struct ChatLiveActivityWidget: Widget {
         .foregroundStyle(Color.white.opacity(0.94))
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(Capsule(style: .continuous).fill(Color.white.opacity(0.14)))
+        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.14)))
     }
 
     /// 展开态主体：标题 / 正在调用的动作 / 第几步 + 进度条 / 分隔线 / 设备·工作区。
@@ -194,8 +194,8 @@ private func progressTrack(_ state: ChatActivityAttributes.ContentState) -> some
     let ratio = min(max(Double(state.progressStep) / Double(total), 0.02), 1)
     return GeometryReader { proxy in
         ZStack(alignment: .leading) {
-            Capsule().fill(Color.white.opacity(0.12))
-            Capsule()
+            RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.12))
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(sparkViolet)
                 .frame(width: max(proxy.size.width * ratio, 3))
         }

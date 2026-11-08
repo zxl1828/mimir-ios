@@ -30,6 +30,7 @@ enum AppAppearance: String, CaseIterable, Identifiable, Sendable {
 /// 强调色：全应用统一使用的系统色板。
 enum AppAccent: String, CaseIterable, Identifiable, Sendable {
 
+    case console
     case purple
     case neon
     case deepViolet
@@ -44,6 +45,7 @@ enum AppAccent: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .console: "550C"
         case .purple: "紫色"
         case .neon: "霓虹紫"
         case .deepViolet: "深紫罗兰"
@@ -58,6 +60,7 @@ enum AppAccent: String, CaseIterable, Identifiable, Sendable {
 
     var color: Color {
         switch self {
+        case .console: AppUI.consoleSignal
         case .purple: AppUI.brandPurple
         case .neon: AppUI.neonViolet
         case .deepViolet: AppUI.deepViolet
@@ -77,6 +80,7 @@ enum AppAccent: String, CaseIterable, Identifiable, Sendable {
 /// 上层再叠一层系统背景色遮罩，保证正文始终可读。
 enum AppBackground: String, CaseIterable, Identifiable, Sendable {
 
+    case console
     case plain
     case violetMist
     case aurora
@@ -86,6 +90,7 @@ enum AppBackground: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .console: "550C 网格"
         case .plain: "纯色"
         case .violetMist: "紫雾"
         case .aurora: "极光"
@@ -96,6 +101,7 @@ enum AppBackground: String, CaseIterable, Identifiable, Sendable {
     /// Asset catalog 里的图片名；纯色没有图片。
     var assetName: String? {
         switch self {
+        case .console: nil
         case .plain: nil
         case .violetMist: "bg-violet-mist"
         case .aurora: "bg-aurora"

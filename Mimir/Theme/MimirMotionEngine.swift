@@ -300,7 +300,7 @@ public struct VelocitySnappingDrawer<Content: View>: View {
 
                 VStack(spacing: 0) {
                     // 抽屉抓握条
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(scheme == .dark ? Color.white.opacity(0.30) : accent.opacity(0.25))
                         .frame(width: 42, height: 5)
                         .padding(.top, 10)

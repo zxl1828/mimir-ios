@@ -516,7 +516,7 @@ struct CodeBlockView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(AppUI.fill)
                 )
 
@@ -532,19 +532,19 @@ struct CodeBlockView: View {
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
                 .background(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(copied
                               ? AnyShapeStyle(Color(red: 0.20, green: 0.80, blue: 0.40).opacity(0.18))
                               : AnyShapeStyle(AppUI.fill))
                 )
                 .overlay(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .strokeBorder(
                             copied ? Color(red: 0.20, green: 0.80, blue: 0.40).opacity(0.45) : accent.opacity(0.22),
                             lineWidth: 0.6
                         )
                 )
-                .contentShape(Capsule(style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
             }
             .buttonStyle(StaticButtonFeedbackStyle())
             .animation(.interpolatingSpring(stiffness: 380, damping: 18), value: copied)

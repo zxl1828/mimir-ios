@@ -275,11 +275,11 @@ struct VoiceDuplexView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
         .background {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(colorScheme == .dark ? Color(hex: "21182F").opacity(0.92) : Color.white.opacity(0.68))
         }
         .overlay {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
             .strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.22 : 0.88), lineWidth: 0.7)
         }
     }

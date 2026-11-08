@@ -13,6 +13,7 @@ struct RootView: View {
     @State private var isAuthenticating = false
     @State private var lockError: String?
     @State private var didEnterBackground = false
+    @State private var showBootSequence = true
 
     var body: some View {
         Group {
@@ -44,6 +45,16 @@ struct RootView: View {
                 )
                 .transition(.opacity)
                 .zIndex(100)
+            }
+        }
+        .overlay {
+            // 550C 冷启动自检：纯表现层，2 秒内自动结束，点击可跳过。
+            if showBootSequence {
+                BootSequenceView {
+                    withAnimation(.easeInOut(duration: 0.28)) { showBootSequence = false }
+                }
+                .transition(.opacity)
+                .zIndex(200)
             }
         }
         .task {

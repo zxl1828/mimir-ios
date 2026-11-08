@@ -232,10 +232,10 @@ struct FilesAssetsView: View {
                                 isSelected
                                     ? .regular.tint(accent.opacity(0.85))
                                     : .clear,
-                                in: .capsule
+                                in: .rect(cornerRadius: 13)
                             )
                             .overlay(
-                                Capsule(style: .continuous)
+                                RoundedRectangle(cornerRadius: 13, style: .continuous)
                                     .strokeBorder(
                                         isSelected
                                             ? AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme))
@@ -299,10 +299,10 @@ struct FilesAssetsView: View {
                     .padding(.vertical, 5)
                     .liquidGlass(
                         .regular.tint(accent.opacity(0.25)),
-                        in: .capsule
+                        in: .rect(cornerRadius: 13)
                     )
                     .overlay(
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .strokeBorder(accent.opacity(0.35), lineWidth: 0.8)
                             .allowsHitTesting(false)
                     )
@@ -645,10 +645,10 @@ struct FilesAssetsView: View {
                 .padding(.vertical, 7)
                 .liquidGlass(
                     .regular.tint(accent.opacity(0.85)),
-                    in: .capsule
+                    in: .rect(cornerRadius: 13)
                 )
                 .overlay {
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .strokeBorder(Color.white.opacity(0.40), lineWidth: 0.9)
                         .allowsHitTesting(false)
                 }

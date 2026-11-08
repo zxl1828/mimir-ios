@@ -174,7 +174,6 @@ public struct ImageGenerationView: View {
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(scheme == .dark ? paleLavender.opacity(0.9) : deepPlumBase.opacity(0.9))
 
-                Text("支持 1:1 · 16:9 · 9:16 · 4:3 多画幅智能渲染")
                     .font(.system(size: 10.5, weight: .regular))
                     .foregroundStyle(scheme == .dark ? paleLavender.opacity(0.55) : deepPlumBase.opacity(0.55))
             }
@@ -208,8 +207,8 @@ public struct ImageGenerationView: View {
                     .foregroundStyle(irisViolet)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(irisViolet.opacity(0.12)))
-                    .overlay(Capsule().strokeBorder(irisViolet.opacity(0.3), lineWidth: 0.8))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(irisViolet.opacity(0.12)))
+                    .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(irisViolet.opacity(0.3), lineWidth: 0.8))
             }
             .buttonStyle(StaticButtonFeedbackStyle())
         }
@@ -238,8 +237,8 @@ public struct ImageGenerationView: View {
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(Capsule().fill(deepPlumBase.opacity(0.78)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.6), lineWidth: 0.8))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(deepPlumBase.opacity(0.78)))
+                    .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.6), lineWidth: 0.8))
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isSavingImage)
@@ -287,8 +286,8 @@ public struct ImageGenerationView: View {
                 .foregroundStyle(Color.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Capsule().fill(irisViolet))
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.7), lineWidth: 0.8))
+                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(irisViolet))
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.7), lineWidth: 0.8))
                 .shadow(color: irisViolet.opacity(0.35), radius: 8, y: 3)
             }
             .buttonStyle(StaticButtonFeedbackStyle())
@@ -407,11 +406,11 @@ public struct ImageGenerationView: View {
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity, minHeight: 50)
             .background {
-                Capsule()
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(irisViolet.opacity(isGenerateDisabled ? 0.45 : 1.0))
             }
-            .liquidGlass(.regular.tint(irisViolet.opacity(0.25)), in: .capsule)
-            .overlay(Capsule().strokeBorder(Color.white.opacity(0.8), lineWidth: 1.0))
+            .liquidGlass(.regular.tint(irisViolet.opacity(0.25)), in: .rect(cornerRadius: 13))
+            .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.8), lineWidth: 1.0))
             .shadow(color: irisViolet.opacity(isGenerateDisabled ? 0 : 0.35), radius: 12, y: 4)
         }
         .buttonStyle(StaticButtonFeedbackStyle())
@@ -525,11 +524,11 @@ public struct ImageGenerationView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background {
-            Capsule()
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill((scheme == .dark ? deepPlumBase : Color.white).opacity(0.92))
         }
-        .liquidGlass(.regular, in: .capsule)
-        .overlay(Capsule().strokeBorder(Color.white.opacity(0.8), lineWidth: 0.8))
+        .liquidGlass(.regular, in: .rect(cornerRadius: 13))
+        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.8), lineWidth: 0.8))
         .shadow(color: irisViolet.opacity(0.2), radius: 12, y: 4)
         .padding(.top, 56)
     }

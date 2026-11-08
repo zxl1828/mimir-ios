@@ -153,7 +153,7 @@ struct FluidRubberBandDrawer<Content: View>: View {
 
                 VStack(spacing: 0) {
                     // 抽屉顶部液态抓握条（Grabber）
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(scheme == .dark ? Color.white.opacity(0.26) : accent.opacity(0.25))
                         .frame(width: 40, height: 5)
                         .padding(.top, 10)
@@ -416,29 +416,14 @@ struct GlassCardInteractiveModifier: ViewModifier {
 
     private var actionOverlay: some View {
         ZStack {
-            // 紫色通透半透明液态磨砂玻璃底（彻底清除黑色）
+            // 550C 控制台面板：单一深蓝底 + 0.5pt 冷蓝描边；不叠渐变高光、不投彩色光晕。
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(scheme == .dark ? Color(hex: "120D1D").opacity(0.78) : Color(hex: "F8F6FD").opacity(0.96))
+                .fill(AppUI.consolePanel(scheme: scheme))
                 .overlay {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(Color(hex: "EADEFA").opacity(0.16))
+                        .strokeBorder(AppUI.consoleHairline(scheme: scheme), lineWidth: 0.5)
                 }
-                .overlay {
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.70),
-                                    accent.opacity(0.85),
-                                    Color.white.opacity(0.25)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.2
-                        )
-                }
-                .shadow(color: accent.opacity(0.35), radius: 12)
+                .shadow(color: Color.black.opacity(scheme == .dark ? 0.26 : 0.08), radius: 14, y: 4)
 
             // 操作图标按钮列表
             HStack(spacing: 12) {
@@ -452,20 +437,20 @@ struct GlassCardInteractiveModifier: ViewModifier {
                     } label: {
                         VStack(spacing: 4) {
                             ZStack {
-                                Circle()
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .fill(
                                         item.role == .destructive
-                                            ? Color.red.opacity(0.28)
-                                            : (scheme == .dark ? Color.white.opacity(0.18) : accent.opacity(0.12))
+                                            ? Color.red.opacity(0.16)
+                                            : (scheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.05))
                                     )
                                     .frame(width: 38, height: 38)
                                     .overlay {
-                                        Circle()
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                                             .strokeBorder(
                                                 item.role == .destructive
-                                                    ? Color.red.opacity(0.60)
-                                                    : (scheme == .dark ? Color.white.opacity(0.40) : accent.opacity(0.32)),
-                                                lineWidth: 0.8
+                                                    ? Color.red.opacity(0.45)
+                                                    : AppUI.consoleHairline(scheme: scheme),
+                                                lineWidth: 0.5
                                             )
                                     }
 
@@ -474,7 +459,7 @@ struct GlassCardInteractiveModifier: ViewModifier {
                                     .foregroundStyle(
                                         item.role == .destructive
                                             ? Color.red
-                                            : (scheme == .dark ? Color.white : accent)
+                                            : (scheme == .dark ? Color.white.opacity(0.92) : AppUI.label)
                                     )
                             }
 

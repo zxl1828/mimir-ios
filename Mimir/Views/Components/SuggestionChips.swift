@@ -36,7 +36,7 @@ struct SuggestionChips: View {
                             .foregroundStyle(accent)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(Capsule(style: .continuous).fill(accent.opacity(0.14)))
+                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(accent.opacity(0.14)))
                         }
                         .buttonStyle(.plain)
                         .transition(.opacity.combined(with: .move(edge: .leading)))
@@ -79,11 +79,11 @@ struct SuggestionChips: View {
                                     .padding(.horizontal, 11)
                                     .padding(.vertical, 6)
                                     .background(
-                                        Capsule(style: .continuous)
+                                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                                             .fill(AppUI.fill)
                                     )
                                     .overlay(
-                                        Capsule(style: .continuous)
+                                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                                             .strokeBorder(accent.opacity(0.24), lineWidth: 0.6)
                                     )
                             }

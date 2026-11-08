@@ -267,7 +267,7 @@ struct VoiceModeView: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 9)
-                            .background(Capsule().fill(AppColor.accentGradient))
+                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(AppColor.accentGradient))
                     }
                     .buttonStyle(.plain)
                 }
@@ -280,7 +280,7 @@ struct VoiceModeView: View {
                         .foregroundStyle(AppColor.primaryText)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 9)
-                        .background(Capsule().fill(AppColor.secondaryText.opacity(0.12)))
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(AppColor.secondaryText.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
             }

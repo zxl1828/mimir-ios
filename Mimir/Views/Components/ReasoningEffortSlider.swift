@@ -64,7 +64,7 @@ struct ReasoningEffortCard: View {
                 .foregroundStyle(Color(hex: "51465F"))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 3)
-                .contentShape(Capsule(style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
             }
             .buttonStyle(.plain)
 
@@ -181,7 +181,7 @@ struct ReasoningEffortSlider: View {
                     .offset(x: horizontalPadding + currentOffset)
             }
             .frame(width: trackWidth, height: Self.trackHeight)
-            .contentShape(Capsule(style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
@@ -235,10 +235,10 @@ struct ReasoningEffortSlider: View {
     // MARK: - 滑轨子层
 
     private var inactiveTrack: some View {
-        Capsule(style: .continuous)
+        RoundedRectangle(cornerRadius: 13, style: .continuous)
             .fill(.ultraThinMaterial)
             .overlay {
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(
                         scheme == .dark
                             ? Color(hex: "F8F6FD").opacity(0.90)
@@ -255,7 +255,7 @@ struct ReasoningEffortSlider: View {
                     .padding(.trailing, 20)
             }
             .overlay(
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [Color.white.opacity(0.70), accent.opacity(scheme == .dark ? 0.22 : 0.18)],
@@ -270,7 +270,7 @@ struct ReasoningEffortSlider: View {
     private func activeStardustSegment(width: CGFloat, height: CGFloat, padding: CGFloat) -> some View {
         let segmentWidth = max(width, height)
         return ZStack(alignment: .leading) {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -288,11 +288,11 @@ struct ReasoningEffortSlider: View {
                 intensity: level == .light ? 0.45 : (level == .thinking ? 0.68 : (level == .expert ? 0.88 : 1.0)),
                 accent: accent
             )
-            .clipShape(Capsule(style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .frame(width: segmentWidth, height: height)
         .overlay(
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .strokeBorder(Color.white.opacity(0.32), lineWidth: 0.7)
         )
         .padding(.leading, padding)
@@ -455,7 +455,7 @@ struct ReasoningStatusChip: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .fill(accent.opacity(scheme == .dark ? 0.22 : 0.14))
                     )
 
@@ -480,10 +480,10 @@ struct ReasoningStatusChip: View {
             .padding(.vertical, 6)
             .liquidGlass(
                 .regular.tint(accent.opacity(isExpanded ? 0.35 : 0.15)),
-                in: .capsule
+                in: .rect(cornerRadius: 13)
             )
             .overlay(
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
                         isExpanded
                             ? AnyShapeStyle(accent.opacity(0.85))
@@ -496,7 +496,7 @@ struct ReasoningStatusChip: View {
                 radius: isExpanded ? 10 : 5,
                 y: 2
             )
-            .contentShape(Capsule(style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel("思考强度与模型：\(ModelCatalog.cardLabel(for: modelID)) \(level.heroTitle)")

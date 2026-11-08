@@ -421,6 +421,8 @@ final class ChatViewModel {
 
         isGenerating = true
         streamingMessageID = assistant.id
+        // 本轮的文件编辑都记到这条助手消息名下，供消息流结尾的统计卡片读取。
+        FileEditLedger.shared.activeRunID = assistant.id
         waitingForNetwork = false
 
         if settings.liveActivitiesEnabled {
@@ -454,9 +456,20 @@ final class ChatViewModel {
         assistant.memoryHitIDs = hits.map(\.id)
 
         // 只有明确授权上传数据的 MCP 工具才会暴露给云端模型。
-        let availableTools = SystemToolRegistry.definitions + MCPToolAdapter.definitions(
-            from: MCPClientManager.shared.allTools(configs: mcpConfigs).filter(\.allowsDataUpload)
-        )
+        // 工具箱按「系统工具 → 技能裁剪 → 技能调用器 → MCP」顺序自动组装：
+        // 技能声明了 toolNames 时就只保留它需要的那些，既省 token 也避免误调用。
+        var systemTools = SystemToolRegistry.definitions
+        if let scoped = SkillToolRuntime.scopedToolNames(for: skills, activeSkill: activeSkill) {
+            let narrowed = systemTools.filter { scoped.contains($0.name) }
+            if !narrowed.isEmpty {
+                systemTools = narrowed
+            }
+        }
+        let availableTools = systemTools
+            + SkillToolRuntime.definitions(for: skills, activeSkill: activeSkill)
+            + MCPToolAdapter.definitions(
+                from: MCPClientManager.shared.allTools(configs: mcpConfigs).filter(\.allowsDataUpload)
+            )
         // 流式任务里只使用不可变的纯值快照，避免跨隔离域传递持久化对象。
         let serverSnapshots: [MCPServerSnapshot] = mcpConfigs.map { config in
             MCPServerSnapshot(
@@ -586,7 +599,14 @@ final class ChatViewModel {
                         argumentsJSON: call.argumentsJSON,
                         messageID: assistant.id
                     )
-                    if SystemToolRegistry.isLocalTool(call.name) {
+                    if SkillToolRuntime.isSkillTool(call.name) {
+                        // 技能运行时：把技能指引当场返回，模型据此继续调用真实工具。
+                        toolText = SkillToolRuntime.invoke(
+                            argumentsJSON: call.argumentsJSON,
+                            skills: skills,
+                            activeSkill: activeSkill
+                        )
+                    } else if SystemToolRegistry.isLocalTool(call.name) {
                         toolText = await SystemToolRegistry.invoke(
                             name: call.name,
                             argumentsJSON: call.argumentsJSON,
@@ -679,6 +699,7 @@ final class ChatViewModel {
                 // 让"已完成"在锁屏上留一会儿，再收起这条一次性活动；常驻待命态不受影响。
                 GenerationProgressCenter.scheduleDismissal()
             }
+            FileEditLedger.shared.activeRunID = nil
             self.runPostProcessing(for: conversation, credential: credential, parameters: parameters)
         }
     }

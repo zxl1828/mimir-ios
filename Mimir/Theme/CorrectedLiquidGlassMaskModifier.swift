@@ -93,9 +93,9 @@ public struct FloatingWeatherAgendaCapsule: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
-            .liquidGlass(.regular, in: .capsule)
+            .liquidGlass(.regular, in: .rect(cornerRadius: 13))
             .overlay(
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [

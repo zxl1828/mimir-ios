@@ -23,12 +23,12 @@ struct FloatingTabBar: View {
             .padding(.vertical, 6)
             .frame(height: 64)
             .background {
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill((scheme == .dark ? Color(hex: "120D1D") : Color.white).opacity(scheme == .dark ? 0.76 : 0.84))
             }
-            .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.09)), in: .capsule)
+            .liquidGlass(.regular.tint(Color(hex: "7D52F4").opacity(0.09)), in: .rect(cornerRadius: 13))
             .overlay {
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
@@ -44,7 +44,7 @@ struct FloatingTabBar: View {
                     .allowsHitTesting(false)
             }
             .overlay(alignment: .top) {
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
@@ -99,18 +99,18 @@ struct FloatingTabBar: View {
             .frame(maxWidth: .infinity, minHeight: 48)
             .background {
                 if isSelected {
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(tab.functionColor.opacity(0.14))
-                        .liquidGlass(.regular.tint(tab.functionColor.opacity(0.20)), in: .capsule)
+                        .liquidGlass(.regular.tint(tab.functionColor.opacity(0.20)), in: .rect(cornerRadius: 13))
                         .overlay {
-                            Capsule(style: .continuous)
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.85), lineWidth: 0.9)
                         }
                         .shadow(color: tab.functionColor.opacity(0.18), radius: 8, y: 2)
                 }
             }
             .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
-            .contentShape(Capsule(style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel(tab.title)

@@ -69,7 +69,7 @@ struct ScheduledTasksView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.88)))
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color(red: 0.18, green: 0.12, blue: 0.32).opacity(0.88)))
                         .padding(.bottom, 22)
                 }
             }
@@ -138,7 +138,7 @@ struct ScheduledTasksView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(AppColor.accentGradient))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(AppColor.accentGradient))
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(runningTaskID != nil)
@@ -151,7 +151,7 @@ struct ScheduledTasksView: View {
                         .foregroundStyle(AppColor.primaryText)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(AppColor.secondaryText.opacity(0.12)))
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(AppColor.secondaryText.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
 
@@ -390,7 +390,7 @@ struct ScheduledTaskEditorView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(draft.weekdayMask == mask
                               ? AppColor.brandIndigo.opacity(0.14)
                               : AppColor.secondaryText.opacity(0.10))

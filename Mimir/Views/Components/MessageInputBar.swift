@@ -61,9 +61,9 @@ struct MessageInputBar: View {
             .padding(.leading, 6)
             .padding(.trailing, 6)
             .padding(.vertical, 6)
-            .background(inputFill, in: Capsule(style: .continuous))
+            .background(inputFill, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
             .overlay {
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
                         focus.wrappedValue ? accent.opacity(0.34) : inputHairline,
                         lineWidth: 1

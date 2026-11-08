@@ -12,6 +12,14 @@ private enum CodeWorkspaceSheet: String, Identifiable {
 
 /// Phone-first source editor and coding agent for a user-selected local project folder.
 struct CodeWorkspaceCLIView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    /// 由首页 Push 进入时为 true：顶栏左侧显示返回键。
+    private let showsBackButton: Bool
+
+    init(showsBackButton: Bool = false) {
+        self.showsBackButton = showsBackButton
+    }
     @Environment(\.colorScheme) private var scheme
     @Environment(\.appAccent) private var accent
     @Environment(\.openURL) private var openURL
@@ -220,6 +228,22 @@ struct CodeWorkspaceCLIView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 8) {
+                if showsBackButton {
+                    Button {
+                        Haptics.impact(.light)
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                            .frame(width: 32, height: 32)
+                            .background(Circle().fill(AppUI.consolePanel(scheme: scheme)))
+                            .overlay(Circle().strokeBorder(AppUI.consoleHairline(scheme: scheme), lineWidth: 0.5))
+                    }
+                    .buttonStyle(StaticButtonFeedbackStyle())
+                    .accessibilityLabel("返回")
+                }
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text("CODE / LIVE WORKSPACE")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
@@ -240,7 +264,7 @@ struct CodeWorkspaceCLIView: View {
                 }
                 .padding(.horizontal, 9)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(accent.opacity(scheme == .dark ? 0.15 : 0.09)))
+                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(accent.opacity(scheme == .dark ? 0.15 : 0.09)))
             }
 
             workspaceCard
@@ -253,9 +277,9 @@ struct CodeWorkspaceCLIView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 11)
                         .frame(height: 36)
-                        .contentShape(Capsule())
-                        .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .capsule)
-                        .overlay { Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
+                        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .rect(cornerRadius: 13))
+                        .overlay { RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isLoadingWorkspace)
@@ -268,9 +292,9 @@ struct CodeWorkspaceCLIView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 11)
                             .frame(height: 36)
-                            .contentShape(Capsule())
-                            .liquidGlass(.regular, in: .capsule)
-                            .overlay { Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
+                            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                            .liquidGlass(.regular, in: .rect(cornerRadius: 13))
+                            .overlay { RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
                     }
                     .buttonStyle(StaticButtonFeedbackStyle())
                     .disabled(isLoadingWorkspace)
@@ -314,8 +338,8 @@ struct CodeWorkspaceCLIView: View {
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 12)
                     .frame(height: 36)
-                    .background(Capsule().fill(accent))
-                    .overlay { Capsule().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8) }
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(accent))
+                    .overlay { RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8) }
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isBuilding || workspace.activeWorkspaceURL == nil)

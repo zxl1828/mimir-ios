@@ -192,11 +192,11 @@ public struct LiveTranscriptSlab: View {
         .frame(maxWidth: .infinity)
         .frame(height: 32)
         .background {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(scheme == .dark ? darkCard.opacity(0.96) : Color.white.opacity(0.72))
         }
         .overlay {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
             .strokeBorder(Color.white.opacity(scheme == .dark ? 0.22 : 0.80), lineWidth: 0.7)
         }
     }

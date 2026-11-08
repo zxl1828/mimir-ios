@@ -25,12 +25,12 @@ struct ModelSegmentedSwitcher: View {
         }
         .scrollClipDisabled()
         .background {
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .fill(Color(hex: "F8F6FD").opacity(scheme == .dark ? 0.96 : 0.82))
         }
-        .liquidGlass(.regular, in: .capsule)
+        .liquidGlass(.regular, in: .rect(cornerRadius: 13))
         .overlay(
-            Capsule(style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         )
@@ -60,14 +60,14 @@ struct ModelSegmentedSwitcher: View {
                 .lineLimit(1)
                 .padding(.horizontal, 12)
                 .frame(height: 30)
-                .contentShape(Capsule(style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                 .background {
                     if isSelected {
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .fill(accent.opacity(0.94))
-                            .liquidGlass(.regular.tint(accent.opacity(0.20)), in: .capsule)
+                            .liquidGlass(.regular.tint(accent.opacity(0.20)), in: .rect(cornerRadius: 13))
                             .overlay(
-                                Capsule(style: .continuous)
+                                RoundedRectangle(cornerRadius: 13, style: .continuous)
                                     .strokeBorder(
                                         Color.white.opacity(0.74),
                                         lineWidth: 1

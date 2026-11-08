@@ -11,9 +11,18 @@ enum AppUI {
     /// 列表项垂直间距。
     static let rowSpacing: CGFloat = 12
     /// 卡片 / 输入框圆角。
-    static let cardRadius: CGFloat = 16
+    /// 卡片圆角。全应用只用两档：卡片 16~18、控件 12~14，一律 `.continuous`。
+    static let cardRadius: CGFloat = 18
+    /// 次级卡片圆角（嵌套列表块）。
+    static let innerCardRadius: CGFloat = 16
+    /// 按钮 / 输入框 / 标签圆角。
+    static let controlRadius: CGFloat = 13
+    /// 小标签圆角。
+    static let chipRadius: CGFloat = 12
     /// 气泡圆角。
-    static let bubbleRadius: CGFloat = 18
+    static let bubbleRadius: CGFloat = 16
+    /// 冷蓝微光描边统一线宽。
+    static let hairline: CGFloat = 0.5
     /// 侧边栏面板宽度。
     static let sidebarWidth: CGFloat = 300
     /// 主视图打开抽屉时向右偏移的距离。
@@ -21,10 +30,43 @@ enum AppUI {
 
     // MARK: - 基础色彩基准（严禁纯黑，统一采用纯白/极淡紫与极深紫）
     static let baseLightWhite = Color.white
-    static let baseLightLavender = Color(hex: "F8F6FD")
-    static let baseDarkDeepPurple = Color(hex: "120D1D")
-    static let baseDarkPlum = Color(hex: "120D1D")
-    static let pressSheenLight = Color(hex: "EADEFA")
+    static let baseLightLavender = Color(hex: "F2F6FC")
+    static let baseDarkDeepPurple = Color(hex: "060C16")
+    static let baseDarkPlum = Color(hex: "060C16")
+    static let pressSheenLight = Color(hex: "DCE8F7")
+
+    // MARK: - 550C 控制台色板（深邃技术蓝）
+
+    /// 550C 主信号色：冷蓝偏青，用于状态点、参数、运行指示。
+    static let consoleSignal = Color.adaptive(
+        light: UIColor(red: 0.10, green: 0.44, blue: 0.86, alpha: 1),
+        dark: UIColor(red: 0.36, green: 0.72, blue: 1.00, alpha: 1)
+    )
+
+    /// 550C 副信号色：更冷更暗的一档，用于次级文字与轨道。
+    static let consoleSignalDim = Color.adaptive(
+        light: UIColor(red: 0.24, green: 0.42, blue: 0.66, alpha: 1),
+        dark: UIColor(red: 0.28, green: 0.46, blue: 0.70, alpha: 1)
+    )
+
+    /// 面板底色：高透深蓝（不是纯黑，靠一点蓝维持工业控制台的冷感）。
+    static func consolePanel(scheme: ColorScheme) -> Color {
+        scheme == .dark
+            ? Color(red: 0.055, green: 0.10, blue: 0.18).opacity(0.72)
+            : Color.white.opacity(0.86)
+    }
+
+    /// 0.5pt 冷蓝微光描边。
+    static func consoleHairline(scheme: ColorScheme) -> Color {
+        scheme == .dark
+            ? Color(red: 0.42, green: 0.68, blue: 1.0).opacity(0.26)
+            : Color(red: 0.24, green: 0.42, blue: 0.66).opacity(0.16)
+    }
+
+    /// 等宽字体：所有参数、计量、状态一律用它。
+    static func mono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight, design: .monospaced)
+    }
 
     // MARK: - 颜色（纯白/极淡紫与极深紫基准 + 系统语义色）
 
@@ -168,8 +210,19 @@ enum AppUI {
 
     /// 规范要求的纯白/极淡紫至极深紫渐变背景（深色模式自适应为极深高级紫 #120D1D -> #1A122B）。
     static func ambientBackground(scheme: ColorScheme) -> LinearGradient {
-        let canvas = scheme == .dark ? Color(hex: "151515") : Color(hex: "F5F5F3")
-        return LinearGradient(colors: [canvas, canvas], startPoint: .top, endPoint: .bottom)
+        if scheme == .dark {
+            // 550C：深邃技术蓝，顶部略亮、底部压到近黑，制造"机柜内壁"的纵深。
+            return LinearGradient(
+                colors: [Color(hex: "0A1626"), Color(hex: "060C16"), Color(hex: "04070D")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        return LinearGradient(
+            colors: [Color(hex: "F4F8FD"), Color(hex: "E9F0F9")],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
     /// 软玻璃卡片的 1pt 双向微光描边。
@@ -300,6 +353,13 @@ struct AppBackgroundView: View {
             DotGridTexture()
                 .opacity(scheme == .dark ? 0.6 : 0.8)
                 .allowsHitTesting(false)
+
+            // 5. 550C 控制台：细网格 + 顶部冷光，工业机柜的"内壁刻度"。
+            if background == .console {
+                ConsoleGridOverlay()
+                    .allowsHitTesting(false)
+            }
+
         }
         .ignoresSafeArea()
         .animation(.easeInOut(duration: 0.25), value: background)
@@ -479,10 +539,10 @@ struct UIQuickChip: View {
             .padding(.vertical, 7)
             .liquidGlass(
                 isSelected ? .regular.tint(accent.opacity(0.85)) : .clear,
-                in: .capsule
+                in: .rect(cornerRadius: 13)
             )
             .overlay(
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .strokeBorder(
                         isSelected
                             ? AnyShapeStyle(Color.white.opacity(0.45))
@@ -496,7 +556,7 @@ struct UIQuickChip: View {
                 radius: 6,
                 y: 2
             )
-            .contentShape(Capsule(style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
     }
@@ -590,6 +650,51 @@ struct DotGridTexture: View {
             }
         }
         .ignoresSafeArea()
+    }
+}
+
+/// 550C 控制台网格：44pt 冷蓝细网格 + 顶部冷光。
+/// 只描线不填充，横竖线宽 0.5pt，深色下 10% 冷蓝——远看是"屏幕有刻度"，近看几乎不可见。
+struct ConsoleGridOverlay: View {
+
+    @Environment(\.colorScheme) private var scheme
+
+    var spacing: CGFloat = 44
+
+    var body: some View {
+        ZStack {
+            Canvas(rendersAsynchronously: true) { context, size in
+                let stroke = scheme == .dark
+                    ? Color(red: 0.42, green: 0.68, blue: 1.0).opacity(0.10)
+                    : Color(red: 0.24, green: 0.42, blue: 0.66).opacity(0.07)
+                var path = Path()
+                var x: CGFloat = 0
+                while x <= size.width {
+                    path.move(to: CGPoint(x: x, y: 0))
+                    path.addLine(to: CGPoint(x: x, y: size.height))
+                    x += spacing
+                }
+                var y: CGFloat = 0
+                while y <= size.height {
+                    path.move(to: CGPoint(x: 0, y: y))
+                    path.addLine(to: CGPoint(x: size.width, y: y))
+                    y += spacing
+                }
+                context.stroke(path, with: .color(stroke), lineWidth: 0.5)
+            }
+            .ignoresSafeArea()
+
+            RadialGradient(
+                colors: [
+                    AppUI.consoleSignal.opacity(scheme == .dark ? 0.10 : 0.06),
+                    Color.clear
+                ],
+                center: .top,
+                startRadius: 6,
+                endRadius: 440
+            )
+            .ignoresSafeArea()
+        }
     }
 }
 

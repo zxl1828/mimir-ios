@@ -76,8 +76,8 @@ public struct MimirLiveActivityWidget: Widget {
                                 .foregroundStyle(Color.white)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Capsule().fill(irisViolet))
-                                .overlay(Capsule().strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8))
+                                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(irisViolet))
+                                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.35), lineWidth: 0.8))
                             }
                         }
                     }

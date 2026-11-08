@@ -248,7 +248,7 @@ struct DashboardView: View {
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(
-                                Capsule(style: .continuous)
+                                RoundedRectangle(cornerRadius: 13, style: .continuous)
                                     .fill(accent.opacity(0.14))
                             )
 
@@ -271,7 +271,7 @@ struct DashboardView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(
-                        Capsule(style: .continuous)
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
                             .fill(scheme == .dark ? Color.white.opacity(0.08) : Color.white.opacity(0.85))
                     )
                 }
@@ -339,7 +339,7 @@ struct DashboardView: View {
                     .foregroundStyle(accent)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
-                    .background(accent.opacity(scheme == .dark ? 0.14 : 0.08), in: Capsule())
+                    .background(accent.opacity(scheme == .dark ? 0.14 : 0.08), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 164, maximum: 244), spacing: 12)], spacing: 12) {
@@ -379,7 +379,7 @@ struct DashboardView: View {
                     .foregroundStyle(accent)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(accent.opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(accent.opacity(0.12)))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -446,7 +446,7 @@ struct DashboardView: View {
                     .foregroundStyle(Color(hex: "38BDF8"))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(hex: "38BDF8").opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color(hex: "38BDF8").opacity(0.12)))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -513,7 +513,7 @@ struct DashboardView: View {
                     .foregroundStyle(scheduledTasks.contains(where: \.isEnabled) ? Color(hex: "34D399") : AppUI.textCaption(scheme: scheme))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(hex: "34D399").opacity(scheduledTasks.contains(where: \.isEnabled) ? 0.12 : 0.06)))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color(hex: "34D399").opacity(scheduledTasks.contains(where: \.isEnabled) ? 0.12 : 0.06)))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -580,7 +580,7 @@ struct DashboardView: View {
                     .foregroundStyle(Color(hex: "F472B6"))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(hex: "F472B6").opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color(hex: "F472B6").opacity(0.12)))
             }
 
             VStack(alignment: .leading, spacing: 2) {

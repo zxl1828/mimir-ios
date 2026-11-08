@@ -119,7 +119,7 @@ struct GlobalSearchView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(isOn
                               ? AnyShapeStyle(AppColor.accentGradient)
                               : AnyShapeStyle(AppColor.secondaryText.opacity(0.10)))
