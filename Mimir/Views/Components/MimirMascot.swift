@@ -56,7 +56,7 @@ private enum MimirOwlRenderer {
         mood: MimirMascot.Mood,
         time: TimeInterval,
         scheme: ColorScheme,
-        accent: Color
+        accent: Color,
         showsOrbit: Bool = true
     ) {
         let scale = min(size.width, size.height) / design
