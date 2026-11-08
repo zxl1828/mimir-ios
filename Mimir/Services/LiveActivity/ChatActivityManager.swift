@@ -23,16 +23,16 @@ enum ChatActivityManager {
             // 复用已经存在的活动（常驻 Spark 或上一轮对话），不再先 `endAll()`。
             // 老实现每次生成都把所有活动杀一遍，包括常驻待命态——于是用户经常看到
             // 灵动岛"忽然什么都不显示"，而 ProgressCenter 的更新又找不到活动可写。
-            if let existing = Activity<ChatActivityAttributes>.activities.first {
-                current = existing
-                var state = existing.content.state
+            if let first = Activity<ChatActivityAttributes>.activities.first {
+                current = first
+                var state = first.content.state
                 state.conversationTitle = title
                 state.statusText = status
                 state.previewText = preview
                 state.isGenerating = true
                 state.startedAt = Date()
                 state.updatedAt = Date()
-                await existing.update(.init(state: state, staleDate: nil))
+                await apply(state)
                 return
             }
             let attributes = ChatActivityAttributes(conversationID: conversationID)
@@ -53,6 +53,20 @@ enum ChatActivityManager {
             } catch {
                 current = nil
             }
+        }
+    }
+
+    // MARK: - 内部
+
+    /// 把同一份状态写到所有现存活动上。
+    ///
+    /// 刻意"每次重新取静态列表再遍历"，而不是握着一个抓到的 `Activity` 实例去 `update`：
+    /// Swift 6 严格并发下，把已经存进静态属性的实例再跨 `await` 送出去会被判定为
+    /// "sending 'existing' risks causing data races"。状态本身是 `Sendable` 值类型，
+    /// 每轮从列表里新取的实例各属独立区域，所以安全。
+    private static func apply(_ state: ChatActivityAttributes.ContentState) async {
+        for item in Activity<ChatActivityAttributes>.activities {
+            await item.update(ActivityContent(state: state, staleDate: nil))
         }
     }
 
