@@ -348,7 +348,7 @@ struct CodeWorkspaceCLIView: View {
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 12)
-        .softGlassCard(cornerRadius: 22)
+        .softGlassCard(cornerRadius: 18)
     }
 
     /// 工作区卡片：文件夹图标 + 名称 + 真实路径 + 挂载状态点。
@@ -394,12 +394,12 @@ struct CodeWorkspaceCLIView: View {
             .padding(.horizontal, 13)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .background {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(scheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.75))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .strokeBorder(
                                 scheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.06),
                                 lineWidth: 1
@@ -548,12 +548,12 @@ struct CodeWorkspaceCLIView: View {
         }
         .frame(height: height)
         .background {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.ultraThinMaterial)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                 .allowsHitTesting(false)
         }
@@ -616,9 +616,9 @@ struct CodeWorkspaceCLIView: View {
                 .accessibilityLabel("发送给代码 Agent")
             }
             .padding(.horizontal, 6)
-            .liquidGlass(.regular, in: .rect(cornerRadius: 20))
+            .liquidGlass(.regular, in: .rect(cornerRadius: 18))
             .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                     .allowsHitTesting(false)
             }

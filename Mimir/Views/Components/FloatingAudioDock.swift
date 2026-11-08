@@ -67,11 +67,11 @@ public struct FloatingAudioDock: View {
     private var dualLayerGlassDock: some View {
         ZStack {
             // 外层跑道型悬浮高透光毛玻璃胶囊
-            RoundedRectangle(cornerRadius: 44, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(colorScheme == .dark ? Color(hex: "21182F").opacity(0.96) : Color.white.opacity(0.88))
-                .liquidGlass(.regular, in: .rect(cornerRadius: 44))
+                .liquidGlass(.regular, in: .rect(cornerRadius: 18))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 44, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(
                             LinearGradient(
                                 stops: [

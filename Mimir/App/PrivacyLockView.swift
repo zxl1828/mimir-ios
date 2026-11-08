@@ -88,9 +88,9 @@ struct PrivacyLockView: View {
             .padding(.horizontal, 28)
             .padding(.vertical, 34)
             .frame(maxWidth: 420)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
                             colors: [.white.opacity(0.84), accent.opacity(0.34), .white.opacity(0.48)],

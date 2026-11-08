@@ -35,7 +35,11 @@ struct ConsoleHomeView: View {
                 .navigationDestination(for: ConsoleRoute.self) { route in
                     switch route {
                     case .chat(let id):
-                        AssistantMainView(initialConversationID: id, showsBackButton: true)
+                        AssistantMainView(
+                            initialConversationID: id,
+                            startsNewConversation: id == nil,
+                            showsBackButton: true
+                        )
                     case .code:
                         CodeWorkspaceCLIView(showsBackButton: true)
                     }
@@ -46,6 +50,10 @@ struct ConsoleHomeView: View {
             // 进入子页面：隐藏底部 TabBar，回到首页再恢复。
             withAnimation(.easeInOut(duration: 0.2)) {
                 coordinator.isTabBarVisible = (depth == 0)
+            }
+            // 从聊天页返回时刷新列表，刚建的会话与标题更新立刻可见。
+            if depth == 0 {
+                list?.refresh()
             }
         }
         .onChange(of: coordinator.shouldStartNewChat) { _, shouldStart in

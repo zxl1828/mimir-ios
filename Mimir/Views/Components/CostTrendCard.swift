@@ -107,6 +107,6 @@ struct CostTrendCard: View {
                 .foregroundStyle(AppUI.textCaption(scheme: scheme))
         }
         .padding(15)
-        .softGlassCard(cornerRadius: 20)
+        .softGlassCard(cornerRadius: 18)
     }
 }

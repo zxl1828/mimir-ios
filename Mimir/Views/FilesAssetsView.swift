@@ -176,7 +176,7 @@ struct FilesAssetsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .softGlassCard(cornerRadius: 24)
+        .softGlassCard(cornerRadius: 18)
     }
 
     // MARK: - 2. 搜索与分类过滤栏
@@ -571,11 +571,11 @@ struct FilesAssetsView: View {
         let isSearching = !workspace.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return VStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(accent.opacity(scheme == .dark ? 0.16 : 0.09))
                     .frame(width: 76, height: 76)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
                     }
                 Image(systemName: isSearching ? "doc.text.magnifyingglass" : "folder.badge.plus")
@@ -612,7 +612,7 @@ struct FilesAssetsView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 30)
         .frame(maxWidth: .infinity)
-        .softGlassCard(cornerRadius: 26)
+        .softGlassCard(cornerRadius: 18)
     }
 
     // MARK: - 6. 底部附着栏
@@ -664,7 +664,7 @@ struct FilesAssetsView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity)
-        .softGlassCard(cornerRadius: 20)
+        .softGlassCard(cornerRadius: 18)
         .padding(.horizontal, 16)
     }
 

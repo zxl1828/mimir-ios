@@ -170,11 +170,11 @@ public struct VoiceCodeRefactorOverlay: View {
         .frame(maxWidth: .infinity, maxHeight: 420)
         // 刚性高架浮动玻璃面板（#120D1D 85% + ultraThinMaterial，无缩放无形变）
         .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(deepPlumBase.opacity(0.88))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
@@ -191,7 +191,7 @@ public struct VoiceCodeRefactorOverlay: View {
                 .shadow(color: irisViolet.opacity(0.30), radius: 26, y: 12)
                 .shadow(color: Color.black.opacity(0.35), radius: 14, y: 6)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .padding(.horizontal, 14)
         .task {
             diffLines = ASTDiffEngine.computeDiff(original: originalCode, refactored: refactoredCode)

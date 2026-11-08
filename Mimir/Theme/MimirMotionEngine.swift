@@ -217,9 +217,9 @@ public struct SharedElementTransitionView<Content: View>: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: 20 * currentScale, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 18 * currentScale, style: .continuous))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 20 * currentScale, style: .continuous)
+                            RoundedRectangle(cornerRadius: 18 * currentScale, style: .continuous)
                                 .strokeBorder(Color.white.opacity(0.24 * (1 - dragProgress)), lineWidth: 1)
                         )
                         .shadow(color: Color(hex: "120D1D").opacity(0.60 * (1 - dragProgress)), radius: 24, y: 12)
@@ -310,9 +310,9 @@ public struct VelocitySnappingDrawer<Content: View>: View {
                         .frame(maxWidth: .infinity)
                 }
                 .frame(height: effectiveHeight)
-                .liquidGlass(.regular, in: .rect(cornerRadius: 28))
+                .liquidGlass(.regular, in: .rect(cornerRadius: 18))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(
                             LinearGradient(
                                 colors: [

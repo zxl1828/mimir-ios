@@ -101,12 +101,12 @@ public struct LiveTranscriptSlab: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         // 高折射毛玻璃底板 + 0.8pt 鸢尾紫微光描边
         .background {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(scheme == .dark ? darkCard.opacity(0.94) : Color.white.opacity(0.84))
         }
-        .liquidGlass(.regular, in: .rect(cornerRadius: 22))
+        .liquidGlass(.regular, in: .rect(cornerRadius: 18))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         stops: [

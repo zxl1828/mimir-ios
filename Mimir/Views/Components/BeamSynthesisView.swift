@@ -60,8 +60,8 @@ struct BeamSynthesisView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(hex: "120D1D").opacity(0.96))
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
         .padding(.horizontal, 8)
     }
 

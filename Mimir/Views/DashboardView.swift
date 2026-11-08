@@ -175,7 +175,7 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 10)
-        .softGlassCard(cornerRadius: 24)
+        .softGlassCard(cornerRadius: 18)
     }
 
     private var workflowOverview: some View {
@@ -205,7 +205,7 @@ struct DashboardView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 15)
-        .softGlassCard(cornerRadius: 24)
+        .softGlassCard(cornerRadius: 18)
     }
 
     private func overviewMetric(value: Int, label: String, icon: String) -> some View {
@@ -680,7 +680,7 @@ struct DashboardView: View {
                 .padding(.top, 4)
             }
             .padding(16)
-            .softGlassCard(cornerRadius: 22)
+            .softGlassCard(cornerRadius: 18)
         }
     }
 

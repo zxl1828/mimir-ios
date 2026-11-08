@@ -54,11 +54,11 @@ public struct SplitPrismArenaView: View {
 
             ZStack(alignment: .topLeading) {
                 // 底层基底（严格遵循 Design DNA：深李色 #120D1D 85% + ultraThinMaterial）
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(deepPlumBase.opacity(0.92))
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .strokeBorder(
                                 LinearGradient(
                                     colors: [
@@ -128,7 +128,7 @@ public struct SplitPrismArenaView: View {
                 // ④ 顶栏标题与关闭入口
                 arenaHeader
             }
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .shadow(color: irisViolet.opacity(0.30), radius: 24, y: 10)
         }
         .frame(maxHeight: 520)

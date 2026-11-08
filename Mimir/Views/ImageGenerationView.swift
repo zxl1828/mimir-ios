@@ -122,11 +122,11 @@ public struct ImageGenerationView: View {
 
     private var previewViewportCard: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill((scheme == .dark ? deepPlumBase : Color.white).opacity(scheme == .dark ? 0.65 : 0.82))
-                .liquidGlass(.regular.tint(irisViolet.opacity(0.08)), in: .rect(cornerRadius: 22))
+                .liquidGlass(.regular.tint(irisViolet.opacity(0.08)), in: .rect(cornerRadius: 18))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(
                             LinearGradient(
                                 colors: [
@@ -154,7 +154,7 @@ public struct ImageGenerationView: View {
         }
         .aspectRatio(selectedRatio.displayRatio, contentMode: .fit)
         .frame(maxWidth: .infinity)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: irisViolet.opacity(0.12), radius: 18, y: 8)
     }
 

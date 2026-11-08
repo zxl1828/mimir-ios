@@ -19,7 +19,7 @@ struct AttachmentMenu: View {
         }
         .padding(6)
         .frame(width: 216)
-        .liquidGlass(cornerRadius: 22, glowIntensity: 0.28)
+        .liquidGlass(cornerRadius: 18, glowIntensity: 0.28)
     }
 
     private func row(

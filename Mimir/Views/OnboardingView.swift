@@ -141,9 +141,9 @@ struct OnboardingView: View {
         }
         .padding(.horizontal, 18)
         .frame(width: fieldWidth, height: 56)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 20))
+        .liquidGlass(.regular, in: .rect(cornerRadius: 18))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(focusBorder, lineWidth: fieldFocused ? 1.4 : 0.8)
                 .allowsHitTesting(false)
         }

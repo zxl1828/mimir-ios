@@ -484,7 +484,7 @@ struct CodeBlockView: View {
             codeArea
         }
         .background(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(
                     scheme == .dark
                         ? Color(hex: "120D1D").opacity(0.88)
@@ -492,7 +492,7 @@ struct CodeBlockView: View {
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 15, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
         )
     }

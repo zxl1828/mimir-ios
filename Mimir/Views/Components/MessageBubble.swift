@@ -93,7 +93,7 @@ struct MessageBubble: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(userBubbleFill)
                     )
                     .fixedSize(horizontal: false, vertical: true)

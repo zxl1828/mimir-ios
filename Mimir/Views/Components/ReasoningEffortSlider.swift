@@ -77,7 +77,7 @@ struct ReasoningEffortCard: View {
         .padding(.bottom, 18)
         .frame(maxWidth: 296)
         .background {
-            let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+            let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
             shape.fill(.ultraThinMaterial)
                 .overlay {
                     shape.fill(
@@ -88,7 +88,7 @@ struct ReasoningEffortCard: View {
                 }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         colors: [Color.white.opacity(0.70), accent.opacity(0.24)],

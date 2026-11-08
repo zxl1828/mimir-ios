@@ -68,8 +68,8 @@ struct VoiceMinutesView: View {
                     .font(.system(size: 16, design: .rounded))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(18)
-                    .liquidGlass(.regular, in: .rect(cornerRadius: 22))
-                    .glassHairline(cornerRadius: 22, opacity: 0.34)
+                    .liquidGlass(.regular, in: .rect(cornerRadius: 18))
+                    .glassHairline(cornerRadius: 18, opacity: 0.34)
                 }.padding(20)
             }
             .navigationTitle("Mimir").navigationBarTitleDisplayMode(.inline)
