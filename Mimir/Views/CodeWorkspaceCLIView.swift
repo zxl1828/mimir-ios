@@ -81,16 +81,18 @@ struct CodeWorkspaceCLIView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
-        .sheet(isPresented: $showFolderImporter) {
-            WorkspaceFolderPicker(
-                isPresented: $showFolderImporter,
-                onPick: { folder, bookmark, didStartAccess in
-                    loadWorkspace(from: folder, bookmarkData: bookmark, securityScopeAlreadyStarted: didStartAccess)
-                },
-                onError: { err in
-                    workspaceLoadError = err
-                }
-            )
+        .fileImporter(
+            isPresented: $showFolderImporter,
+            allowedContentTypes: [.folder],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let folder = urls.first else { return }
+                Task { await adoptFolder(folder) }
+            case .failure(let error):
+                workspaceLoadError = error.localizedDescription
+            }
         }
         .sheet(isPresented: $showFilePicker) {
             sourceFilePicker
@@ -136,6 +138,41 @@ struct CodeWorkspaceCLIView: View {
         }
     }
 
+    /// 接管用户选中的文件夹：先按"安全作用域书签"挂载，失败则给出可执行的替代路径。
+    private func adoptFolder(_ folder: URL) async {
+        isLoadingWorkspace = true
+        workspaceLoadError = nil
+        defer { isLoadingWorkspace = false }
+        do {
+            let access = try await WorkspaceFolderAccess.resolve(folder)
+            try await workspace.mountFolder(
+                url: folder,
+                bookmarkData: access.bookmark,
+                securityScopeAlreadyStarted: access.scopeStarted
+            )
+            workspace.selectCodeFile(workspace.sourceFiles.first)
+            saveState = "已载入工作区"
+        } catch {
+            workspace.noteMountFailure(error)
+            workspaceLoadError = "无法读取该文件夹：\(error.localizedDescription)。可以点「导入副本」把整个目录复制进 App，权限不会再失效。"
+        }
+    }
+
+    /// 兜底：整份复制进沙盒后挂载。
+    private func importWorkspaceCopy(_ folder: URL) async {
+        isLoadingWorkspace = true
+        workspaceLoadError = nil
+        defer { isLoadingWorkspace = false }
+        do {
+            _ = try await workspace.mountSandboxCopy(of: folder)
+            workspace.selectCodeFile(workspace.sourceFiles.first)
+            saveState = "已导入副本"
+        } catch {
+            workspace.noteMountFailure(error)
+            workspaceLoadError = "导入副本失败：\(error.localizedDescription)"
+        }
+    }
+
     private func loadWorkspace(from folder: URL, bookmarkData: Data? = nil, securityScopeAlreadyStarted: Bool = false) {
         isLoadingWorkspace = true
         workspaceLoadError = nil
@@ -150,6 +187,7 @@ struct CodeWorkspaceCLIView: View {
                 workspace.selectCodeFile(workspace.sourceFiles.first)
                 saveState = "已载入工作区"
             } catch {
+                workspace.noteMountFailure(error)
                 workspaceLoadError = error.localizedDescription
             }
         }
@@ -181,21 +219,16 @@ struct CodeWorkspaceCLIView: View {
                 .background(Capsule().fill(accent.opacity(scheme == .dark ? 0.15 : 0.09)))
             }
 
-            HStack(spacing: 8) {
-                Label(workspace.activeWorkspaceURL?.lastPathComponent ?? "选择项目文件夹", systemImage: "folder")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            workspaceCard
 
+            HStack(spacing: 8) {
                 Button {
                     showFolderImporter = true
                 } label: {
-                    Label("选择文件夹", systemImage: "folder.badge.plus")
+                    Label("更换文件夹", systemImage: "folder.badge.plus")
                         .font(.system(size: 11, weight: .semibold))
-                        .padding(.horizontal, 10)
-                        .frame(height: 38)
+                        .padding(.horizontal, 11)
+                        .frame(height: 36)
                         .contentShape(Capsule())
                         .liquidGlass(.regular.tint(accent.opacity(0.12)), in: .capsule)
                         .overlay { Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
@@ -204,12 +237,44 @@ struct CodeWorkspaceCLIView: View {
                 .disabled(isLoadingWorkspace)
                 .accessibilityHint("从文件 App 中选择要编辑的项目目录")
 
+                if let folder = workspace.activeWorkspaceURL, !workspace.isInAppDocuments(folder) {
+                    Button {
+                        Task { await importWorkspaceCopy(folder) }
+                    } label: {
+                        Label("导入副本", systemImage: "square.and.arrow.down.on.square")
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(.horizontal, 11)
+                            .frame(height: 36)
+                            .contentShape(Capsule())
+                            .liquidGlass(.regular, in: .capsule)
+                            .overlay { Capsule().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
+                    }
+                    .buttonStyle(StaticButtonFeedbackStyle())
+                    .disabled(isLoadingWorkspace)
+                    .accessibilityHint("把这个目录整份复制进 App，重启后依然可用")
+                }
+
+                Button {
+                    Task { await workspace.refreshActiveWorkspace() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .contentShape(Circle())
+                        .liquidGlass(.regular, in: .circle)
+                        .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
+                }
+                .buttonStyle(StaticButtonFeedbackStyle())
+                .accessibilityLabel("重新扫描工作区")
+
+                Spacer(minLength: 0)
+
                 Button {
                     showFilePicker = true
                 } label: {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 38, height: 38)
+                        .frame(width: 36, height: 36)
                         .contentShape(Circle())
                         .liquidGlass(.regular, in: .circle)
                         .overlay { Circle().strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1) }
@@ -225,8 +290,8 @@ struct CodeWorkspaceCLIView: View {
                             .font(.system(size: 11, weight: .semibold))
                     }
                     .foregroundStyle(Color.white)
-                    .padding(.horizontal, 11)
-                    .frame(height: 38)
+                    .padding(.horizontal, 12)
+                    .frame(height: 36)
                     .background(Capsule().fill(accent))
                     .overlay { Capsule().strokeBorder(Color.white.opacity(0.42), lineWidth: 0.8) }
                 }
@@ -238,6 +303,93 @@ struct CodeWorkspaceCLIView: View {
         .padding(.horizontal, 13)
         .padding(.vertical, 12)
         .softGlassCard(cornerRadius: 22)
+    }
+
+    /// 工作区卡片：文件夹图标 + 名称 + 真实路径 + 挂载状态点。
+    ///
+    /// 视觉参照 DeepSeek harness 首页那张项目卡：一整个可点的玻璃矩形，
+    /// 主行是项目名，副行是等宽字体的真实路径，右侧一个状态点收尾。
+    private var workspaceCard: some View {
+        let state = workspace.mountState
+        return Button {
+            Haptics.selectionChanged()
+            showFolderImporter = true
+        } label: {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(workspaceBlue.opacity(0.14))
+                    .frame(width: 40, height: 40)
+                    .overlay {
+                        Image(systemName: "folder.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(workspaceBlue)
+                    }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(state.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                        .lineLimit(1)
+                    Text(state.detail)
+                        .font(.system(size: 10.5, weight: .regular, design: .monospaced))
+                        .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer(minLength: 6)
+
+                mountBadge(state)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme).opacity(0.7))
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(scheme == .dark ? Color.white.opacity(0.05) : Color.white.opacity(0.75))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(
+                                scheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.06),
+                                lineWidth: 1
+                            )
+                    }
+            }
+        }
+        .buttonStyle(StaticButtonFeedbackStyle())
+        .accessibilityLabel("工作区 \(state.title)")
+        .accessibilityHint(state.detail)
+    }
+
+    private var workspaceBlue: Color {
+        Color(red: 0.16, green: 0.42, blue: 0.92)
+    }
+
+    @ViewBuilder
+    private func mountBadge(_ state: WorkspaceMountState) -> some View {
+        HStack(spacing: 5) {
+            switch state {
+            case .mounted:
+                Circle().fill(Color.green).frame(width: 6, height: 6)
+                Text("已挂载")
+            case .mounting:
+                ProgressView().controlSize(.mini)
+                Text("挂载中")
+            case .failed:
+                Circle().fill(Color.red).frame(width: 6, height: 6)
+                Text("失败")
+            case .idle:
+                Circle().fill(Color.secondary.opacity(0.5)).frame(width: 6, height: 6)
+                Text("未挂载")
+            }
+        }
+        .font(.system(size: 10, weight: .medium))
+        .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
     }
 
     private var buildStatusBar: some View {

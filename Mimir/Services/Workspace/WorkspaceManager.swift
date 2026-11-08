@@ -58,6 +58,42 @@ struct WorkspaceFileItem: Identifiable, Hashable, Sendable {
     }
 }
 
+/// 挂载状态机。
+///
+/// 存在的理由：过去用户点完文件夹选择器之后界面毫无反馈——不知道是选择器没回调、
+/// 还是安全作用域没拿到、还是扫描到 0 个文件。把状态显式建模出来，UI 才能如实
+/// 告诉用户"卡在哪一步"，而不是让按钮看起来像坏了。
+enum WorkspaceMountState: Equatable, Sendable {
+    case idle
+    case mounting(String)
+    case mounted(folderName: String, path: String, fileCount: Int, scopeHeld: Bool)
+    case failed(String)
+
+    var isBusy: Bool {
+        if case .mounting = self { return true }
+        return false
+    }
+
+    var title: String {
+        switch self {
+        case .idle: return "未挂载文件夹"
+        case .mounting(let text): return text
+        case .mounted(let name, _, _, _): return name
+        case .failed: return "挂载失败"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .idle: return "点右上角文件夹按钮，选一个本地项目目录"
+        case .mounting: return "正在申请访问权限并扫描文件…"
+        case .mounted(_, let path, let count, let held):
+            return "\(path) · \(count) 个文件" + (held ? " · 安全作用域已持有" : " · App 沙盒内")
+        case .failed(let reason): return reason
+        }
+    }
+}
+
 enum WorkspaceAccessError: LocalizedError, Sendable {
     case noFolder
     case accessDenied
@@ -204,6 +240,9 @@ final class WorkspaceManager {
     private var libraryRevision = 0
     private var activeSecurityScopedURL: URL?
 
+    /// 当前挂载进度（UI 直接读它，不再靠猜）。
+    private(set) var mountState: WorkspaceMountState = .idle
+
     private var documentsURL: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
@@ -272,6 +311,8 @@ final class WorkspaceManager {
         bookmarkData providedBookmark: Data? = nil,
         securityScopeAlreadyStarted: Bool = false
     ) async throws {
+        let folderName = url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
+        mountState = .mounting("正在挂载 \(folderName)…")
         let needsSecurityScope = !isInAppDocuments(url)
         let isAlreadyMountedWithScope = activeSecurityScopedURL?.standardizedFileURL == url.standardizedFileURL
         let shouldStartScope = needsSecurityScope && !securityScopeAlreadyStarted && !isAlreadyMountedWithScope
@@ -298,8 +339,92 @@ final class WorkspaceManager {
         }
         addFolderURL(url)
         if let bookmarkData { saveBookmark(bookmarkData, for: url) }
-        guard activeWorkspaceURL?.standardizedFileURL == url.standardizedFileURL else { return }
         applyScannedItems(scannedItems)
+        mountState = .mounted(
+            folderName: folderName,
+            path: url.path,
+            fileCount: scannedItems.count,
+            scopeHeld: activeSecurityScopedURL != nil
+        )
+    }
+
+    /// 兜底通道：把用户选的文件夹**整份复制**进 App 沙盒，再按沙盒内目录挂载。
+    ///
+    /// 为什么需要它：安全作用域书签在真机上会因 Files 提供方不同、重启、iCloud 登录态
+    /// 变化而失效，一旦失效就只剩"挂载失败"。复制进沙盒之后权限问题彻底消失——
+    /// 代价是编辑的是副本，需要用户自己把改动搬回去（或走 GitHub 编译链路）。
+    @discardableResult
+    func mountSandboxCopy(of url: URL) async throws -> URL {
+        let folderName = url.lastPathComponent.isEmpty ? "工作区" : url.lastPathComponent
+        mountState = .mounting("正在复制 \(folderName) 到 App 内…")
+        let destination = defaultWorkspaceURL
+            .appendingPathComponent(folderName, isDirectory: true)
+        let needsSecurityScope = !isInAppDocuments(url)
+        let scanned = try await Task.detached(priority: .userInitiated) { () throws -> [WorkspaceFileItem] in
+            let started = needsSecurityScope && url.startAccessingSecurityScopedResource()
+            if needsSecurityScope && !started { throw WorkspaceAccessError.accessDenied }
+            defer { if started { url.stopAccessingSecurityScopedResource() } }
+            let target = destination
+            try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+            let skipped: Set<String> = [".git", ".build", "Build", "DerivedData", "node_modules", "Pods", "Carthage"]
+            guard let enumerator = FileManager.default.enumerator(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey, .fileSizeKey],
+                options: [.skipsHiddenFiles]
+            ) else { return [] }
+            var copiedBytes: Int64 = 0
+            let budget: Int64 = 120 * 1_024 * 1_024
+            for case let item as URL in enumerator {
+                let relative = item.path.dropFirst(url.path.count).drop(while: { $0 == "/" })
+                if relative.isEmpty { continue }
+                let values = try? item.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+                let isDirectory = values?.isDirectory ?? false
+                if isDirectory, skipped.contains(item.lastPathComponent) {
+                    enumerator.skipDescendants()
+                    continue
+                }
+                let target = destination.appendingPathComponent(String(relative))
+                if isDirectory {
+                    try? FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+                    continue
+                }
+                if copiedBytes + Int64(values?.fileSize ?? 0) > budget {
+                    throw WorkspaceAccessError.fileTooLarge
+                }
+                try? FileManager.default.removeItem(at: target)
+                try? FileManager.default.copyItem(at: item, to: target)
+                copiedBytes += Int64(values?.fileSize ?? 0)
+            }
+            return WorkspaceFolderScanner.scan(destination)
+        }.value
+        let mountedFolder = destination
+        addFolderURL(mountedFolder)
+        applyScannedItems(scanned)
+        mountState = .mounted(
+            folderName: folderName,
+            path: mountedFolder.path,
+            fileCount: scanned.count,
+            scopeHeld: false
+        )
+        return mountedFolder
+    }
+
+    /// 卸载当前外部工作区并退回 App 默认工作区。
+    func unmountActiveWorkspace() async {
+        if let scope = activeSecurityScopedURL {
+            scope.stopAccessingSecurityScopedResource()
+            activeSecurityScopedURL = nil
+        }
+        activeWorkspaceURL = defaultWorkspaceURL
+        mountState = .idle
+        await scanFolder(url: defaultWorkspaceURL)
+    }
+
+    /// 把"挂载失败"写进状态机，让工作区卡片显示红点 + 失败原因，
+    /// 而不是永远停在「挂载中」。
+    func noteMountFailure(_ error: Error) {
+        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        mountState = .failed(message.isEmpty ? "挂载失败" : message)
     }
 
     private func addFolderURL(_ url: URL) {

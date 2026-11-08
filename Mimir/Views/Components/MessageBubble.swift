@@ -60,12 +60,14 @@ struct MessageBubble: View {
         }
     }
 
-    // MARK: - 用户消息（Glassmorphic Bubble with Purple Glow Edge）
+    // MARK: - 用户消息
 
+    /// 用户消息：浅灰底圆角块、正文用主色，右下角一个"复制"小图标。
+    ///
+    /// 和旧版的区别：不再用主题色实心填充白字。实心高饱和气泡是"AI 生成感"最重的
+    /// 一处——参照截图里用户气泡几乎是白的，靠明度差而非颜色差来区分角色。
     private var userBubble: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            nameLabel("User Input · 我", isUser: true)
-
+        VStack(alignment: .trailing, spacing: 5) {
             if !message.quotedPreview.isEmpty {
                 quotedChip
             }
@@ -78,11 +80,7 @@ struct MessageBubble: View {
                         .resizable()
                         .scaledToFill()
                         .frame(maxWidth: 220, maxHeight: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
             }
@@ -90,78 +88,77 @@ struct MessageBubble: View {
             if !message.text.isEmpty {
                 Text(message.text)
                     .font(AppUI.body)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(AppUI.label)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 15)
-                    .padding(.vertical, 11)
-                    .background(accent, in: RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(userBubbleFill)
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
-            metaRow(isUser: true)
+            HStack(spacing: 6) {
+                Text(message.createdAt, format: .dateTime.hour().minute())
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(AppUI.label3)
+                Button {
+                    UIPasteboard.general.string = message.copyableText
+                    Haptics.impact(.light)
+                    onCopy()
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(AppUI.label3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("复制这条消息")
+            }
         }
         .contextMenu { menuItems }
     }
 
-    // MARK: - 助手消息（Agent Turn Card）
-
-    private func nameLabel(_ text: String, isUser: Bool) -> some View {
-        HStack(spacing: 0) {
-            if isUser { Spacer(minLength: 0) }
-            Text(text)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(AppUI.label3)
-                .padding(.horizontal, 2)
-            if !isUser { Spacer(minLength: 0) }
-        }
+    private var userBubbleFill: Color {
+        scheme == .dark
+            ? Color.white.opacity(0.09)
+            : Color(red: 0.945, green: 0.952, blue: 0.970)
     }
 
+    // MARK: - 助手消息
+
+    /// 助手消息：**没有卡片底色**，正文直接排在页面上（与参照截图一致）。
+    /// 只有"思考 / 工具 / 状态"这类次要信息才用弱化的折叠行与细状态条。
     private var assistantBubble: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // 顶部角色标识 + TTS 朗读悬浮圆钮
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(accent)
-                    .frame(width: 6, height: 6)
-                    .shadow(color: accent.opacity(0.8), radius: 4)
-
-                Text(message.agentName.isEmpty ? "Assistant" : message.agentName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(AppUI.label2)
-
-                if !message.skillName.isEmpty {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 5, height: 5)
-                        Text("/" + message.skillName)
-                            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                            .foregroundStyle(AppUI.label2)
-                    }
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Capsule(style: .continuous).fill(AppUI.fill))
-                }
-
-                Spacer(minLength: 0)
-                speakButton
-            }
-
+        VStack(alignment: .leading, spacing: 9) {
             if message.hasVisibleThinking {
                 thinkingSection
             }
 
             if message.isError && !message.errorText.isEmpty {
-                errorSection
+                statusSlab(
+                    message.errorText,
+                    icon: "exclamationmark.triangle.fill",
+                    tint: Color.orange
+                )
             } else if message.text.isEmpty && message.isStreaming {
-                HStack(spacing: 10) {
-                    MimirMascot(size: 30, mood: .thinking)
+                HStack(spacing: 9) {
+                    MimirMascot(size: 24, mood: .thinking)
                     Text("正在推演生成…")
                         .font(AppUI.footnote)
                         .foregroundStyle(AppUI.label2)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 2)
             } else {
                 MarkdownText(raw: message.renderedText, isStreaming: message.isStreaming)
+            }
+
+            if message.isInterrupted {
+                statusSlab(
+                    "生成已取消",
+                    icon: "dot.radiowaves.left.and.right",
+                    tint: accent
+                )
             }
 
             if !message.memoryHitIDs.isEmpty {
@@ -172,22 +169,81 @@ struct MessageBubble: View {
                 versionSwitcher
             }
 
-            telemetryCapsule(for: message.id)
-
-            metaRow(isUser: false)
+            assistantFooter
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppUI.secondary, in: RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous))
         .overlay {
             if isHighlighted {
-                RoundedRectangle(cornerRadius: AppUI.bubbleRadius, style: .continuous)
-                    .strokeBorder(accent.opacity(0.85), lineWidth: 1.6)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(accent.opacity(0.55), lineWidth: 1.2)
+                    .padding(-6)
                     .allowsHitTesting(false)
             }
         }
         .contextMenu { menuItems }
+    }
+
+    /// 元数据行：`Agent · N tokens · 工具 N 次 · 时间`，右侧 chevron 打开审计面板。
+    private var assistantFooter: some View {
+        let counts = telemetry.counts(for: message.id)
+        let hasDetail = counts.tools > 0 || counts.accesses > 0
+        return HStack(spacing: 5) {
+            Button {
+                guard hasDetail else { return }
+                Haptics.impact(.light)
+                showTelemetrySheet = true
+            } label: {
+                HStack(spacing: 5) {
+                    if !message.agentName.isEmpty {
+                        Text(message.agentName)
+                        Text("·")
+                    }
+                    if message.usage.total > 0 {
+                        Text("\(message.usage.total) tokens")
+                        Text("·")
+                    }
+                    if counts.tools > 0 {
+                        Text("\(counts.tools) 次工具调用")
+                        Text("·")
+                    }
+                    Text(message.createdAt, format: .dateTime.hour().minute())
+                    if hasDetail {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8.5, weight: .semibold))
+                    }
+                }
+                .font(.system(size: 10.5))
+                .foregroundStyle(AppUI.label3)
+                .lineLimit(1)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 0)
+            speakButton
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    /// 状态条：浅色圆角底 + 图标 + 一行说明（对照截图的「生成已取消」条）。
+    private func statusSlab(_ text: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(tint.opacity(scheme == .dark ? 0.16 : 0.09))
+        )
     }
 
     /// 悬浮微光液态朗读按钮：用系统原生 `AVSpeechSynthesizer` 念这条回复。
@@ -275,74 +331,58 @@ struct MessageBubble: View {
         }
     }
 
-    /// 思考折叠卡片（Thinking Stream / Thought Disclosure）：紫脉冲脑电图标 + 档位徽标 + 磨砂紫底衬。
+    /// 思考折叠行：一行摘要 + chevron。旧版是带紫边与光晕的盒子，视觉噪音太大；
+    /// 参照截图里"思考"就是一行灰字 + 右侧箭头。
     private var thinkingSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Button {
                 Haptics.selectionChanged()
                 withAnimation(AppAnimation.chip) { thinkingExpanded.toggle() }
             } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.system(size: 12.5, weight: .bold))
-                        .foregroundStyle(accent)
-                        .shadow(color: accent.opacity(0.6), radius: 4)
-
-                    Text(message.isStreaming && !thinkingExpanded ? "Thinking Stream · 正在思考…" : "Thinking Stream")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AppUI.label)
-
-                    Text("(\(message.thinkingMode.title))")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(accent)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(accent.opacity(scheme == .dark ? 0.20 : 0.12))
-                        )
-
-                    Spacer(minLength: 4)
-
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(AppUI.label2)
-                        .rotationEffect(.degrees(thinkingExpanded ? 180 : 0))
+                HStack(spacing: 6) {
+                    Image(systemName: "brain")
+                        .font(.system(size: 11, weight: .medium))
+                    Text("思考")
+                        .font(.system(size: 12, weight: .medium))
+                    Text(thinkingSummary)
+                        .font(.system(size: 12))
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .rotationEffect(.degrees(thinkingExpanded ? 90 : 0))
                 }
+                .foregroundStyle(AppUI.label2)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             if thinkingExpanded {
                 Text(message.thinkingText)
-                    .font(AppUI.footnote)
+                    .font(.system(size: 12))
                     .foregroundStyle(AppUI.label2)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 10)
                     .overlay(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                            .fill(accent.opacity(0.55))
-                            .frame(width: 2.5)
+                        Rectangle()
+                            .fill(AppUI.label3.opacity(0.5))
+                            .frame(width: 1.5)
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(
-                    scheme == .dark
-                        ? Color(red: 0.14, green: 0.09, blue: 0.25).opacity(0.72)
-                        : accent.opacity(0.08)
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(accent.opacity(scheme == .dark ? 0.34 : 0.24), lineWidth: 1)
-        )
+    }
+
+    /// 折叠态摘要：把思考正文压成一行，让"它到底在干什么"一眼可见。
+    private var thinkingSummary: String {
+        let flat = message.thinkingText
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if flat.isEmpty {
+            return message.isStreaming ? "正在思考…" : ""
+        }
+        return "· " + String(flat.prefix(40))
     }
 
     private var errorSection: some View {

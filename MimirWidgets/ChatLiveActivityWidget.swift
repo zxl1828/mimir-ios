@@ -30,18 +30,19 @@ struct ChatLiveActivityWidget: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 5) {
                         owlGlyph(glow: context.state.owlGlow)
-                        Text(context.state.statusText.isEmpty ? "Mimir" : context.state.statusText)
+                        Text("Mimir")
                             .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.92))
                             .lineLimit(1)
                     }
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    ambientSnapshot(context.state)
+                    runningPill(context.state)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    expandedStage(context.state)
+                    expandedProgress(context.state)
                 }
             } compactLeading: {
                 owlGlyph(glow: context.state.owlGlow)
@@ -65,97 +66,143 @@ struct ChatLiveActivityWidget: Widget {
             .shadow(color: sparkViolet.opacity(min(max(glow, 0.35), 0.85)), radius: 6)
     }
 
+    /// 动态岛紧凑态右侧：执行中报步数，结束显示完成勾。
     @ViewBuilder
     private func compactStatus(_ state: ChatActivityAttributes.ContentState) -> some View {
         if state.isGenerating {
-            Image(systemName: "waveform")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(sparkViolet)
-        } else {
-            Circle()
-                .fill(sparkViolet.opacity(0.85))
-                .frame(width: 6, height: 6)
-        }
-    }
-
-    // MARK: - 展开态部件
-
-    private func ambientSnapshot(_ state: ChatActivityAttributes.ContentState) -> some View {
-        HStack(spacing: 5) {
-            if !state.ambientWeather.isEmpty {
-                Text(state.ambientWeather)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            if state.progressStep > 0 {
+                Text("\(state.progressStep)")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(sparkViolet)
             } else {
-                // 天气尚未接入时退化为本地时间（Widget 的 Text 会自动走时，无需 App 推送）
-                Text(Date(), style: .time)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                Image(systemName: "waveform")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(sparkViolet)
             }
-            if !state.ambientSchedule.isEmpty {
-                Text("📅 " + state.ambientSchedule)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+        } else {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(sparkViolet.opacity(0.9))
         }
     }
 
-    private func expandedStage(_ state: ChatActivityAttributes.ContentState) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // 响应文本：高信噪比的 2~4 行
-            Text(state.previewText.isEmpty ? "随时说点什么，我会在这里回应。" : state.previewText)
-                .font(.system(size: 12))
-                .foregroundStyle(state.previewText.isEmpty ? Color.secondary : Color.primary)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
+    // MARK: - 展开态：运行中进展
 
-            // 输入入口：Live Activity 不支持输入控件，点按唤起 App 输入框
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
+    /// 右上角胶囊：`↑ 执行中 2:08`。计时由系统 `Text(_, style: .timer)` 自己走秒，
+    /// App 完全不用为"秒数在跳"推送更新（Live Activity 的更新预算很紧）。
+    private func runningPill(_ state: ChatActivityAttributes.ContentState) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: state.isGenerating ? "arrow.up" : "checkmark")
+                .font(.system(size: 9, weight: .bold))
+            if state.isGenerating {
+                Text(state.startedAt, style: .timer)
+                    .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+            } else {
+                Text(state.statusText.isEmpty ? "已完成" : state.statusText)
                     .font(.system(size: 11, weight: .semibold))
-                Text("点按输入")
-                    .font(.system(size: 12))
-                Spacer(minLength: 0)
-                Image(systemName: "waveform")
-                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
             }
-            .foregroundStyle(Color.white.opacity(0.82))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.10))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(LinearGradient(
-                                colors: [Color.white.opacity(0.14), Color.white.opacity(0.02)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.50), sparkViolet.opacity(0.42)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            }
-            .shadow(color: Color(red: 0.918, green: 0.871, blue: 0.980).opacity(0.18), radius: 10, y: 3)
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 14)
+        .foregroundStyle(Color.white.opacity(0.94))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Capsule(style: .continuous).fill(Color.white.opacity(0.14)))
+    }
+
+    /// 展开态主体：标题 / 正在调用的动作 / 第几步 + 进度条 / 分隔线 / 设备·工作区。
+    private func expandedProgress(_ state: ChatActivityAttributes.ContentState) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(headline(state))
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Text("详情")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.52))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 8.5, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.42))
+            }
+
+            HStack(spacing: 5) {
+                Image(systemName: progressGlyph(for: state.toolName))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(sparkViolet)
+                Text(state.activityLine)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.white.opacity(0.88))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 8) {
+                Text(state.stepLabel)
+                    .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.white.opacity(0.48))
+                    .lineLimit(1)
+                if state.progressTotal > 0 {
+                    progressTrack(state).frame(maxWidth: 90)
+                }
+                Spacer(minLength: 0)
+                if state.rounds > 0 {
+                    Text("\(state.rounds) 轮")
+                        .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.white.opacity(0.40))
+                }
+            }
+
+            Rectangle()
+                .fill(Color.white.opacity(0.10))
+                .frame(height: 0.6)
+
+            Text(state.workspaceName.isEmpty ? "本机 · Mimir" : state.workspaceName)
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.40))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 2)
+        .padding(.bottom, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private func headline(_ state: ChatActivityAttributes.ContentState) -> String {
+        let title = state.taskTitle.isEmpty ? state.conversationTitle : state.taskTitle
+        return title.isEmpty ? "正在处理" : title
+    }
 }
+
+// MARK: - 共用部件（灵动岛与锁屏都要用，所以放在文件作用域）
+
+/// 工具名 → 图标：尽量给"正在做什么"一个形状，而不是清一色扳手。
+private func progressGlyph(for name: String) -> String {
+    switch name {
+    case "compress", "context": return "arrow.down.right.and.arrow.up.left"
+    case "search", "web_search", "search_context": return "magnifyingglass"
+    case "todo_write", "task": return "checklist"
+    case "read", "read_file": return "doc.text"
+    case "write", "edit": return "square.and.pencil"
+    case "pwsh", "bash", "shell": return "terminal"
+    case "": return "wrench.and.screwdriver.fill"
+    default: return "hammer.fill"
+    }
+}
+
+private func progressTrack(_ state: ChatActivityAttributes.ContentState) -> some View {
+    let total = max(state.progressTotal, 1)
+    let ratio = min(max(Double(state.progressStep) / Double(total), 0.02), 1)
+    return GeometryReader { proxy in
+        ZStack(alignment: .leading) {
+            Capsule().fill(Color.white.opacity(0.12))
+            Capsule()
+                .fill(sparkViolet)
+                .frame(width: max(proxy.size.width * ratio, 3))
+        }
+    }
+    .frame(height: 3)
+}
+
 
 // MARK: - 锁屏视图
 
@@ -191,7 +238,7 @@ private struct LockScreenSparkView: View {
                             .foregroundStyle(Color.white.opacity(0.68))
                             .lineLimit(1)
                     }
-                    Text(state.conversationTitle.isEmpty ? "AI 助手" : state.conversationTitle)
+                    Text(state.taskTitle.isEmpty ? (state.conversationTitle.isEmpty ? "AI 助手" : state.conversationTitle) : state.taskTitle)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color.white.opacity(0.76))
                         .lineLimit(1)
@@ -201,6 +248,28 @@ private struct LockScreenSparkView: View {
                 Image(systemName: state.isGenerating ? "waveform" : "waveform.circle.fill")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(sparkViolet.opacity(0.95))
+            }
+
+            if state.isGenerating || state.progressStep > 0 {
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 6) {
+                        Image(systemName: progressGlyph(for: state.toolName))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(sparkViolet)
+                        Text(state.activityLine)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.white.opacity(0.86))
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        Text(state.stepLabel)
+                            .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Color.white.opacity(0.50))
+                            .lineLimit(1)
+                    }
+                    if state.progressTotal > 0 {
+                        progressTrack(state)
+                    }
+                }
             }
 
             Text(state.previewText.isEmpty ? "轻点打开 Mimir，继续你的对话。" : state.previewText)

@@ -2,17 +2,66 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-/// 原生 iOS 文件夹选择器（基于 UIDocumentPickerViewController）。
+/// 文件夹选择的**权限解析器**（App 内唯一的入口）。
 ///
-/// 严格遵守系统与 Swift 6 并发规范：
-/// 1. 实现复数代理方法 didPickDocumentsAt urls，严禁使用单数方法；
-/// 2. 初始化参数 asCopy: false，类型指定为 UTType.folder；
-/// 3. picker.delegate 严格绑定在 context.coordinator 上防止提前释放；
-/// 4. 安全权限获取与文件读取全部切到后台异步执行（Task.detached），严禁阻塞主线程。
+/// 之前"文件夹挂载从来没成功过"的根因有两层：
+/// 1. `UIDocumentPickerViewController` 被塞进 SwiftUI 的 `.sheet` 里，系统选择器
+///    自己又会 dismiss 一次；代理回调里再把 `onPick` 挂在 `controller.dismiss(animated:)`
+///    的 completion 上——这个 completion 在 sheet 已被 SwiftUI 拆掉时**不会执行**，
+///    于是选了文件夹也毫无反应。
+/// 2. 拿到的 URL 只要没有真的 start 安全作用域，后续所有读写都会静默失败。
+///
+/// 现在把"选文件夹"交给 SwiftUI 原生 `.fileImporter`（presentation 由系统托管，
+/// 不存在双层 dismiss 竞态），这个文件只负责把 URL 变成"可长期持有的访问凭证"。
+enum WorkspaceFolderAccess {
+
+    /// 解析用户刚选中的文件夹：开启安全作用域、生成书签。
+    ///
+    /// - Returns: `(bookmark, scopeStarted)`；沙盒内目录不需要书签，返回 `nil`。
+    static func resolve(_ folder: URL) async throws -> (bookmark: Data?, scopeStarted: Bool) {
+        try await Task.detached(priority: .userInitiated) { () throws -> (Data?, Bool) in
+            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .standardizedFileURL.path
+            let path = folder.standardizedFileURL.path
+            let isInAppDocuments = path == documentsPath || path.hasPrefix(documentsPath + "/")
+            if isInAppDocuments {
+                // App 自己的 Documents 天然可读写，不需要也不应该申请安全作用域。
+                let bookmark = try? folder.bookmarkData(
+                    options: [],
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                return (bookmark, false)
+            }
+
+            let started = folder.startAccessingSecurityScopedResource()
+            guard started else {
+                throw WorkspaceAccessError.accessDenied
+            }
+            do {
+                let bookmark = try folder.bookmarkData(
+                    options: [],
+                    includingResourceValuesForKeys: nil,
+                    relativeTo: nil
+                )
+                // 故意不 stop：作用域要一直握到用户切换工作区为止。
+                return (bookmark, true)
+            } catch {
+                folder.stopAccessingSecurityScopedResource()
+                throw error
+            }
+        }.value
+    }
+}
+
+/// 旧的 sheet 版选择器。保留给"需要自己控制 presentation"的调用点。
+///
+/// 与旧实现的区别：代理回调里**立即**把 URL 交出去，不再把回调挂在 dismiss 的
+/// completion 上；dismiss 交给 SwiftUI 的 binding 完成，避免二次 dismiss。
 struct WorkspaceFolderPicker: UIViewControllerRepresentable {
     @Binding var isPresented: Bool
-    let onPick: @MainActor (URL, Data, Bool) -> Void
-    let onError: @MainActor (String) -> Void
+    let onPick: @MainActor (URL) -> Void
+    var onError: @MainActor (String) -> Void = { _ in }
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.folder], asCopy: false)
@@ -29,33 +78,6 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
         Coordinator(parent: self)
     }
 
-    /// 后台脱离主线程执行安全权限获取与书签生成，彻底杜绝主线程阻塞与数据竞态
-    static func resolveFolderAccess(folder: URL) async throws -> (Data, Bool) {
-        try await Task.detached(priority: .userInitiated) {
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .standardizedFileURL.path
-            let isAppDocument = folder.standardizedFileURL.path == documentsPath
-                || folder.standardizedFileURL.path.hasPrefix(documentsPath + "/")
-            let didStartAccess = folder.startAccessingSecurityScopedResource()
-
-            guard didStartAccess || isAppDocument else {
-                throw LLMError.unsupported("无法获取所选文件夹安全权限，请选择 Mimir 文件夹或重新授权。")
-            }
-
-            do {
-                let bookmark = try folder.bookmarkData(
-                    options: [],
-                    includingResourceValuesForKeys: nil,
-                    relativeTo: nil
-                )
-                return (bookmark, didStartAccess)
-            } catch {
-                if didStartAccess { folder.stopAccessingSecurityScopedResource() }
-                throw error
-            }
-        }.value
-    }
-
     @MainActor
     final class Coordinator: NSObject, UIDocumentPickerDelegate {
         var parent: WorkspaceFolderPicker
@@ -66,34 +88,16 @@ struct WorkspaceFolderPicker: UIViewControllerRepresentable {
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let folder = urls.first else {
-                controller.dismiss(animated: true) { [weak self] in
-                    self?.parent.isPresented = false
-                }
+                parent.isPresented = false
                 return
             }
-
-            Task { @MainActor [weak self] in
-                do {
-                    let (bookmark, didStartAccess) = try await WorkspaceFolderPicker.resolveFolderAccess(folder: folder)
-                    controller.dismiss(animated: true) {
-                        guard let self else { return }
-                        self.parent.isPresented = false
-                        self.parent.onPick(folder, bookmark, didStartAccess)
-                    }
-                } catch {
-                    controller.dismiss(animated: true) {
-                        guard let self else { return }
-                        self.parent.isPresented = false
-                        self.parent.onError(error.localizedDescription)
-                    }
-                }
-            }
+            // 先交出结果，再收 UI——顺序反过来就会出现"回调丢失"。
+            parent.onPick(folder)
+            parent.isPresented = false
         }
 
         func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            controller.dismiss(animated: true) { [weak self] in
-                self?.parent.isPresented = false
-            }
+            parent.isPresented = false
         }
     }
 }

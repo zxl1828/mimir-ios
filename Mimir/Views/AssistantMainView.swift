@@ -260,18 +260,8 @@ public struct AssistantMainView: View {
                     )
                 }
 
-            // 2. 主题色流光微渐变：融合 Dynamic Island 与状态栏区域
-            LinearGradient(
-                colors: [
-                    accent.opacity(scheme == .dark ? 0.32 : 0.20),
-                    accent.opacity(scheme == .dark ? 0.12 : 0.06),
-                    Color.clear
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
         }
-        .frame(height: 120)
+        .frame(height: 92)
         .ignoresSafeArea(edges: .top)
         .allowsHitTesting(false)
     }
@@ -298,15 +288,17 @@ public struct AssistantMainView: View {
     // MARK: - 3. 顶栏 Command Header
 
     private var topBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Button {
                 if showReasoningCard {
                     withAnimation(AppUI.snap) { showReasoningCard = false }
                 }
                 showSettings = true
             } label: {
-                ProfileAvatarBadge(size: 34)
-                    .frame(width: 40, height: 40)
+                ProfileAvatarBadge(size: 30)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(headerGlassFill))
+                    .overlay(Circle().strokeBorder(headerHairline, lineWidth: 1))
             }
             .buttonStyle(StaticButtonFeedbackStyle())
             .accessibilityLabel("个人资料与设置")
@@ -320,49 +312,83 @@ public struct AssistantMainView: View {
                 }
             }
 
-            Spacer(minLength: 2)
+            // 两行标题：第一行是会话名（粗体、可截断），第二行是"状态点 + 模型"。
+            // 参照截图里这一块完全不加底色——顶栏是透明浮在页面上的，不是一条玻璃横条。
+            VStack(alignment: .leading, spacing: 2) {
+                Text(chat?.conversation?.title ?? "新对话")
+                    .font(.system(size: 15.5, weight: .semibold))
+                    .foregroundStyle(AppUI.label)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
 
-            // 中间：模型命令胶囊滑块（Codex 桌面端样式）
-            ModelSegmentedSwitcher(
-                options: currentModelOptions,
-                selectedID: Binding(
-                    get: { currentModelID },
-                    set: { selectModel($0) }
-                ),
-                onOpenSettings: { showSettings = true }
-            )
-            .frame(maxWidth: 236)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(accent.opacity(0.85))
+                        .frame(width: 5, height: 5)
+                    Text(ModelCatalog.shortLabel(for: currentModelID))
+                        .lineLimit(1)
+                    Text("·")
+                    Text(isConversationEmpty ? "准备就绪" : "标准模式")
+                        .lineLimit(1)
+                }
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(AppUI.label2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
 
-            Spacer(minLength: 2)
+            Menu {
+                Section("模型") {
+                    ForEach(currentModelOptions, id: \.id) { option in
+                        Button {
+                            selectModel(option.id)
+                        } label: {
+                            if option.id == currentModelID {
+                                Label(ModelCatalog.cardLabel(for: option.id), systemImage: "checkmark")
+                            } else {
+                                Text(ModelCatalog.cardLabel(for: option.id))
+                            }
+                        }
+                    }
+                }
 
-            Color.clear
-                .frame(width: 40, height: 40)
-                .accessibilityHidden(true)
+                Divider()
+
+                Button {
+                    Haptics.impact(.light)
+                    titleDraft = chat?.conversation?.title ?? ""
+                    editingTitle = true
+                } label: {
+                    Label("重命名对话", systemImage: "pencil")
+                }
+
+                Button {
+                    showSettings = true
+                } label: {
+                    Label("设置", systemImage: "gearshape")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppUI.label)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(headerGlassFill))
+                    .overlay(Circle().strokeBorder(headerHairline, lineWidth: 1))
+            }
+            .accessibilityLabel("更多操作")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .liquidGlass(.regular, in: .rect(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                .allowsHitTesting(false)
-        }
-        .overlay(alignment: .top) {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white.opacity(scheme == .dark ? 0.20 : 0.50), .clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(height: 24)
-                .padding(.horizontal, 1)
-                .allowsHitTesting(false)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .padding(.horizontal, 8)
-        .padding(.top, 14)
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+    }
+
+    /// 顶栏玻璃圆钮的底与描边：足够的通透感，但只用 1px hairline，不做高光渐变。
+    private var headerGlassFill: Color {
+        scheme == .dark ? Color.white.opacity(0.08) : Color.white.opacity(0.70)
+    }
+
+    private var headerHairline: Color {
+        scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.06)
     }
 
     private var currentModelID: String {

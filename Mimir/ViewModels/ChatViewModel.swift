@@ -431,6 +431,11 @@ final class ChatViewModel {
                 preview: "",
                 enabled: true
             )
+            // 灵动岛展开态的第一行：拿用户这句原话当标题，比会话名更像"任务"。
+            let prompt = conversation.orderedMessages
+                .last(where: { $0.role == .user })?
+                .displayText ?? conversation.title
+            GenerationProgressCenter.begin(taskTitle: prompt, workspaceName: "")
         }
 
         let credential = settings.resolvedCredential
@@ -503,6 +508,11 @@ final class ChatViewModel {
 
             while round < maximumRounds {
                 round += 1
+                GenerationProgressCenter.step(
+                    index: round,
+                    detail: round == 1 ? "正在思考…" : "第 \(round) 轮推理",
+                    rounds: round
+                )
                 var pendingToolCalls: [LLMToolCall] = []
                 var roundText = ""
 
@@ -561,7 +571,14 @@ final class ChatViewModel {
                     LLMChatMessage(role: .assistant, text: roundText, toolCalls: pendingToolCalls)
                 )
 
-                for call in pendingToolCalls {
+                for (callIndex, call) in pendingToolCalls.enumerated() {
+                    GenerationProgressCenter.step(
+                        index: callIndex + 1,
+                        total: pendingToolCalls.count,
+                        detail: "准备调用 \(call.name)",
+                        toolName: call.name,
+                        rounds: round
+                    )
                     let toolText: String
                     // 遥测：这次工具调用（含本机数据访问）都记一条，供卡片底部的审计面板展示
                     let telemetryID = ToolCallTelemetry.shared.beginTool(
@@ -655,10 +672,12 @@ final class ChatViewModel {
             self.streamTask = nil
             self.persist(force: true)
             if self.settings.liveActivitiesEnabled {
-                ChatActivityManager.end(
-                    status: wasInterrupted ? "已停止生成" : "回答完成",
+                GenerationProgressCenter.finish(
+                    status: wasInterrupted ? "已取消" : (failure == nil ? "已完成" : "出错了"),
                     preview: accumulated
                 )
+                // 让"已完成"在锁屏上留一会儿，再收起这条一次性活动；常驻待命态不受影响。
+                GenerationProgressCenter.scheduleDismissal()
             }
             self.runPostProcessing(for: conversation, credential: credential, parameters: parameters)
         }

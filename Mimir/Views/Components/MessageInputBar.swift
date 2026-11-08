@@ -58,20 +58,23 @@ struct MessageInputBar: View {
 
                 trailingButton
             }
-            .padding(.horizontal, 8)
+            .padding(.leading, 6)
+            .padding(.trailing, 6)
             .padding(.vertical, 6)
-            .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(inputFill, in: Capsule(style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(accent.opacity(focus.wrappedValue ? 0.42 : 0.08), lineWidth: 1)
+                Capsule(style: .continuous)
+                    .strokeBorder(
+                        focus.wrappedValue ? accent.opacity(0.34) : inputHairline,
+                        lineWidth: 1
+                    )
                     .allowsHitTesting(false)
             }
-            .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(accent.opacity(focus.wrappedValue ? 0.18 : 0), lineWidth: 3)
-                    .padding(-3)
-                    .allowsHitTesting(false)
-            }
+            .shadow(
+                color: Color.black.opacity(scheme == .dark ? 0.38 : 0.07),
+                radius: focus.wrappedValue ? 16 : 12,
+                y: 5
+            )
             .animation(.spring(response: 0.32, dampingFraction: 0.84), value: focus.wrappedValue)
         }
         .animation(AppAnimation.chip, value: attachments.count)
@@ -79,20 +82,24 @@ struct MessageInputBar: View {
 
     // MARK: - 子视图
 
+    /// 输入栏底：浅色下几乎是白的，深色下是深灰玻璃；比系统 secondary 更"干净"。
+    private var inputFill: Color {
+        scheme == .dark ? Color(red: 0.105, green: 0.105, blue: 0.125) : Color.white
+    }
+
+    private var inputHairline: Color {
+        scheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.05)
+    }
+
     private var attachButton: some View {
         Button {
             Haptics.impact(.light)
             showAttachMenu.toggle()
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(AppUI.label)
-                .frame(width: 36, height: 36)
-                .background(showAttachMenu ? accent.opacity(0.16) : Color(uiColor: .tertiarySystemBackground), in: Circle())
-                .overlay(
-                    Circle()
-                        .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 0.8)
-                )
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(showAttachMenu ? accent : AppUI.label2)
+                .frame(width: 30, height: 30)
                 .contentShape(Circle())
                 .rotationEffect(.degrees(showAttachMenu ? 45 : 0))
                 .animation(AppAnimation.chip, value: showAttachMenu)
@@ -111,7 +118,10 @@ struct MessageInputBar: View {
         }
     }
 
-    /// 右侧单按钮：空输入 → 语音；有文字 → 霓虹紫发光圆形发送；生成中 → 停止。
+    /// 右侧单按钮：生成中 → 方块停止；有文字 → 方块发送；空输入 → 语音。
+    ///
+    /// 形状从"发光圆形"改成"圆角方块"：参照截图里发送键是一个安静的深色小方块，
+    /// 它不需要发光来证明自己可以点。
     private var trailingButton: some View {
         Button {
             if isGenerating {
@@ -126,62 +136,34 @@ struct MessageInputBar: View {
             }
         } label: {
             ZStack {
-                if isGenerating {
-                    Circle()
-                        .fill(accent.opacity(0.18))
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(accent.opacity(0.6), lineWidth: 1)
-                        )
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(accent)
-                } else if canSend {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [accent, AppUI.neonViolet],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(Color.white.opacity(0.45), lineWidth: 0.9)
-                        )
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white)
-                } else {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    accent.opacity(scheme == .dark ? 0.32 : 0.16),
-                                    AppUI.neonViolet.opacity(scheme == .dark ? 0.22 : 0.10)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 36, height: 36)
-                        .overlay(
-                            Circle()
-                                .strokeBorder(accent.opacity(0.45), lineWidth: 0.9)
-                        )
-                    Image(systemName: "waveform")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(accent)
-                }
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(trailingFill)
+                    .frame(width: 32, height: 30)
+                Image(systemName: isGenerating ? "square.fill" : (canSend ? "arrow.up" : "waveform"))
+                    .font(.system(size: isGenerating ? 11 : 14, weight: .bold))
+                    .foregroundStyle(trailingGlyph)
             }
-            .contentShape(Circle())
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
         .animation(.easeInOut(duration: 0.18), value: canSend)
         .animation(.easeInOut(duration: 0.18), value: isGenerating)
         .accessibilityLabel(isGenerating ? "停止生成" : (canSend ? "发送" : "语音模式"))
+    }
+    private var trailingFill: Color {
+        if isGenerating {
+            return scheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.08)
+        }
+        if canSend {
+            return scheme == .dark ? Color.white.opacity(0.92) : Color(red: 0.11, green: 0.11, blue: 0.13)
+        }
+        return scheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.05)
+    }
+
+    private var trailingGlyph: Color {
+        if isGenerating { return AppUI.label }
+        if canSend { return scheme == .dark ? Color(red: 0.09, green: 0.09, blue: 0.11) : .white }
+        return AppUI.label2
     }
 
     private var canSend: Bool {

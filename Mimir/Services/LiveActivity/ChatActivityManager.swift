@@ -20,14 +20,29 @@ enum ChatActivityManager {
     ) {
         guard enabled, isSupported else { return }
         Task {
-            await endAll()
+            // 复用已经存在的活动（常驻 Spark 或上一轮对话），不再先 `endAll()`。
+            // 老实现每次生成都把所有活动杀一遍，包括常驻待命态——于是用户经常看到
+            // 灵动岛"忽然什么都不显示"，而 ProgressCenter 的更新又找不到活动可写。
+            if let existing = Activity<ChatActivityAttributes>.activities.first {
+                current = existing
+                var state = existing.content.state
+                state.conversationTitle = title
+                state.statusText = status
+                state.previewText = preview
+                state.isGenerating = true
+                state.startedAt = Date()
+                state.updatedAt = Date()
+                await existing.update(.init(state: state, staleDate: nil))
+                return
+            }
             let attributes = ChatActivityAttributes(conversationID: conversationID)
             let state = ChatActivityAttributes.ContentState(
                 conversationTitle: title,
                 statusText: status,
                 previewText: preview,
                 isGenerating: true,
-                tokenCount: 0
+                tokenCount: 0,
+                startedAt: Date()
             )
             do {
                 current = try Activity.request(
@@ -49,13 +64,12 @@ enum ChatActivityManager {
     ) {
         guard let activity = current else { return }
         Task {
-            let state = ChatActivityAttributes.ContentState(
-                conversationTitle: activity.content.state.conversationTitle,
-                statusText: status,
-                previewText: String(preview.suffix(120)),
-                isGenerating: isGenerating,
-                tokenCount: tokenCount
-            )
+            var state = activity.content.state
+            state.statusText = status
+            state.previewText = String(preview.suffix(120))
+            state.isGenerating = isGenerating
+            state.tokenCount = tokenCount
+            state.updatedAt = Date()
             await activity.update(.init(state: state, staleDate: nil))
         }
     }
@@ -64,13 +78,11 @@ enum ChatActivityManager {
         guard let activity = current else { return }
         current = nil
         Task {
-            let state = ChatActivityAttributes.ContentState(
-                conversationTitle: activity.content.state.conversationTitle,
-                statusText: status,
-                previewText: String(preview.suffix(120)),
-                isGenerating: false,
-                tokenCount: activity.content.state.tokenCount
-            )
+            var state = activity.content.state
+            state.statusText = status
+            state.previewText = String(preview.suffix(120))
+            state.isGenerating = false
+            state.updatedAt = Date()
             await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .after(.now + 20))
         }
     }
