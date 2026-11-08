@@ -2,6 +2,14 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// 同一层视图只保留一个 presentation 槽位，两个弹层用枚举合并。
+private enum CodeWorkspaceSheet: String, Identifiable {
+    case sourceFile
+    case github
+
+    var id: String { rawValue }
+}
+
 /// Phone-first source editor and coding agent for a user-selected local project folder.
 struct CodeWorkspaceCLIView: View {
     @Environment(\.colorScheme) private var scheme
@@ -10,8 +18,7 @@ struct CodeWorkspaceCLIView: View {
     @State private var workspace = WorkspaceManager.shared
     @State private var agent = CodeWorkspaceAgent()
     @State private var settings = AppSettings()
-    @State private var showFolderImporter = false
-    @State private var showFilePicker = false
+    @State private var activeSheet: CodeWorkspaceSheet?
     @State private var isLoadingWorkspace = false
     @State private var isKeyboardVisible = false
     @State private var workspaceLoadError: String?
@@ -19,7 +26,6 @@ struct CodeWorkspaceCLIView: View {
     @State private var saveState = "已保存"
     @State private var saveError: String?
     @State private var saveTask: Task<Void, Never>?
-    @State private var showGitHubSettings = false
     @State private var confirmRemoteBuild = false
     @State private var repositoryDraft = ""
     @State private var tokenDraft = ""
@@ -81,24 +87,16 @@ struct CodeWorkspaceCLIView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             isKeyboardVisible = false
         }
-        .fileImporter(
-            isPresented: $showFolderImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let folder = urls.first else { return }
-                Task { await adoptFolder(folder) }
-            case .failure(let error):
-                workspaceLoadError = error.localizedDescription
+        // 只留**一个** presentation 槽位：两个 `.sheet` 合并成 `.sheet(item:)`。
+        // 之前 `.fileImporter` 和两个 `.sheet` 挂在同一层视图上，SwiftUI 只有一个
+        // presentation 槽位，先挂的会被后挂的顶掉——表现为"点文件夹卡片毫无响应"。
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .sourceFile:
+                sourceFilePicker
+            case .github:
+                githubSettingsSheet
             }
-        }
-        .sheet(isPresented: $showFilePicker) {
-            sourceFilePicker
-        }
-        .sheet(isPresented: $showGitHubSettings) {
-            githubSettingsSheet
         }
         .confirmationDialog("上传项目并编译？", isPresented: $confirmRemoteBuild, titleVisibility: .visible) {
             Button("上传并构建", role: .destructive) {
@@ -136,6 +134,32 @@ struct CodeWorkspaceCLIView: View {
             saveTask?.cancel()
             Task { await persistCurrentFile() }
         }
+    }
+
+    /// 打开系统文件夹选择器。
+    ///
+    /// 直接走 `FolderPickerBroker`（UIKit 顶层 VC），不用 `.fileImporter`：
+    /// 这个视图同层还有 `.sheet(item:)` 和两个 `.alert`，SwiftUI 的 presentation
+    /// 槽位会被抢占，导致点卡片完全没有反应。
+    private func presentFolderPicker(asCopy: Bool = false) {
+        Haptics.selectionChanged()
+        FolderPickerBroker.present(
+            onPick: { folder in
+                Task {
+                    if asCopy {
+                        await importWorkspaceCopy(folder)
+                    } else {
+                        await adoptFolder(folder)
+                    }
+                }
+            },
+            onCancel: {
+                saveState = "已取消选择"
+            },
+            onError: { message in
+                workspaceLoadError = message
+            }
+        )
     }
 
     /// 接管用户选中的文件夹：先按"安全作用域书签"挂载，失败则给出可执行的替代路径。
@@ -223,7 +247,7 @@ struct CodeWorkspaceCLIView: View {
 
             HStack(spacing: 8) {
                 Button {
-                    showFolderImporter = true
+                    presentFolderPicker()
                 } label: {
                     Label("更换文件夹", systemImage: "folder.badge.plus")
                         .font(.system(size: 11, weight: .semibold))
@@ -237,11 +261,10 @@ struct CodeWorkspaceCLIView: View {
                 .disabled(isLoadingWorkspace)
                 .accessibilityHint("从文件 App 中选择要编辑的项目目录")
 
-                if let folder = workspace.activeWorkspaceURL, !workspace.isInAppDocuments(folder) {
-                    Button {
-                        Task { await importWorkspaceCopy(folder) }
-                    } label: {
-                        Label("导入副本", systemImage: "square.and.arrow.down.on.square")
+                Button {
+                    presentFolderPicker(asCopy: true)
+                } label: {
+                    Label("导入副本", systemImage: "square.and.arrow.down.on.square")
                             .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 11)
                             .frame(height: 36)
@@ -252,7 +275,6 @@ struct CodeWorkspaceCLIView: View {
                     .buttonStyle(StaticButtonFeedbackStyle())
                     .disabled(isLoadingWorkspace)
                     .accessibilityHint("把这个目录整份复制进 App，重启后依然可用")
-                }
 
                 Button {
                     Task { await workspace.refreshActiveWorkspace() }
@@ -270,7 +292,7 @@ struct CodeWorkspaceCLIView: View {
                 Spacer(minLength: 0)
 
                 Button {
-                    showFilePicker = true
+                    activeSheet = .sourceFile
                 } label: {
                     Image(systemName: "chevron.left.forwardslash.chevron.right")
                         .font(.system(size: 14, weight: .semibold))
@@ -313,7 +335,7 @@ struct CodeWorkspaceCLIView: View {
         let state = workspace.mountState
         return Button {
             Haptics.selectionChanged()
-            showFolderImporter = true
+        presentFolderPicker()
         } label: {
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -491,7 +513,7 @@ struct CodeWorkspaceCLIView: View {
                     Text(workspace.activeWorkspaceURL == nil ? "先选择手机上的项目文件夹" : "这个文件夹里还没有可编辑的源码")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                    Button("选择文件夹") { showFolderImporter = true }
+                Button("选择文件夹") { presentFolderPicker() }
                         .font(.system(size: 12, weight: .semibold))
                         .buttonStyle(.borderedProminent)
                         .tint(accent)
@@ -613,7 +635,7 @@ struct CodeWorkspaceCLIView: View {
                         await persistCurrentFile()
                         workspace.selectCodeFile(file)
                         saveState = "已载入"
-                        showFilePicker = false
+            activeSheet = nil
                     }
                 } label: {
                     HStack(spacing: 10) {
@@ -636,7 +658,7 @@ struct CodeWorkspaceCLIView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") { showFilePicker = false }
+                Button("完成") { activeSheet = nil }
                 }
             }
         }
@@ -691,7 +713,7 @@ struct CodeWorkspaceCLIView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { showGitHubSettings = false }
+                Button("取消") { activeSheet = nil }
                         .disabled(isBindingGitHub)
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -734,7 +756,7 @@ struct CodeWorkspaceCLIView: View {
         guard !settings.githubRepository.isEmpty,
               !settings.githubAccountLogin.isEmpty,
               settings.githubTokenIsConfigured else {
-            showGitHubSettings = true
+                    activeSheet = .github
             return
         }
         confirmRemoteBuild = true
@@ -765,7 +787,7 @@ struct CodeWorkspaceCLIView: View {
             }
             settings.githubAccountLogin = login
             settings.githubRepository = repository
-            showGitHubSettings = false
+            activeSheet = nil
         } catch {
             githubBindingError = error.localizedDescription
         }

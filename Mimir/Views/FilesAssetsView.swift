@@ -1,6 +1,19 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// 同一层视图只能有一个 presentation 槽位，新建文档与文件详情合并进来。
+private enum FilesAssetsSheet: Identifiable {
+    case newDocument
+    case preview(WorkspaceFileItem)
+
+    var id: String {
+        switch self {
+        case .newDocument: "newDocument"
+        case .preview(let item): "preview-\(item.id)"
+        }
+    }
+}
+
 /// 页面二：知识资产库（Files & Assets View）。
 ///
 /// 统一管理 RAG 知识库、提示词库、生成的图像与项目附属文件；
@@ -12,11 +25,11 @@ struct FilesAssetsView: View {
 
     @State private var workspace = WorkspaceManager.shared
     @State private var isGridView = true
-    @State private var showFolderImporter = false
+
     @State private var showFileImporter = false
-    @State private var showNewDocSheet = false
+
     @State private var selectedFileForAction: WorkspaceFileItem?
-    @State private var previewFileItem: WorkspaceFileItem?
+
     @State private var isMountingWorkspace = false
     @State private var workspaceImportError: String?
     @State private var newDocTitle = ""
@@ -73,29 +86,15 @@ struct FilesAssetsView: View {
             }
         }
         .background(Color.clear)
-        .fileImporter(
-            isPresented: $showFolderImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let folder = urls.first else { return }
-                Task {
-                    do {
-                        let access = try await WorkspaceFolderAccess.resolve(folder)
-                        mountWorkspace(
-                            urls: [folder],
-                            bookmarkData: access.bookmark,
-                            securityScopeAlreadyStarted: access.scopeStarted
-                        )
-                    } catch {
-                        workspace.noteMountFailure(error)
-                        workspaceImportError = "无法读取该文件夹：\(error.localizedDescription)"
-                    }
-                }
-            case .failure(let error):
-                workspaceImportError = error.localizedDescription
+        // 同一层只保留一个 `.fileImporter` 与一个 `.sheet(item:)`：
+        // SwiftUI 的 presentation 槽位是独占的，挂多了会互相顶掉，
+        // 曾经的表现就是"点导入/点挂载完全没有反应"。
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .newDocument:
+                newDocumentSheet
+            case .preview(let item):
+                fileDetailSheet(item)
             }
         }
         .fileImporter(
@@ -112,12 +111,6 @@ struct FilesAssetsView: View {
             case .failure(let error):
                 workspaceImportError = error.localizedDescription
             }
-        }
-        .sheet(isPresented: $showNewDocSheet) {
-            newDocumentSheet
-        }
-        .sheet(item: $previewFileItem) { item in
-            fileDetailSheet(item)
         }
         .alert("无法读取所选位置", isPresented: Binding(
             get: { workspaceImportError != nil },
@@ -146,9 +139,9 @@ struct FilesAssetsView: View {
                 }
                 Spacer(minLength: 8)
                 Menu {
-                    Button("挂载项目文件夹", systemImage: "folder.badge.plus") { showFolderImporter = true }
+
                     Button("导入本地文件", systemImage: "doc.badge.plus") { showFileImporter = true }
-                    Button("新建文档", systemImage: "square.and.pencil") { showNewDocSheet = true }
+
                     Button(isGridView ? "切换为列表" : "切换为网格", systemImage: isGridView ? "list.bullet" : "square.grid.2x2") {
                         withAnimation(.easeInOut(duration: 0.18)) { isGridView.toggle() }
                     }
@@ -297,7 +290,7 @@ struct FilesAssetsView: View {
 
             Button {
                 Haptics.impact(.light)
-                showFolderImporter = true
+
             } label: {
                 Text(isMountingWorkspace ? "正在读取…" : (workspace.isUsingDefaultWorkspace ? "选择目录" : "重新选择"))
                     .font(.system(size: 11.5, weight: .bold))
@@ -319,6 +312,31 @@ struct FilesAssetsView: View {
         }
         .padding(12)
         .softGlassCard(cornerRadius: 18)
+    }
+
+    /// 打开系统文件夹选择器（UIKit 直连，避开 SwiftUI 的 presentation 抢占）。
+    private func presentFolderPicker() {
+        Haptics.selectionChanged()
+        FolderPickerBroker.present(
+            onPick: { folder in
+                Task {
+                    do {
+                        let access = try await WorkspaceFolderAccess.resolve(folder)
+                        mountWorkspace(
+                            urls: [folder],
+                            bookmarkData: access.bookmark,
+                            securityScopeAlreadyStarted: access.scopeStarted
+                        )
+                    } catch {
+                        workspace.noteMountFailure(error)
+                        workspaceImportError = "无法读取该文件夹：\(error.localizedDescription)"
+                    }
+                }
+            },
+            onError: { message in
+                workspaceImportError = message
+            }
+        )
     }
 
     private func mountWorkspace(urls: [URL], bookmarkData: Data? = nil, securityScopeAlreadyStarted: Bool = false) {
@@ -434,7 +452,7 @@ struct FilesAssetsView: View {
                 Label("送入当前对话上下文", systemImage: "arrowshape.turn.up.right")
             }
             Button {
-                previewFileItem = item
+
             } label: {
                 Label("查看文件详情/代码", systemImage: "doc.text.magnifyingglass")
             }
@@ -460,7 +478,7 @@ struct FilesAssetsView: View {
                     coordinator.attachFileToChat(item)
                 },
                 GlassCardAction(title: "快速预览", icon: "eye") {
-                    previewFileItem = item
+
                 },
                 GlassCardAction(title: "删除文件", icon: "trash", role: .destructive) {
                     do { try workspace.deleteFile(item) }
@@ -475,7 +493,7 @@ struct FilesAssetsView: View {
                 Label("送入当前对话上下文", systemImage: "arrowshape.turn.up.right")
             }
             Button {
-                previewFileItem = item
+
             } label: {
                 Label("查看文件详情/代码", systemImage: "doc.text.magnifyingglass")
             }
@@ -574,7 +592,7 @@ struct FilesAssetsView: View {
             }
             if !isSearching && workspace.activeWorkspaceURL == nil {
                 Button {
-                    showFolderImporter = true
+
                 } label: {
                     Label("选择项目文件夹", systemImage: "folder.badge.plus")
                         .font(.system(size: 13, weight: .semibold))
@@ -672,7 +690,7 @@ struct FilesAssetsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { showNewDocSheet = false }
+
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") {
@@ -685,7 +703,7 @@ struct FilesAssetsView: View {
                                 )
                                 newDocTitle = ""
                                 newDocContent = ""
-                                showNewDocSheet = false
+
                             } catch {
                                 workspaceImportError = error.localizedDescription
                             }
@@ -729,7 +747,7 @@ struct FilesAssetsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { previewFileItem = nil }
+
                 }
             }
         }

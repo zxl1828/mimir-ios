@@ -4,15 +4,18 @@ import UniformTypeIdentifiers
 
 /// 文件夹选择的**权限解析器**（App 内唯一的入口）。
 ///
-/// 之前"文件夹挂载从来没成功过"的根因有两层：
+/// 之前"文件夹挂载从来没成功过"的根因有三层：
 /// 1. `UIDocumentPickerViewController` 被塞进 SwiftUI 的 `.sheet` 里，系统选择器
 ///    自己又会 dismiss 一次；代理回调里再把 `onPick` 挂在 `controller.dismiss(animated:)`
 ///    的 completion 上——这个 completion 在 sheet 已被 SwiftUI 拆掉时**不会执行**，
 ///    于是选了文件夹也毫无反应。
-/// 2. 拿到的 URL 只要没有真的 start 安全作用域，后续所有读写都会静默失败。
+/// 2. 后来改用 `.fileImporter`：它和同一层视图上的两个 `.sheet` 抢 presentation，
+///    谁后挂谁生效，结果点卡片完全没反应（这正是"点击毫无响应"的原因）。
+/// 3. 拿到的 URL 只要没有真的 start 安全作用域，后续所有读写都会静默失败。
 ///
-/// 现在把"选文件夹"交给 SwiftUI 原生 `.fileImporter`（presentation 由系统托管，
-/// 不存在双层 dismiss 竞态），这个文件只负责把 URL 变成"可长期持有的访问凭证"。
+/// 所以现在**绕开 SwiftUI 的 presentation 机制**，直接从 UIKit 最顶层的
+/// view controller 上 `present` 系统选择器（见 `FolderPickerBroker`），
+/// 这个文件只负责把 URL 变成"可长期持有的访问凭证"。
 enum WorkspaceFolderAccess {
 
     /// 解析用户刚选中的文件夹：开启安全作用域、生成书签。
@@ -55,50 +58,89 @@ enum WorkspaceFolderAccess {
     }
 }
 
-/// 旧的 sheet 版选择器。保留给"需要自己控制 presentation"的调用点。
+// MARK: - 系统文件夹选择器（UIKit 直连）
+
+/// 直接向当前最顶层的 `UIViewController` 呈现系统文件夹选择器。
 ///
-/// 与旧实现的区别：代理回调里**立即**把 URL 交出去，不再把回调挂在 dismiss 的
-/// completion 上；dismiss 交给 SwiftUI 的 binding 完成，避免二次 dismiss。
-struct WorkspaceFolderPicker: UIViewControllerRepresentable {
-    @Binding var isPresented: Bool
-    let onPick: @MainActor (URL) -> Void
-    var onError: @MainActor (String) -> Void = { _ in }
+/// 为什么不用 `.fileImporter` / `.sheet`：SwiftUI 的 presentation 在同一层视图上
+/// **只有一个槽位**。这个项目里同一层挂了两个 `.sheet`，于是再挂上去的选择器
+/// 永远轮不到呈现——表现就是"点一下毫无响应"。绕开它以后，成败只取决于
+/// 有没有一个前台 scene，与 SwiftUI 的 modifier 顺序彻底无关。
+@MainActor
+enum FolderPickerBroker {
 
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.folder], asCopy: false)
-        picker.delegate = context.coordinator
+    private static var retainedDelegate: FolderPickerDelegate?
+
+    static func present(
+        onPick: @escaping @MainActor (URL) -> Void,
+        onCancel: @escaping @MainActor () -> Void = {},
+        onError: @escaping @MainActor (String) -> Void
+    ) {
+        guard let presenter = topViewController() else {
+            onError("找不到可以展示文件夹选择器的界面，请回到前台再试一次。")
+            return
+        }
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
         picker.allowsMultipleSelection = false
-        return picker
+        picker.shouldShowFileExtensions = true
+        let delegate = FolderPickerDelegate(onPick: onPick, onCancel: onCancel)
+        picker.delegate = delegate
+        // `UIDocumentPickerDelegate` 是 weak 引用，必须自己持住，否则回调还没来对象就没了。
+        retainedDelegate = delegate
+        presenter.present(picker, animated: true)
     }
 
-    func updateUIViewController(_ picker: UIDocumentPickerViewController, context: Context) {
-        context.coordinator.parent = self
+    fileprivate static func releaseDelegate() {
+        retainedDelegate = nil
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
+    /// 找当前真正在最前面的视图控制器（可能被 sheet / alert / nav / tab 包了好几层）。
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive }
+            ?? scenes.first { $0.activationState == .foregroundInactive }
+            ?? scenes.first
+        guard let window = scene?.windows.first(where: { $0.isKeyWindow }) ?? scene?.windows.first,
+              var top = window.rootViewController else { return nil }
 
-    @MainActor
-    final class Coordinator: NSObject, UIDocumentPickerDelegate {
-        var parent: WorkspaceFolderPicker
-
-        init(parent: WorkspaceFolderPicker) {
-            self.parent = parent
-        }
-
-        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-            guard let folder = urls.first else {
-                parent.isPresented = false
-                return
+        while true {
+            if let presented = top.presentedViewController, !presented.isBeingDismissed {
+                top = presented
+                continue
             }
-            // 先交出结果，再收 UI——顺序反过来就会出现"回调丢失"。
-            parent.onPick(folder)
-            parent.isPresented = false
+            if let nav = top as? UINavigationController, let visible = nav.visibleViewController {
+                top = visible
+                continue
+            }
+            if let tab = top as? UITabBarController, let selected = tab.selectedViewController {
+                top = selected
+                continue
+            }
+            break
         }
+        return top
+    }
+}
 
-        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            parent.isPresented = false
-        }
+@MainActor
+private final class FolderPickerDelegate: NSObject, UIDocumentPickerDelegate {
+
+    private let onPick: @MainActor (URL) -> Void
+    private let onCancel: @MainActor () -> Void
+
+    init(onPick: @escaping @MainActor (URL) -> Void, onCancel: @escaping @MainActor () -> Void) {
+        self.onPick = onPick
+        self.onCancel = onCancel
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        FolderPickerBroker.releaseDelegate()
+        guard let folder = urls.first else { return }
+        onPick(folder)
+    }
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        FolderPickerBroker.releaseDelegate()
+        onCancel()
     }
 }
