@@ -209,53 +209,59 @@ struct FilesAssetsView: View {
             .padding(.vertical, 10)
             .softGlassCard(cornerRadius: 16)
 
-            // 分类药丸 Segment 切换器
+            // 分类筛选：只列出真正有文件的分类，并带上数量——
+            // 之前把五个分类全摆出来，点进去是空列表，看起来就像纯装饰。
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(WorkspaceFileItem.AssetCategory.allCases) { cat in
-                        let isSelected = workspace.selectedCategory == cat
-                        Button {
-                            Haptics.selectionChanged()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                workspace.selectedCategory = cat
-                            }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: cat.icon)
-                                    .font(.system(size: 11.5, weight: isSelected ? .bold : .regular))
-                                Text(cat.rawValue)
-                                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
-                            }
-                            .foregroundStyle(
-                                isSelected
-                                    ? Color.white
-                                    : AppUI.textSubtitle(scheme: scheme)
-                            )
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .liquidGlass(
-                                isSelected
-                                    ? .regular.tint(accent.opacity(0.85))
-                                    : .clear,
-                                in: .rect(cornerRadius: 13)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                    .strokeBorder(
-                                        isSelected
-                                            ? AnyShapeStyle(AppUI.refractionEdge(accent, scheme: scheme))
-                                            : AnyShapeStyle(AppUI.separator),
-                                        lineWidth: 1
-                                    )
-                                    .allowsHitTesting(false)
-                            )
-                        }
-                        .buttonStyle(StaticButtonFeedbackStyle())
+                    ForEach(visibleCategories) { cat in
+                        categoryChip(cat)
                     }
                 }
                 .padding(.horizontal, 2)
             }
         }
+    }
+
+    /// 只显示真的装了文件的分类，并带数量；全部为空时至少保留「全部」。
+    private var visibleCategories: [WorkspaceFileItem.AssetCategory] {
+        let populated = WorkspaceFileItem.AssetCategory.allCases.filter { cat in
+            cat == .all || workspace.allFiles.contains { $0.category == cat }
+        }
+        return populated.isEmpty ? [.all] : populated
+    }
+
+    private func categoryCount(_ cat: WorkspaceFileItem.AssetCategory) -> Int {
+        cat == .all ? workspace.allFiles.count : workspace.allFiles.filter { $0.category == cat }.count
+    }
+
+    private func categoryChip(_ cat: WorkspaceFileItem.AssetCategory) -> some View {
+        let isSelected = workspace.selectedCategory == cat
+        return Button {
+            Haptics.selectionChanged()
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                workspace.selectedCategory = cat
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: cat.icon)
+                    .font(.system(size: 11.5, weight: isSelected ? .semibold : .regular))
+                Text(cat.rawValue)
+                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .medium))
+                Text("\(categoryCount(cat))")
+                    .font(AppUI.mono(10, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.78) : AppUI.label3)
+            }
+            .foregroundStyle(isSelected ? Color.white : AppUI.label2)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .nativeGlass(
+                .rect(cornerRadius: 13),
+                tint: isSelected ? accent.opacity(0.88) : nil,
+                interactive: false
+            )
+        }
+        .buttonStyle(StaticButtonFeedbackStyle())
+        .accessibilityLabel("\(cat.rawValue)，\(categoryCount(cat)) 个文件")
     }
 
     // MARK: - 3. 本地文件夹安全挂载横幅 (Local Workspace Banner)

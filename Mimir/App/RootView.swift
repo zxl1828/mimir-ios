@@ -153,6 +153,10 @@ enum StartupCoordinator {
                 context.insert(skill)
             }
 
+            // 用户 Codex 里装的技能（caveman / ponytail 全家桶 / token-saver …）
+            // 以技能包形式内嵌，首次启动自动落库，之后可照常启停与 `/` 调用。
+            SkillStore.installCodexPack(context: context)
+
             let agentCount = try context.fetchCount(FetchDescriptor<AgentDockItem>())
             if agentCount == 0 {
                 for agent in AgentDockItem.builtinSeeds() {

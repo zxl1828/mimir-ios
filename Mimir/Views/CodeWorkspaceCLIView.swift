@@ -285,10 +285,12 @@ struct CodeWorkspaceCLIView: View {
             workspaceCard
 
             HStack(spacing: 8) {
+                // 主路径：让系统把目录整份复制进 App。复制回来的副本在沙盒里，
+                // 不依赖安全作用域书签，重启后依然可读——这是唯一 100% 可靠的挂载方式。
                 Button {
-                    presentFolderPicker()
+                    presentFolderPicker(asCopy: true)
                 } label: {
-                    Label("更换文件夹", systemImage: "folder.badge.plus")
+                    Label("选择文件夹", systemImage: "folder.badge.plus")
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 11)
                         .frame(height: 36)
@@ -298,12 +300,12 @@ struct CodeWorkspaceCLIView: View {
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .disabled(isLoadingWorkspace)
-                .accessibilityHint("从文件 App 中选择要编辑的项目目录")
+                .accessibilityHint("从文件 App 选一个目录，复制进 App 后挂载")
 
                 Button {
-                    presentFolderPicker(asCopy: true)
+                    presentFolderPicker()
                 } label: {
-                    Label("导入副本", systemImage: "square.and.arrow.down.on.square")
+                    Label("引用挂载", systemImage: "link")
                             .font(.system(size: 11, weight: .semibold))
                             .padding(.horizontal, 11)
                             .frame(height: 36)
@@ -313,7 +315,7 @@ struct CodeWorkspaceCLIView: View {
                     }
                     .buttonStyle(StaticButtonFeedbackStyle())
                     .disabled(isLoadingWorkspace)
-                    .accessibilityHint("把这个目录整份复制进 App，重启后依然可用")
+                    .accessibilityHint("不复制，直接引用原目录；需要系统允许读取该位置")
 
                 Button {
                     Task { await workspace.refreshActiveWorkspace() }
@@ -445,7 +447,7 @@ struct CodeWorkspaceCLIView: View {
     }
 
     private var workspaceBlue: Color {
-        AppUI.consoleSignal
+        accent
     }
 
     @ViewBuilder

@@ -15,6 +15,42 @@ struct CyberOwlGlassSphereView: View {
 
     private var orbitWidth: CGFloat { diameter * 1.34 }
 
+    @Environment(\.colorScheme) private var scheme
+
+    /// 玻璃球底色跟着深浅色模式走：浅色是雾白玻璃，深色才是紫黑；
+    /// 之前两种模式共用一套深紫填充，浅色下就成了一块黑罩子。
+    private var bodyFills: [Color] {
+        if scheme == .dark {
+            return [
+                Color(hex: "342452").opacity(0.34),
+                Color(hex: "171126").opacity(0.50),
+                Color(hex: "100C1A").opacity(0.32)
+            ]
+        }
+        return [
+            Color.white.opacity(0.72),
+            Color(hex: "EFE8FF").opacity(0.52),
+            Color.white.opacity(0.34)
+        ]
+    }
+
+    private var sheenColors: [Color] {
+        if scheme == .dark {
+            return [
+                Color.white.opacity(0.17),
+                Color(hex: "C9AEFF").opacity(0.07),
+                violet.opacity(0.10),
+                Color.white.opacity(0.03)
+            ]
+        }
+        return [
+            Color.white.opacity(0.90),
+            Color(hex: "D9C7FF").opacity(0.42),
+            violet.opacity(0.10),
+            Color.white.opacity(0.30)
+        ]
+    }
+
     var body: some View {
         ZStack {
             ambientRefraction
@@ -35,11 +71,7 @@ struct CyberOwlGlassSphereView: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            Color(hex: "342452").opacity(0.30),
-                            Color(hex: "171126").opacity(0.48),
-                            Color(hex: "100C1A").opacity(0.30)
-                        ],
+                        colors: bodyFills,
                         center: .center,
                         startRadius: 2,
                         endRadius: diameter * 0.55
@@ -49,12 +81,7 @@ struct CyberOwlGlassSphereView: View {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.17),
-                            Color(hex: "C9AEFF").opacity(0.07),
-                            violet.opacity(0.10),
-                            Color.white.opacity(0.03)
-                        ],
+                        colors: sheenColors,
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

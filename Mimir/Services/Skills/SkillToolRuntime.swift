@@ -19,7 +19,7 @@ enum SkillToolRuntime {
 
     /// 技能未声明工具时也要保留的核心能力：读写工作区、看时间。
     private static let alwaysAvailable: Set<String> = [
-        "current_time",
+        "update_plan", "current_time",
         "workspace_list",
         "workspace_read",
         "workspace_write"

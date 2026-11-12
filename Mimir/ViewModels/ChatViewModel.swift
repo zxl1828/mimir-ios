@@ -47,6 +47,9 @@ final class ChatViewModel {
     var activeAgent: AgentDockItem?
     var activeSkill: Skill?
     var replySuggestions: [String] = []
+
+    /// 刚刚完成一次上下文压缩时置真，聊天页据此弹一条"上下文已压缩"提示。
+    var contextCompressedNotice: Bool = false
     var skills: [Skill] = []
     var mcpConfigs: [MCPServerConfig] = []
     /// 斜杠命令上下文：非 nil 表示技能选择器应当展开。
@@ -437,6 +440,8 @@ final class ChatViewModel {
             let prompt = conversation.orderedMessages
                 .last(where: { $0.role == .user })?
                 .displayText ?? conversation.title
+            // 新的一轮从空面板起步，避免上一轮的任务卡残留。
+            TaskBoardStore.shared.reset()
             GenerationProgressCenter.begin(taskTitle: prompt, workspaceName: "")
         }
 
@@ -585,10 +590,13 @@ final class ChatViewModel {
                 )
 
                 for (callIndex, call) in pendingToolCalls.enumerated() {
+                    // 模型自己排的计划优先：面板有内容就按"已完成步数"报进度，
+                    // 否则退回按工具调用序号报。
+                    let board = TaskBoardStore.shared
                     GenerationProgressCenter.step(
-                        index: callIndex + 1,
-                        total: pendingToolCalls.count,
-                        detail: "准备调用 \(call.name)",
+                        index: board.isEmpty ? callIndex + 1 : max(board.completedCount, 1),
+                        total: board.isEmpty ? pendingToolCalls.count : board.total,
+                        detail: board.activeTitle.map { "正在做：\($0)" } ?? "准备调用 \(call.name)",
                         toolName: call.name,
                         rounds: round
                     )
@@ -700,6 +708,9 @@ final class ChatViewModel {
                 GenerationProgressCenter.scheduleDismissal()
             }
             FileEditLedger.shared.activeRunID = nil
+            if !wasInterrupted && failure == nil {
+                TaskBoardStore.shared.completeAll()
+            }
             self.runPostProcessing(for: conversation, credential: credential, parameters: parameters)
         }
     }
@@ -722,8 +733,9 @@ final class ChatViewModel {
                 )
             }
 
-            if self.settings.autoSummarizeEnabled,
-               ConversationSummarizer.shouldSummarize(conversation) {
+            // 上下文压缩：长对话每到阈值就滚动压缩一次，不提供开关——
+            // 用户不需要知道这件事，但只要不压缩，迟早会撞上模型的上下文上限。
+            if ConversationSummarizer.shouldSummarize(conversation) {
                 let summarized = await ConversationSummarizer.summarize(
                     conversation: conversation,
                     credential: credential,
@@ -731,6 +743,9 @@ final class ChatViewModel {
                 )
                 if summarized {
                     self.modelContextSave()
+                    withAnimation(AppAnimation.recommend) {
+                        self.contextCompressedNotice = true
+                    }
                 }
             }
 

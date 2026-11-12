@@ -10,6 +10,7 @@ enum SystemToolRegistry {
     static let barcodeToolName = "barcode_scan"
     static let spotlightToolName = "spotlight_search"
     static let webSearchToolName = "web_search"
+    static let planToolName = "update_plan"
 
     static var definitions: [LLMToolDefinition] {
         localDefinitions + SystemCapabilityGateway.definitions
@@ -17,6 +18,17 @@ enum SystemToolRegistry {
 
     private static var localDefinitions: [LLMToolDefinition] {
         [
+            LLMToolDefinition(
+                name: planToolName,
+                description: """
+                维护任务面板：把这次要做的事拆成步骤写下来，并在每完成一步后更新状态。
+                多步骤任务（改代码、查资料、写长文档）开始时就先调用一次，\
+                让用户能一眼看到进度；单步闲聊不要调用。
+                """,
+                parametersJSON: """
+                {"type":"object","properties":{"explanation":{"type":"string","description":"一句话说明当前为什么调整计划"},"plan":{"type":"array","description":"完整计划，每次调用都提交全部步骤","items":{"type":"object","properties":{"step":{"type":"string","description":"一句话描述这一步要做的事"},"status":{"type":"string","enum":["pending","in_progress","completed"]}},"required":["step","status"]}}},"required":["plan"]}
+                """
+            ),
             LLMToolDefinition(
                 name: ocrToolName,
                 description: "识别图片中的文字，返回纯文本。用于读取截图、照片、扫描件里的文字。",
@@ -58,6 +70,19 @@ enum SystemToolRegistry {
         attachedImageData: Data?
     ) async -> String {
         switch name {
+        case planToolName:
+            guard let parsed = TaskBoardStore.parse(argumentsJSON: argumentsJSON) else {
+                return "计划格式不对：需要一个 plan 数组，每项包含 step 与 status。"
+            }
+            let stepCount = parsed.steps.count
+            let explanation = parsed.explanation
+            let line: String = await MainActor.run {
+                TaskBoardStore.shared.apply(steps: parsed.steps)
+                return TaskBoardStore.shared.summaryLine
+            }
+            return "任务面板已更新（\(stepCount) 步，\(line)）。"
+                + (explanation.isEmpty ? "" : "说明：\(explanation)")
+
         case ocrToolName:
             guard let data = attachedImageData else {
                 return "当前消息没有附带图片，无法执行文字识别。"
@@ -133,6 +158,7 @@ enum SystemToolRegistry {
             || name == barcodeToolName
             || name == spotlightToolName
             || name == webSearchToolName
+            || name == planToolName
             || SystemCapabilityGateway.handles(name)
     }
 

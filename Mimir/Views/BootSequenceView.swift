@@ -10,6 +10,8 @@ struct BootSequenceView: View {
 
     var onFinish: () -> Void
 
+    @Environment(\.appAccent) private var accent
+
     @State private var typedCount = 0
     @State private var progress: Double = 0
     @State private var scanOffset: CGFloat = -0.2
@@ -45,7 +47,7 @@ struct BootSequenceView: View {
                         LinearGradient(
                             colors: [
                                 Color.clear,
-                                AppUI.consoleSignal.opacity(0.16),
+                                accent.opacity(0.16),
                                 Color.clear
                             ],
                             startPoint: .top,
@@ -89,17 +91,17 @@ struct BootSequenceView: View {
                 Text("SELF TEST")
                     .font(AppUI.mono(10.5, weight: .semibold))
                     .tracking(3.2)
-                    .foregroundStyle(AppUI.consoleSignal)
+                    .foregroundStyle(accent)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .overlay(
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .stroke(AppUI.consoleSignal.opacity(0.55), lineWidth: 0.5)
+                            .stroke(accent.opacity(0.55), lineWidth: 0.5)
                     )
             }
 
             Rectangle()
-                .fill(AppUI.consoleSignal.opacity(0.30))
+                .fill(accent.opacity(0.30))
                 .frame(height: 0.5)
         }
     }
@@ -123,14 +125,14 @@ struct BootSequenceView: View {
 
                     Text(row.1)
                         .font(AppUI.mono(11.5, weight: .semibold))
-                        .foregroundStyle(row.0 == "ALL SYSTEMS" ? .white : AppUI.consoleSignal)
+                        .foregroundStyle(row.0 == "ALL SYSTEMS" ? .white : accent)
                 }
                 .transition(.opacity)
             }
 
             // 光标：自检进行中一直在闪
             Rectangle()
-                .fill(AppUI.consoleSignal)
+                .fill(accent)
                 .frame(width: 7, height: 13)
                 .opacity(typedCount >= rows.count ? 0 : 1)
                 .modifier(CursorBlink())
@@ -145,7 +147,7 @@ struct BootSequenceView: View {
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
                         .fill(Color.white.opacity(0.08))
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .fill(AppUI.consoleSignal)
+                        .fill(accent)
                         .frame(width: max(2, geo.size.width * progress))
                 }
             }
@@ -155,7 +157,7 @@ struct BootSequenceView: View {
                 Text(typedCount >= rows.count ? "READY" : "LOADING")
                     .font(AppUI.mono(10, weight: .semibold))
                     .tracking(2.4)
-                    .foregroundStyle(AppUI.consoleSignal)
+                    .foregroundStyle(accent)
                 Spacer()
                 Text("\(Int(progress * 100))%")
                     .font(AppUI.mono(10, weight: .medium))

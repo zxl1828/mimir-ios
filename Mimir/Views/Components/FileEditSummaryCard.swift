@@ -10,6 +10,7 @@ struct FileEditSummaryCard: View {
     let runID: UUID
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.appAccent) private var accent
     @State private var ledger = FileEditLedger.shared
     @State private var expanded = false
 
@@ -52,7 +53,7 @@ struct FileEditSummaryCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "doc.badge.gearshape")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(AppUI.consoleSignal)
+                    .foregroundStyle(accent)
 
                 Text("已编辑 \(totals.files) 个文件")
                     .font(.system(size: 12.5, weight: .medium))

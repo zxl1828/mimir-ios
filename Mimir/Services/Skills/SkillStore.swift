@@ -135,6 +135,36 @@ enum SkillStore {
         throw SkillImportError.unrecognized
     }
 
+    /// 解析 Codex / DSH 风格的 `SKILL.md`。
+    ///
+    /// 支持 YAML front matter 里的单行值、引号值与 `>` / `|` 折叠块标量——
+    /// 用户装的技能（caveman、ponytail 这些）描述几乎都是折叠块，
+    /// 只按第一行取值会拿到一个孤零零的 ">"。
+    static func codexSkillDocument(from markdown: String) -> SkillDocument? {
+        decodeCodexSkill(markdown)
+    }
+
+    /// 把内嵌的 Codex 技能包装进数据库；已存在的同名技能跳过，返回新增数量。
+    @discardableResult
+    static func installCodexPack(context: ModelContext) -> Int {
+        let existingNames = Set(allSkills(context: context).map(\.name))
+        var nextIndex = (allSkills(context: context).map(\.sortIndex).max() ?? -1) + 1
+        var added = 0
+        for entry in CodexSkillPack.entries {
+            guard !existingNames.contains(entry.name),
+                  let document = decodeCodexSkill(entry.markdown) else { continue }
+            let skill = document.makeSkill()
+            skill.name = document.name
+            skill.isBuiltin = true
+            skill.isEnabled = true
+            skill.sortIndex = nextIndex
+            nextIndex += 1
+            context.insert(skill)
+            added += 1
+        }
+        if added > 0 { try? context.save() }
+        return added
+    }
     private static func decodeCodexSkill(_ markdown: String) -> SkillDocument? {
         let normalized = markdown.replacingOccurrences(of: "\r\n", with: "\n")
         let lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
@@ -145,13 +175,38 @@ enum SkillStore {
         }) else { return nil }
 
         var metadata: [String: String] = [:]
-        for line in lines[1..<closingIndex] {
-            guard let separator = line.firstIndex(of: ":") else { continue }
+        var cursor = 1
+        while cursor < closingIndex {
+            let line = lines[cursor]
+            guard let separator = line.firstIndex(of: ":") else {
+                cursor += 1
+                continue
+            }
             let key = line[..<separator].trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            let value = line[line.index(after: separator)...]
+            var value = String(line[line.index(after: separator)...])
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-            metadata[key] = value
+            cursor += 1
+
+            // YAML 折叠块：`description: >` / `|` 后面跟着缩进的若干行。
+            // 用户装的技能（caveman、ponytail 等）描述几乎都是这种写法，
+            // 只取第一行会得到一个孤零零的 ">"。
+            if value == ">" || value == ">-" || value == "|" || value == "|-" {
+                let folded = value.hasPrefix(">")
+                var collected: [String] = []
+                while cursor < closingIndex {
+                    let next = lines[cursor]
+                    let isIndented = next.hasPrefix(" ") || next.hasPrefix("\t")
+                    if !isIndented && !next.trimmingCharacters(in: .whitespaces).isEmpty { break }
+                    collected.append(next.trimmingCharacters(in: .whitespaces))
+                    cursor += 1
+                }
+                value = folded
+                    ? collected.filter { !$0.isEmpty }.joined(separator: " ")
+                    : collected.joined(separator: "\n")
+            }
+
+            let trimmedValue = value.trimmingCharacters(in: CharacterSet(charactersIn: "\"\'"))
+            metadata[key] = trimmedValue.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         let name = (metadata["name"] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)

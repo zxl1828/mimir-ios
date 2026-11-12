@@ -117,7 +117,7 @@ struct ConsoleHomeView: View {
             HStack(spacing: 8) {
                 Image(systemName: "circle.hexagongrid.fill")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(AppUI.consoleSignal)
+                    .foregroundStyle(accent)
 
                 Text("MIMIR")
                     .font(AppUI.mono(17, weight: .black))
@@ -127,13 +127,13 @@ struct ConsoleHomeView: View {
                 Text("550C")
                     .font(AppUI.mono(9.5, weight: .bold))
                     .tracking(1.4)
-                    .foregroundStyle(AppUI.consoleSignal.opacity(0.85))
+                    .foregroundStyle(accent.opacity(0.85))
                     // 550C 只是装饰性标识：不加边框，避免被读成"可点的按钮"。
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
                     .background(
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(AppUI.consoleSignal.opacity(0.10))
+                            .fill(accent.opacity(0.10))
                     )
 
                 Spacer(minLength: 8)
@@ -198,12 +198,12 @@ struct ConsoleHomeView: View {
 
                 Text("v2.4")
                     .font(AppUI.mono(10, weight: .semibold))
-                    .foregroundStyle(AppUI.consoleSignalDim)
+                    .foregroundStyle(accentDim)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(AppUI.consoleSignal.opacity(0.10))
+                            .fill(accent.opacity(0.10))
                     )
             }
         }
@@ -218,11 +218,11 @@ struct ConsoleHomeView: View {
             HStack(spacing: 13) {
                 Image(systemName: "folder.fill")
                     .font(.system(size: 19, weight: .medium))
-                    .foregroundStyle(AppUI.consoleSignal)
+                    .foregroundStyle(accent)
                     .frame(width: 42, height: 42)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(AppUI.consoleSignal.opacity(0.12))
+                            .fill(accent.opacity(0.12))
                     )
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -268,7 +268,7 @@ struct ConsoleHomeView: View {
             }
             .foregroundStyle(AppUI.label)
             .frame(maxWidth: .infinity, minHeight: 48)
-            .nativeGlassRect(cornerRadius: 16, tint: AppUI.consoleSignal.opacity(0.55))
+            .nativeGlassRect(cornerRadius: 16, tint: accent.opacity(0.55))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
     }
@@ -338,7 +338,7 @@ struct ConsoleHomeView: View {
         } label: {
             HStack(spacing: 10) {
                 Circle()
-                    .fill(conversation.isPinned ? AppUI.consoleSignal : AppUI.label3.opacity(0.6))
+                    .fill(conversation.isPinned ? accent : AppUI.label3.opacity(0.6))
                     .frame(width: 6, height: 6)
 
                 VStack(alignment: .leading, spacing: 2) {

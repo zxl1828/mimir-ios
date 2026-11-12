@@ -111,6 +111,9 @@ public struct AssistantMainView: View {
         .task {
             // 从首页点进来时不要自动弹键盘，让用户先看清这一页。
             isFieldFocused = false
+            // 聊天页是 Push 出来的独立页面，底部导航坞必须收起：
+            // 否则它悬浮在输入框上方，既挡视线也吃掉输入框的点击。
+            coordinator.isTabBarVisible = false
             await bootstrap()
         }
         .sheet(isPresented: $showBeamSetup) {
@@ -634,11 +637,42 @@ public struct AssistantMainView: View {
     // MARK: - 6. 底部控制区（思考强度滑块 + 输入框）
 
     /// 标志性的「思考强度」滑块：单行、贴输入框上方，滑块本身保持原样四档停靠。
+    /// 长对话被滚动压缩后的一次性提示。说来就够，不用做成可交互的东西。
+    private var compressedNotice: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.right.and.arrow.up.left")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(accent)
+
+            Text("上下文已压缩")
+                .font(AppUI.mono(10.5, weight: .medium))
+                .foregroundStyle(AppUI.label2)
+
+            Spacer(minLength: 4)
+
+            Button {
+                chat?.contextCompressedNotice = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundStyle(AppUI.label3)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(StaticButtonFeedbackStyle())
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 4)
+        .padding(.vertical, 5)
+        .nativeGlassRect(cornerRadius: 14, interactive: false)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+    }
+
     private var reasoningBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "waveform.path.ecg")
                 .font(.system(size: 11.5, weight: .bold))
-                .foregroundStyle(AppUI.consoleSignal)
+                .foregroundStyle(accent)
 
             Text("思考强度")
                 .font(AppUI.mono(10.5, weight: .medium))
@@ -655,18 +689,24 @@ public struct AssistantMainView: View {
 
             Text((chat?.thinkingMode ?? .thinking).heroTitle)
                 .font(AppUI.mono(10.5, weight: .semibold))
-                .foregroundStyle(AppUI.consoleSignal)
+                .foregroundStyle(accent)
                 .frame(width: 32, alignment: .trailing)
                 .contentTransition(.numericText())
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 4)
-        .nativeGlassRect(cornerRadius: 18, interactive: false)
+        .padding(.vertical, 5)
+        .nativeGlassRect(cornerRadius: 26, interactive: false)
         .accessibilityElement(children: .contain)
     }
 
     private var bottomControlGroup: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 8) {            // 任务面板：模型用 update_plan 写下步骤后才出现，平时完全不占位。
+            TaskBoardCard()
+
+            if chat?.contextCompressedNotice == true {
+                compressedNotice
+            }
+
             reasoningBar
 
             if let quoted = chat?.quotedMessage {
@@ -710,8 +750,9 @@ public struct AssistantMainView: View {
         }
         .padding(.horizontal, AppUI.hPadding)
         .padding(.top, 6)
-        // 键盘弹起时距离键盘上沿精确保留 10pt 呼吸间距，无键盘时保留 TabBar 避让高度
-        .padding(.bottom, (isFieldFocused || isKeyboardVisible) ? 8 : 26)
+        // 键盘弹起时距离键盘上沿保留 8pt；无键盘时留 28pt，
+        // 让输入框和 Home 指示条之间有一点呼吸空间。
+        .padding(.bottom, (isFieldFocused || isKeyboardVisible) ? 8 : 28)
         .background {
             LinearGradient(
                 colors: [
