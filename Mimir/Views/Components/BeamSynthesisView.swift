@@ -61,7 +61,7 @@ struct BeamSynthesisView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(hex: "120D1D").opacity(0.96))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
         .padding(.horizontal, 8)
     }
 
@@ -116,7 +116,7 @@ struct BeamSynthesisView: View {
         }
         .padding(12)
         .background(Color.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.white.opacity(0.14), lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.14), lineWidth: 0.8))
     }
 
     private var synthesisCard: some View {
@@ -132,6 +132,6 @@ struct BeamSynthesisView: View {
         }
         .padding(12)
         .background(accent.opacity(0.14), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(accent.opacity(0.42), lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(accent.opacity(0.42), lineWidth: 0.8))
     }
 }

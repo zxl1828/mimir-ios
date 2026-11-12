@@ -105,7 +105,14 @@ public struct AssistantMainView: View {
             mainColumn
                 .background { topStatusBarAmbientGlow }
         }
-        .task { await bootstrap() }
+        // 本页自带顶栏，隐藏系统导航栏与系统返回键，避免出现两条返回键。
+        .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
+        .task {
+            // 从首页点进来时不要自动弹键盘，让用户先看清这一页。
+            isFieldFocused = false
+            await bootstrap()
+        }
         .sheet(isPresented: $showBeamSetup) {
             beamSetupSheet
         }
@@ -315,8 +322,8 @@ public struct AssistantMainView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(AppUI.label)
                         .frame(width: 38, height: 38)
-                        .background(Circle().fill(headerGlassFill))
-                        .overlay(Circle().strokeBorder(headerHairline, lineWidth: 0.5))
+                        .nativeGlass(.circle)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .accessibilityLabel("返回")
@@ -329,8 +336,8 @@ public struct AssistantMainView: View {
                 } label: {
                     ProfileAvatarBadge(size: 30)
                         .frame(width: 38, height: 38)
-                        .background(Circle().fill(headerGlassFill))
-                        .overlay(Circle().strokeBorder(headerHairline, lineWidth: 0.5))
+                        .nativeGlass(.circle)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
                 .accessibilityLabel("个人资料与设置")
@@ -624,10 +631,44 @@ public struct AssistantMainView: View {
         }
     }
 
-    // MARK: - 6. 底部控制区（思考胶囊 + 输入框）
+    // MARK: - 6. 底部控制区（思考强度滑块 + 输入框）
+
+    /// 标志性的「思考强度」滑块：单行、贴输入框上方，滑块本身保持原样四档停靠。
+    private var reasoningBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 11.5, weight: .bold))
+                .foregroundStyle(AppUI.consoleSignal)
+
+            Text("思考强度")
+                .font(AppUI.mono(10.5, weight: .medium))
+                .foregroundStyle(AppUI.label2)
+                .fixedSize()
+
+            ReasoningEffortSlider(
+                level: Binding(
+                    get: { chat?.thinkingMode ?? .thinking },
+                    set: { chat?.thinkingMode = $0 }
+                )
+            )
+            .frame(height: 40)
+
+            Text((chat?.thinkingMode ?? .thinking).heroTitle)
+                .font(AppUI.mono(10.5, weight: .semibold))
+                .foregroundStyle(AppUI.consoleSignal)
+                .frame(width: 32, alignment: .trailing)
+                .contentTransition(.numericText())
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .nativeGlassRect(cornerRadius: 18, interactive: false)
+        .accessibilityElement(children: .contain)
+    }
 
     private var bottomControlGroup: some View {
         VStack(spacing: 8) {
+            reasoningBar
+
             if let quoted = chat?.quotedMessage {
                 quotedBar(quoted)
             }
@@ -670,13 +711,13 @@ public struct AssistantMainView: View {
         .padding(.horizontal, AppUI.hPadding)
         .padding(.top, 6)
         // 键盘弹起时距离键盘上沿精确保留 10pt 呼吸间距，无键盘时保留 TabBar 避让高度
-        .padding(.bottom, (isFieldFocused || isKeyboardVisible) ? 10 : 80)
+        .padding(.bottom, (isFieldFocused || isKeyboardVisible) ? 8 : 26)
         .background {
             LinearGradient(
                 colors: [
                     Color.clear,
-                    (scheme == .dark ? Color(hex: "060C16") : Color(hex: "F4F8FD")).opacity(0.85),
-                    (scheme == .dark ? Color(hex: "0A1626") : Color.white).opacity(0.98)
+                    (scheme == .dark ? Color(hex: "0B0713") : Color(hex: "F7F4FD")).opacity(0.85),
+                    (scheme == .dark ? Color(hex: "170E27") : Color.white).opacity(0.98)
                 ],
                 startPoint: .top,
                 endPoint: .bottom

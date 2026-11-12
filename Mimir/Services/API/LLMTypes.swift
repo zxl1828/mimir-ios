@@ -129,11 +129,17 @@ enum LLMError: LocalizedError, Sendable, Equatable {
             return "API Key 无效或已过期，请重新填写。"
         case .forbidden:
             return "这个 Key 没有访问该模型的权限。"
-        case .notFound(let path):
-            return "接口地址不存在（\(path)），请检查 Base URL。"
+        case .notFound(let detail):
+            if Self.looksLikeModelProblem(detail) {
+                return "服务端说找不到这个模型（\(detail)）。请把模型 ID 改成中转站 /models 里的原名，注意大小写和空格。"
+            }
+            return "接口地址不存在（\(detail)），请检查 Base URL。"
         case .rateLimited:
             return "请求过于频繁或额度已用尽，请稍后再试。"
         case .serverError(let status, let message):
+            if Self.looksLikeModelProblem(message) {
+                return "服务端返回 \(status)：\(message)。模型 ID 可能不对——中转站一般要求填它自己的模型名。"
+            }
             return "服务端返回 \(status)：\(message)"
         case .network(let message):
             return "网络连接失败：\(message)"
@@ -146,6 +152,18 @@ enum LLMError: LocalizedError, Sendable, Equatable {
         case .unsupported(let message):
             return message
         }
+    }
+
+    /// 服务端的报错是不是在说"没有这个模型"。中转站最常见的坑就是模型 ID 抄错。
+    static func looksLikeModelProblem(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        guard lower.contains("model") else { return false }
+        return lower.contains("not found")
+            || lower.contains("does not exist")
+            || lower.contains("not exist")
+            || lower.contains("invalid")
+            || lower.contains("unsupported")
+            || lower.contains("unknown")
     }
 
     /// 是否属于“可以重试”的错误（网络抖动、限流、服务端 5xx）。

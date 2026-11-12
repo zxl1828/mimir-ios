@@ -28,6 +28,8 @@ struct ConsoleHomeView: View {
     @State private var list: ConversationListViewModel?
     @State private var showSettings = false
     @State private var didBootstrap = false
+    @State private var renamingConversation: Conversation?
+    @State private var renameDraft = ""
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -92,6 +94,22 @@ struct ConsoleHomeView: View {
                 SettingsView(chat: ScratchChatFactory.make(context: modelContext, settings: settings), list: list)
             }
         }
+        .alert(
+            "重命名会话",
+            isPresented: Binding(
+                get: { renamingConversation != nil },
+                set: { if !$0 { renamingConversation = nil } }
+            )
+        ) {
+            TextField("会话名称", text: $renameDraft)
+            Button("取消", role: .cancel) { renamingConversation = nil }
+            Button("保存") {
+                if let target = renamingConversation {
+                    list?.rename(target, to: renameDraft)
+                }
+                renamingConversation = nil
+            }
+        }
     }
 
     private var brandRow: some View {
@@ -109,19 +127,21 @@ struct ConsoleHomeView: View {
                 Text("550C")
                     .font(AppUI.mono(9.5, weight: .bold))
                     .tracking(1.4)
-                    .foregroundStyle(AppUI.consoleSignal)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .overlay(
+                    .foregroundStyle(AppUI.consoleSignal.opacity(0.85))
+                    // 550C 只是装饰性标识：不加边框，避免被读成"可点的按钮"。
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 2)
+                    .background(
                         RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .strokeBorder(AppUI.consoleSignal.opacity(0.5), lineWidth: 0.5)
+                            .fill(AppUI.consoleSignal.opacity(0.10))
                     )
+
+                Spacer(minLength: 8)
+
+                headerCircleButton(icon: "person.fill") { showSettings = true }
+
+                headerCircleButton(icon: "gearshape.fill") { showSettings = true }
             }
-
-            Spacer(minLength: 8)
-
-            headerCircleButton(icon: "person.fill") { showSettings = true }
-            headerCircleButton(icon: "gearshape.fill") { showSettings = true }
         }
     }
 
@@ -131,11 +151,11 @@ struct ConsoleHomeView: View {
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 13.5, weight: .semibold))
                 .foregroundStyle(AppUI.label2)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(AppUI.consolePanel(scheme: scheme)))
-                .overlay(Circle().strokeBorder(AppUI.consoleHairline(scheme: scheme), lineWidth: 0.5))
+                .frame(width: 38, height: 38)
+                .nativeGlass(.circle)
+                .contentShape(Circle())
         }
         .buttonStyle(StaticButtonFeedbackStyle())
     }
@@ -159,10 +179,9 @@ struct ConsoleHomeView: View {
                 .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(AppUI.label3)
         }
-        .padding(.horizontal, 11)
+        .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(AppUI.consolePanel(scheme: scheme).opacity(0.7)))
-        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(AppUI.consoleHairline(scheme: scheme), lineWidth: 0.5))
+        .nativeGlassRect(cornerRadius: 15, interactive: false)
     }
 
     private var heroBlock: some View {
@@ -231,14 +250,7 @@ struct ConsoleHomeView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 13)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(AppUI.consolePanel(scheme: scheme))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(AppUI.consoleHairline(scheme: scheme), lineWidth: 0.5)
-            )
+            .nativeGlassRect(cornerRadius: 20)
         }
         .buttonStyle(.plain)
     }
@@ -254,12 +266,9 @@ struct ConsoleHomeView: View {
                 Text("新建会话")
                     .font(.system(size: 14, weight: .semibold))
             }
-            .foregroundStyle(scheme == .dark ? Color(red: 0.02, green: 0.06, blue: 0.12) : .white)
-            .frame(maxWidth: .infinity, minHeight: 46)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(scheme == .dark ? AppUI.consoleSignal : AppUI.consoleSignal)
-            )
+            .foregroundStyle(AppUI.label)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .nativeGlassRect(cornerRadius: 16, tint: AppUI.consoleSignal.opacity(0.55))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
     }
@@ -273,13 +282,10 @@ struct ConsoleHomeView: View {
 
                 Spacer()
 
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color(red: 0.22, green: 0.78, blue: 0.46))
-                        .frame(width: 5, height: 5)
-                    Text("已连接")
-                        .font(AppUI.mono(10, weight: .medium))
-                        .foregroundStyle(Color(red: 0.30, green: 0.72, blue: 0.48))
+                if !(list?.conversations.isEmpty ?? true) {
+                    Text("长按可删除")
+                        .font(AppUI.mono(9.5))
+                        .foregroundStyle(AppUI.label3)
                 }
             }
 
@@ -321,15 +327,8 @@ struct ConsoleHomeView: View {
             .autocorrectionDisabled()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(AppUI.consolePanel(scheme: scheme).opacity(0.8))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(AppUI.consoleHairline(scheme: scheme), lineWidth: 0.5)
-        )
+        .padding(.vertical, 11)
+        .nativeGlassRect(cornerRadius: 15, interactive: false)
     }
 
     private func conversationRow(_ conversation: Conversation) -> some View {
@@ -370,6 +369,32 @@ struct ConsoleHomeView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                Haptics.impact(.light)
+                list?.togglePin(conversation)
+            } label: {
+                Label(conversation.isPinned ? "取消置顶" : "置顶会话",
+                      systemImage: conversation.isPinned ? "pin.slash" : "pin")
+            }
+
+            Button {
+                Haptics.impact(.light)
+                renamingConversation = conversation
+                renameDraft = conversation.title
+            } label: {
+                Label("重命名", systemImage: "pencil")
+            }
+
+            Button(role: .destructive) {
+                Haptics.impact(.medium)
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    list?.delete(conversation)
+                }
+            } label: {
+                Label("删除会话", systemImage: "trash")
+            }
+        }
     }
 
     // MARK: - 数据

@@ -507,10 +507,32 @@ struct OpenAICompatibleClient: LLMClient {
     }
 
     /// 拼接 Base URL 与路径：兼容带/不带 `/v1` 的写法。
+    /// 拼接口地址。
+    ///
+    /// 很多中转站的文档直接给你一整条 `https://xxx/v1/chat/completions`，
+    /// 用户原样粘进设置就会拼成 `…/chat/completions/chat/completions` 然后 404。
+    /// 这里先把粘贴进来的完整端点削掉，只保留 Base URL。
     static func endpoint(base: String, path: String) -> URL? {
         var trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        let suffixes = [
+            "/chat/completions",
+            "/images/generations",
+            "/completions",
+            "/embeddings",
+            "/models"
+        ]
+        var changed = true
+        while changed {
+            changed = false
+            for suffix in suffixes where trimmed.lowercased().hasSuffix(suffix) {
+                trimmed = String(trimmed.dropLast(suffix.count))
+                while trimmed.hasSuffix("/") { trimmed.removeLast() }
+                changed = true
+            }
+        }
+        guard !trimmed.isEmpty else { return nil }
         return URL(string: "\(trimmed)/\(path)")
     }
 

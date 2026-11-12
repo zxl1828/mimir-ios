@@ -40,7 +40,7 @@ struct ArtifactPreviewView: View {
         }
         .background(Color(hex: "120D1D"))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
         .sheet(isPresented: $showsFullscreen) {
             NavigationStack {
                 ArtifactWebView(html: html)

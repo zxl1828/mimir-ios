@@ -543,13 +543,13 @@ private struct APIConfigSettingsView: View {
             }
 
             Section {
-                SecureField("图像服务 Key", text: $imageKeyDraft)
+                SecureField("图像服务 Key（留空沿用聊天 Key）", text: $imageKeyDraft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                TextField("图像 Base URL", text: $settings.imageGenerationBaseURL)
+                TextField("图像 Base URL（留空沿用聊天 Base URL）", text: $settings.imageGenerationBaseURL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                TextField("图像模型 ID", text: $settings.imageGenerationModelID)
+                TextField("图像模型 ID，如 gpt-image-1", text: $settings.imageGenerationModelID)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Button("保存图像服务配置") {
@@ -572,7 +572,7 @@ private struct APIConfigSettingsView: View {
             } header: {
                 Text("AI 生图")
             } footer: {
-                Text("使用独立的 Base URL、Key 和模型 ID，不会改变聊天模型配置。服务需兼容 /images/generations。")
+                Text("留空表示沿用上面聊天模型的 Key 与 Base URL；模型 ID 必须单独填（例如 gpt-image-1 或中转站给的画图模型名）。服务需兼容 /images/generations。")
             }
 
             Section {

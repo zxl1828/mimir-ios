@@ -184,13 +184,13 @@ public struct MimirLiveActivityWidget: Widget {
         let l3 = CGFloat(levels.count > 2 ? levels[2] : 0.5)
 
         return HStack(alignment: .bottom, spacing: 2) {
-            RoundedRectangle(cornerRadius: 1)
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(irisViolet)
                 .frame(width: 2.2, height: max(4, min(14, 4 + l1 * 10)))
-            RoundedRectangle(cornerRadius: 1)
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(irisViolet)
                 .frame(width: 2.2, height: max(4, min(14, 4 + l2 * 10)))
-            RoundedRectangle(cornerRadius: 1)
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
                 .fill(irisViolet)
                 .frame(width: 2.2, height: max(4, min(14, 4 + l3 * 10)))
         }
@@ -202,7 +202,7 @@ public struct MimirLiveActivityWidget: Widget {
         HStack(spacing: 3) {
             ForEach(0..<16, id: \.self) { i in
                 let factor = CGFloat(sin(Double(i) * 0.4 + 1.2)) * 0.5 + 0.5
-                RoundedRectangle(cornerRadius: 1.5)
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
                     .fill(irisViolet.opacity(0.35 + factor * 0.65))
                     .frame(height: max(3, 16 * factor))
                     .frame(maxWidth: .infinity)

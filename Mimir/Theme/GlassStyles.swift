@@ -7,6 +7,40 @@ import SwiftUI
 
 extension View {
 
+    /// 原生液态玻璃按钮底：iOS 26 `glassEffect` 的 interactive 变体。
+    ///
+    /// 用户的诉求是「按键要有 iOS 26 那种真的液态玻璃」——所以这里直接用系统
+    /// `glassEffect`，不再自绘渐变、光晕或折射描边。`.interactive()` 让玻璃在
+    /// 点按时产生系统自带的形变与高光，这是手写阴影永远做不出来的。
+    @ViewBuilder
+    func nativeGlass<S: Shape>(
+        _ shape: S,
+        tint: Color? = nil,
+        interactive: Bool = true
+    ) -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular.tint(tint).interactive(interactive), in: shape)
+        } else {
+            self.background(.ultraThinMaterial, in: shape)
+        }
+    }
+
+    /// 圆形玻璃按钮底（头像、返回、更多）。
+    @ViewBuilder
+    func nativeGlassCircle(size: CGFloat? = nil, tint: Color? = nil) -> some View {
+        if let size {
+            self.frame(width: size, height: size).nativeGlass(.circle, tint: tint)
+        } else {
+            self.nativeGlass(.circle, tint: tint)
+        }
+    }
+
+    /// 圆角矩形玻璃底（输入框、标签、卡片）。
+    @ViewBuilder
+    func nativeGlassRect(cornerRadius: CGFloat = AppUI.controlRadius, tint: Color? = nil, interactive: Bool = true) -> some View {
+        self.nativeGlass(.rect(cornerRadius: cornerRadius), tint: tint, interactive: interactive)
+    }
+
     /// 原生液态玻璃效果（自动降级）。
     @ViewBuilder
     func liquidGlass<S: Shape>(_ glass: Glass = .regular, in shape: S) -> some View {

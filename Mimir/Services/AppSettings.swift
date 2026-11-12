@@ -243,7 +243,7 @@ final class AppSettings {
         self.selectedAgentName = defaults.string(forKey: Key.selectedAgent) ?? ""
         self.customModels = Self.load([CustomModelEntry].self, from: defaults, key: Key.customModels) ?? []
         self.imageGenerationModelID = defaults.string(forKey: Key.imageGenerationModelID) ?? ""
-        self.imageGenerationBaseURL = defaults.string(forKey: Key.imageGenerationBaseURL) ?? "https://api.openai.com/v1"
+        self.imageGenerationBaseURL = defaults.string(forKey: Key.imageGenerationBaseURL) ?? ""
         self.webSearch = Self.load(WebSearchConfiguration.self, from: defaults, key: Key.webSearch)
             ?? WebSearchConfiguration()
         self.appearance = AppAppearance(rawValue: defaults.string(forKey: Key.appearance) ?? "")
@@ -300,11 +300,17 @@ final class AppSettings {
         return value
     }
 
+    /// 生图凭据。Key / Base URL 留空时回落到主对话的配置——
+    /// 多数中转站同一个 Key 同时开对话和画图，没必要逼用户抄两遍；
+    /// 但模型 ID 必须单独填，因为对话模型和画图模型不通用。
     var resolvedImageGenerationCredential: APICredential {
-        APICredential(
-            key: keychain.string(for: Key.imageGenerationSecretAccount) ?? "",
+        let main = resolvedCredential
+        let imageKey = keychain.string(for: Key.imageGenerationSecretAccount) ?? ""
+        let trimmedBase = imageGenerationBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        return APICredential(
+            key: imageKey.isEmpty ? main.key : imageKey,
             format: .openAI,
-            baseURL: imageGenerationBaseURL,
+            baseURL: trimmedBase.isEmpty ? main.baseURL : trimmedBase,
             modelID: imageGenerationModelID
         )
     }

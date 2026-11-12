@@ -11,14 +11,32 @@ struct CodeAgentTurn: Identifiable {
     let id = UUID()
     let kind: Kind
     var text: String
+    /// 思考过程。正常对话里能看到的推演，这里也要能看到，不分两套逻辑。
+    var reasoning: String = ""
+    var isStreaming: Bool = false
+    /// 这条活动是否真的改动了文件，界面上用它决定要不要标成"已写入"。
+    var didWriteFile: Bool = false
 }
 
+/// 代码页的对话引擎。
+///
+/// 定位很明确：**它就是一个普通对话**——同样的流式输出、同样的思考过程、同样的
+/// 多轮工具调用。唯一的区别是它的工具落在工作区文件夹上，于是对话过程中被改写的
+/// 源码可以实时出现在上方的编辑器里（`liveFilePath` / `liveContent`）。
 @MainActor
 @Observable
 final class CodeWorkspaceAgent {
     private(set) var turns: [CodeAgentTurn] = []
     private(set) var isWorking = false
     private(set) var errorMessage: String?
+
+    /// 最近一次被改写的文件（相对路径）与它的最新内容，供编辑器实时展示。
+    private(set) var liveFilePath: String?
+    private(set) var liveContent: String = ""
+    /// 本轮对话的编辑统计分桶，交给 `FileEditSummaryCard` 显示。
+    private(set) var runID: UUID?
+
+    private var cancelRequested = false
 
     private var context: [LLMChatMessage] = [
         LLMChatMessage(role: .system, text: """
@@ -29,6 +47,20 @@ final class CodeWorkspaceAgent {
         只处理与用户请求相关的文件，修改后说明文件路径和关键变化。遇到不明确或可能覆盖用户重要内容时先询问。
         """)
     ]
+
+    /// 用户点"停止"。
+    func cancel() {
+        cancelRequested = true
+    }
+
+    func reset() {
+        turns.removeAll()
+        errorMessage = nil
+        liveFilePath = nil
+        liveContent = ""
+        runID = nil
+        FileEditLedger.shared.activeRunID = nil
+    }
 
     func send(_ prompt: String, workspace: WorkspaceManager, settings: AppSettings) async {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,9 +78,15 @@ final class CodeWorkspaceAgent {
 
         errorMessage = nil
         isWorking = true
+        cancelRequested = false
+
+        let run = UUID()
+        runID = run
+        FileEditLedger.shared.activeRunID = run
+
         turns.append(CodeAgentTurn(kind: .user, text: trimmed))
         let assistantIndex = turns.count
-        turns.append(CodeAgentTurn(kind: .assistant, text: ""))
+        turns.append(CodeAgentTurn(kind: .assistant, text: "", isStreaming: true))
         context.append(LLMChatMessage(role: .user, text: trimmed))
         if context.count > 24 {
             context = [context[0]] + Array(context.suffix(20))
@@ -61,8 +99,10 @@ final class CodeWorkspaceAgent {
         var workingMessages = context
 
         do {
-            for _ in 0..<5 {
+            for _ in 0..<8 {
+                if cancelRequested { break }
                 var responseText = ""
+                var reasoning = ""
                 var calls: [LLMToolCall] = []
                 let stream = client.streamChat(
                     messages: workingMessages,
@@ -71,16 +111,21 @@ final class CodeWorkspaceAgent {
                     tools: Self.tools
                 )
                 for try await event in stream {
+                    if cancelRequested { break }
                     switch event {
                     case .textDelta(let text):
                         responseText += text
                         turns[assistantIndex].text = responseText
+                    case .reasoningDelta(let delta):
+                        reasoning += delta
+                        turns[assistantIndex].reasoning = reasoning
                     case .toolCallsReady(let ready):
                         calls = ready
-                    case .reasoningDelta, .toolCallDelta, .usage, .finished:
+                    case .toolCallDelta, .usage, .finished:
                         break
                     }
                 }
+                if cancelRequested { break }
 
                 guard !calls.isEmpty else {
                     workingMessages.append(LLMChatMessage(role: .assistant, text: responseText))
@@ -89,12 +134,20 @@ final class CodeWorkspaceAgent {
 
                 workingMessages.append(LLMChatMessage(role: .assistant, text: responseText, toolCalls: calls))
                 for call in calls {
+                    if cancelRequested { break }
                     let activityIndex = turns.count
                     turns.append(CodeAgentTurn(kind: .activity, text: Self.activityLabel(for: call)))
                     let result: String
                     do {
                         result = try await Self.invoke(call, workspace: workspace)
                         turns[activityIndex].text += " · 完成"
+                        if call.name == "workspace_write" {
+                            turns[activityIndex].didWriteFile = true
+                            turns[assistantIndex].text = responseText
+                            if let written = Self.writtenPath(in: call) {
+                                await presentLiveSource(path: written, workspace: workspace)
+                            }
+                        }
                     } catch {
                         result = "工具执行失败：\(error.localizedDescription)"
                         turns[activityIndex].text += " · 失败"
@@ -109,10 +162,30 @@ final class CodeWorkspaceAgent {
             errorMessage = (error as? LLMError)?.errorDescription ?? error.localizedDescription
             turns[assistantIndex].text = errorMessage ?? "请求失败。"
         }
+
+        turns[assistantIndex].isStreaming = false
         if turns[assistantIndex].text.isEmpty, errorMessage == nil {
-            turns[assistantIndex].text = "Agent 已完成文件操作。"
+            turns[assistantIndex].text = cancelRequested ? "已停止。" : "Agent 已完成文件操作。"
         }
         isWorking = false
+        FileEditLedger.shared.activeRunID = nil
+    }
+
+    /// 把刚写完的文件推给编辑器：用户看到的源码就是模型刚改出来的那份。
+    private func presentLiveSource(path: String, workspace: WorkspaceManager) async {
+        liveFilePath = path
+        liveContent = (try? await workspace.readWorkspaceText(path: path)) ?? ""
+        if let item = workspace.sourceFiles.first(where: { workspace.relativePath(for: $0) == path }) {
+            workspace.selectCodeFile(item)
+        }
+    }
+
+    private static func writtenPath(in call: LLMToolCall) -> String? {
+        guard let data = call.argumentsJSON.data(using: .utf8),
+              let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return arguments["path"] as? String
     }
 
     private static let tools: [LLMToolDefinition] = [

@@ -9,6 +9,16 @@ enum ImageGenerationService {
         var prompt: String
         var n = 1
         var size: String?
+        /// gpt-image-1 只认 b64_json；老接口遇到未知字段会 400，所以只在明确需要时才带。
+        var responseFormat: String?
+
+        enum CodingKeys: String, CodingKey {
+            case model
+            case prompt
+            case n
+            case size
+            case responseFormat = "response_format"
+        }
     }
 
     private struct ResponseBody: Decodable {
@@ -47,7 +57,59 @@ enum ImageGenerationService {
         for (header, value) in credential.extraHeaders {
             request.setValue(value, forHTTPHeaderField: header)
         }
-        request.httpBody = try JSONEncoder().encode(RequestBody(model: modelID, prompt: prompt, n: 1, size: size))
+
+        let resolvedModel = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let preferredSize = adjustedSize(model: resolvedModel, raw: size)
+
+        do {
+            return try await send(
+                request: request,
+                body: RequestBody(model: resolvedModel, prompt: prompt, n: 1, size: preferredSize)
+            )
+        } catch let error as LLMError {
+            // 各家对 size 的取值很挑剔：gpt-image-1 只认 1024x1024 / 1536x1024 / 1024x1536，
+            // 老接口只认 1792x1024 这类，中转站还可能完全不接受这个字段。
+            // 被拒时退回"不指定尺寸"再试一次，让服务端用默认值，比直接失败有用得多。
+            guard preferredSize != nil, isSizeRejection(error) else { throw error }
+            return try await send(
+                request: request,
+                body: RequestBody(model: resolvedModel, prompt: prompt, n: 1, size: nil)
+            )
+        }
+    }
+
+    /// 服务端是不是在抱怨 size 这个字段（各家措辞不一，只能按关键词判断）。
+    private static func isSizeRejection(_ error: LLMError) -> Bool {
+        guard case let .serverError(status, message) = error else { return false }
+        guard status == 400 || status == 404 || status == 422 else { return false }
+        let text = message.lowercased()
+        return text.contains("size") || text.contains("dimension") || text.contains("resolution")
+    }
+
+    /// 按模型族把画幅换成该接口真正接受的取值。
+    private static func adjustedSize(model: String, raw: String?) -> String? {
+        guard let raw else { return nil }
+        let name = model.lowercased()
+        if name.contains("gpt-image") {
+            switch raw {
+            case "1792x1024": return "1536x1024"
+            case "1024x1792": return "1024x1536"
+            case "1024x768": return nil          // 4:3 无对应档位，交给服务端默认
+            default: return raw
+            }
+        }
+        if name.contains("dall-e-3") {
+            switch raw {
+            case "1024x768": return nil
+            default: return raw
+            }
+        }
+        return raw
+    }
+
+    private static func send(request: URLRequest, body: RequestBody) async throws -> Data {
+        var request = request
+        request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {

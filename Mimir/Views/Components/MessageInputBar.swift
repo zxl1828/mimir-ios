@@ -61,20 +61,13 @@ struct MessageInputBar: View {
             .padding(.leading, 6)
             .padding(.trailing, 6)
             .padding(.vertical, 6)
-            .background(inputFill, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            // 原生液态玻璃底：不再自绘渐变与折射描边，聚焦时只叠一层极淡的主题色。
+            .nativeGlassRect(cornerRadius: 22)
             .overlay {
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .strokeBorder(
-                        focus.wrappedValue ? accent.opacity(0.34) : inputHairline,
-                        lineWidth: 1
-                    )
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(accent.opacity(focus.wrappedValue ? 0.30 : 0), lineWidth: 1)
                     .allowsHitTesting(false)
             }
-            .shadow(
-                color: Color.black.opacity(scheme == .dark ? 0.38 : 0.07),
-                radius: focus.wrappedValue ? 16 : 12,
-                y: 5
-            )
             .animation(.spring(response: 0.32, dampingFraction: 0.84), value: focus.wrappedValue)
         }
         .animation(AppAnimation.chip, value: attachments.count)
@@ -135,15 +128,17 @@ struct MessageInputBar: View {
                 onVoice()
             }
         } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(trailingFill)
-                    .frame(width: 32, height: 30)
-                Image(systemName: isGenerating ? "square.fill" : (canSend ? "arrow.up" : "waveform"))
-                    .font(.system(size: isGenerating ? 11 : 14, weight: .bold))
-                    .foregroundStyle(trailingGlyph)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Image(systemName: isGenerating ? "square.fill" : (canSend ? "arrow.up" : "waveform"))
+                .font(.system(size: isGenerating ? 11 : 14, weight: .bold))
+                .foregroundStyle(trailingGlyph)
+                .frame(width: 34, height: 32)
+                .nativeGlass(
+                    canSend
+                        ? AnyShape(Circle())
+                        : AnyShape(RoundedRectangle(cornerRadius: 12, style: .continuous)),
+                    tint: canSend ? accent.opacity(0.55) : nil
+                )
+                .contentShape(Circle())
         }
         .buttonStyle(StaticButtonFeedbackStyle())
         .animation(.easeInOut(duration: 0.18), value: canSend)

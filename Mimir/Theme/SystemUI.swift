@@ -12,15 +12,15 @@ enum AppUI {
     static let rowSpacing: CGFloat = 12
     /// 卡片 / 输入框圆角。
     /// 卡片圆角。全应用只用两档：卡片 16~18、控件 12~14，一律 `.continuous`。
-    static let cardRadius: CGFloat = 18
+    static let cardRadius: CGFloat = 20
     /// 次级卡片圆角（嵌套列表块）。
-    static let innerCardRadius: CGFloat = 16
+    static let innerCardRadius: CGFloat = 18
     /// 按钮 / 输入框 / 标签圆角。
-    static let controlRadius: CGFloat = 13
+    static let controlRadius: CGFloat = 15
     /// 小标签圆角。
-    static let chipRadius: CGFloat = 12
+    static let chipRadius: CGFloat = 13
     /// 气泡圆角。
-    static let bubbleRadius: CGFloat = 16
+    static let bubbleRadius: CGFloat = 18
     /// 冷蓝微光描边统一线宽。
     static let hairline: CGFloat = 0.5
     /// 侧边栏面板宽度。
@@ -30,37 +30,37 @@ enum AppUI {
 
     // MARK: - 基础色彩基准（严禁纯黑，统一采用纯白/极淡紫与极深紫）
     static let baseLightWhite = Color.white
-    static let baseLightLavender = Color(hex: "F2F6FC")
-    static let baseDarkDeepPurple = Color(hex: "060C16")
-    static let baseDarkPlum = Color(hex: "060C16")
-    static let pressSheenLight = Color(hex: "DCE8F7")
+    static let baseLightLavender = Color(hex: "F4F1FA")
+    static let baseDarkDeepPurple = Color(hex: "0B0713")
+    static let baseDarkPlum = Color(hex: "0B0713")
+    static let pressSheenLight = Color(hex: "E2DBF2")
 
-    // MARK: - 550C 控制台色板（深邃技术蓝）
+    // MARK: - 550C 控制台色板（黑紫：统一到应用原有的紫，不再混入蓝色）
 
-    /// 550C 主信号色：冷蓝偏青，用于状态点、参数、运行指示。
+    /// 主信号色：亮紫，用于状态点、参数、运行指示。
     static let consoleSignal = Color.adaptive(
-        light: UIColor(red: 0.10, green: 0.44, blue: 0.86, alpha: 1),
-        dark: UIColor(red: 0.36, green: 0.72, blue: 1.00, alpha: 1)
+        light: UIColor(red: 0.47, green: 0.29, blue: 0.93, alpha: 1),
+        dark: UIColor(red: 0.72, green: 0.57, blue: 1.00, alpha: 1)
     )
 
-    /// 550C 副信号色：更冷更暗的一档，用于次级文字与轨道。
+    /// 副信号色：更暗的一档，用于次级文字与轨道。
     static let consoleSignalDim = Color.adaptive(
-        light: UIColor(red: 0.24, green: 0.42, blue: 0.66, alpha: 1),
-        dark: UIColor(red: 0.28, green: 0.46, blue: 0.70, alpha: 1)
+        light: UIColor(red: 0.40, green: 0.32, blue: 0.68, alpha: 1),
+        dark: UIColor(red: 0.52, green: 0.44, blue: 0.86, alpha: 1)
     )
 
-    /// 面板底色：高透深蓝（不是纯黑，靠一点蓝维持工业控制台的冷感）。
+    /// 面板底色：高透紫黑，靠一点紫维持纵深，避免死黑。
     static func consolePanel(scheme: ColorScheme) -> Color {
         scheme == .dark
-            ? Color(red: 0.055, green: 0.10, blue: 0.18).opacity(0.72)
+            ? Color(red: 0.082, green: 0.055, blue: 0.125).opacity(0.72)
             : Color.white.opacity(0.86)
     }
 
-    /// 0.5pt 冷蓝微光描边。
+    /// 0.5pt 紫微光描边。
     static func consoleHairline(scheme: ColorScheme) -> Color {
         scheme == .dark
-            ? Color(red: 0.42, green: 0.68, blue: 1.0).opacity(0.26)
-            : Color(red: 0.24, green: 0.42, blue: 0.66).opacity(0.16)
+            ? Color(red: 0.72, green: 0.57, blue: 1.0).opacity(0.24)
+            : Color(red: 0.42, green: 0.30, blue: 0.66).opacity(0.14)
     }
 
     /// 等宽字体：所有参数、计量、状态一律用它。
@@ -73,30 +73,30 @@ enum AppUI {
     /// 画布主背景：深色使用梅子紫夜色，浅色使用纯白与淡薰衣草紫。
     static var canvas: Color {
         Color.adaptive(
-            light: UIColor(red: 0.961, green: 0.961, blue: 0.953, alpha: 1.0),
-            dark: UIColor(red: 0.043, green: 0.043, blue: 0.039, alpha: 1.0)
+            light: UIColor(red: 0.957, green: 0.949, blue: 0.984, alpha: 1.0),
+            dark: UIColor(red: 0.043, green: 0.027, blue: 0.075, alpha: 1.0)
         )
     }
 
     /// 分组背景 follows the app's light lavender and deep plum foundations.
     static var groupCanvas: Color {
         Color.adaptive(
-            light: UIColor(red: 0.961, green: 0.961, blue: 0.953, alpha: 1.0),
-            dark: UIColor(red: 0.043, green: 0.043, blue: 0.039, alpha: 1.0)
+            light: UIColor(red: 0.957, green: 0.949, blue: 0.984, alpha: 1.0),
+            dark: UIColor(red: 0.043, green: 0.027, blue: 0.075, alpha: 1.0)
         )
     }
 
     static var secondary: Color {
         Color.adaptive(
-            light: UIColor(red: 0.988, green: 0.988, blue: 0.984, alpha: 1.0),
-            dark: UIColor(red: 0.082, green: 0.082, blue: 0.078, alpha: 1.0)
+            light: UIColor(red: 0.992, green: 0.988, blue: 1.0, alpha: 1.0),
+            dark: UIColor(red: 0.067, green: 0.043, blue: 0.110, alpha: 1.0)
         )
     }
 
     static var fill: Color {
         Color.adaptive(
-            light: UIColor(red: 0.953, green: 0.953, blue: 0.945, alpha: 1),
-            dark: UIColor(red: 0.102, green: 0.102, blue: 0.098, alpha: 1)
+            light: UIColor(red: 0.945, green: 0.933, blue: 0.976, alpha: 1),
+            dark: UIColor(red: 0.094, green: 0.063, blue: 0.145, alpha: 1)
         )
     }
 
@@ -211,15 +211,15 @@ enum AppUI {
     /// 规范要求的纯白/极淡紫至极深紫渐变背景（深色模式自适应为极深高级紫 #120D1D -> #1A122B）。
     static func ambientBackground(scheme: ColorScheme) -> LinearGradient {
         if scheme == .dark {
-            // 550C：深邃技术蓝，顶部略亮、底部压到近黑，制造"机柜内壁"的纵深。
+            // 黑紫：顶部带一点紫气，底部压到近黑，制造纵深而不发灰。
             return LinearGradient(
-                colors: [Color(hex: "0A1626"), Color(hex: "060C16"), Color(hex: "04070D")],
+                colors: [Color(hex: "170E27"), Color(hex: "0B0713"), Color(hex: "050309")],
                 startPoint: .top,
                 endPoint: .bottom
             )
         }
         return LinearGradient(
-            colors: [Color(hex: "F4F8FD"), Color(hex: "E9F0F9")],
+            colors: [Color(hex: "F7F4FD"), Color(hex: "EEE8F9")],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -665,8 +665,8 @@ struct ConsoleGridOverlay: View {
         ZStack {
             Canvas(rendersAsynchronously: true) { context, size in
                 let stroke = scheme == .dark
-                    ? Color(red: 0.42, green: 0.68, blue: 1.0).opacity(0.10)
-                    : Color(red: 0.24, green: 0.42, blue: 0.66).opacity(0.07)
+                    ? Color(red: 0.66, green: 0.52, blue: 1.0).opacity(0.10)
+                    : Color(red: 0.44, green: 0.32, blue: 0.70).opacity(0.07)
                 var path = Path()
                 var x: CGFloat = 0
                 while x <= size.width {

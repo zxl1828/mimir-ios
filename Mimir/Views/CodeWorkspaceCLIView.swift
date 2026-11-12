@@ -27,7 +27,9 @@ struct CodeWorkspaceCLIView: View {
     @State private var agent = CodeWorkspaceAgent()
     @State private var settings = AppSettings()
     @State private var activeSheet: CodeWorkspaceSheet?
+    @State private var showMountDiagnostics = false
     @State private var isLoadingWorkspace = false
+    @State private var editorExpanded = false
     @State private var isKeyboardVisible = false
     @State private var workspaceLoadError: String?
     @State private var draft = ""
@@ -78,7 +80,7 @@ struct CodeWorkspaceCLIView: View {
                     .foregroundStyle(Color.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                editorPanel(height: min(max(geometry.size.height * 0.44, 230), 410))
+                editorPanel(height: editorExpanded ? min(geometry.size.height * 0.62, 560) : min(max(geometry.size.height * 0.44, 230), 410))
                 if !buildMessage.isEmpty { buildStatusBar }
                 agentPanel
             }
@@ -98,6 +100,11 @@ struct CodeWorkspaceCLIView: View {
         // 只留**一个** presentation 槽位：两个 `.sheet` 合并成 `.sheet(item:)`。
         // 之前 `.fileImporter` 和两个 `.sheet` 挂在同一层视图上，SwiftUI 只有一个
         // presentation 槽位，先挂的会被后挂的顶掉——表现为"点文件夹卡片毫无响应"。
+        .sheet(isPresented: $showMountDiagnostics) {
+            MountDiagnosticsView { folder in
+                Task { await adoptFolder(folder) }
+            }
+        }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .sourceFile:
@@ -152,6 +159,7 @@ struct CodeWorkspaceCLIView: View {
     private func presentFolderPicker(asCopy: Bool = false) {
         Haptics.selectionChanged()
         FolderPickerBroker.present(
+            asCopy: asCopy,
             onPick: { folder in
                 Task {
                     if asCopy {
@@ -191,12 +199,19 @@ struct CodeWorkspaceCLIView: View {
     }
 
     /// 兜底：整份复制进沙盒后挂载。
+    ///
+    /// `asCopy: true` 的选择器已经由系统把目录复制进容器，这时直接挂载即可；
+    /// 只有系统把原始 URL 交回来（外部目录）时才需要自己再复制一份。
     private func importWorkspaceCopy(_ folder: URL) async {
         isLoadingWorkspace = true
         workspaceLoadError = nil
         defer { isLoadingWorkspace = false }
         do {
-            _ = try await workspace.mountSandboxCopy(of: folder)
+            if workspace.isInAppDocuments(folder) {
+                try await workspace.mountFolder(url: folder, bookmarkData: nil, securityScopeAlreadyStarted: false)
+            } else {
+                _ = try await workspace.mountSandboxCopy(of: folder)
+            }
             workspace.selectCodeFile(workspace.sourceFiles.first)
             saveState = "已导入副本"
         } catch {
@@ -359,7 +374,7 @@ struct CodeWorkspaceCLIView: View {
         let state = workspace.mountState
         return Button {
             Haptics.selectionChanged()
-        presentFolderPicker()
+            presentFolderPicker()
         } label: {
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -410,10 +425,27 @@ struct CodeWorkspaceCLIView: View {
         .buttonStyle(StaticButtonFeedbackStyle())
         .accessibilityLabel("工作区 \(state.title)")
         .accessibilityHint(state.detail)
+        .contextMenu {
+            Button {
+                showMountDiagnostics = true
+            } label: {
+                Label("挂载诊断", systemImage: "stethoscope")
+            }
+            Button {
+                presentFolderPicker(asCopy: true)
+            } label: {
+                Label("导入副本到 App", systemImage: "square.and.arrow.down.on.square")
+            }
+            Button {
+                presentFolderPicker()
+            } label: {
+                Label("重新选择文件夹", systemImage: "folder.badge.plus")
+            }
+        }
     }
 
     private var workspaceBlue: Color {
-        Color(red: 0.16, green: 0.42, blue: 0.92)
+        AppUI.consoleSignal
     }
 
     @ViewBuilder
@@ -562,15 +594,16 @@ struct CodeWorkspaceCLIView: View {
 
     private var agentPanel: some View {
         VStack(spacing: 8) {
+            liveSourceStrip
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
+                    LazyVStack(alignment: .leading, spacing: 12) {
                         if agent.turns.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Mimir Code")
                                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                                     .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                                Text("描述要检查或修改的内容，Agent 会在当前文件夹中查找、读取并保存代码。")
+                                Text("和平时对话一样描述要做的事，Agent 会在当前文件夹里查找、读取并保存代码；改完的源码会直接出现在上方的编辑器里。")
                                     .font(.system(size: 12))
                                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
                                     .fixedSize(horizontal: false, vertical: true)
@@ -582,6 +615,9 @@ struct CodeWorkspaceCLIView: View {
                             turnBubble(turn)
                                 .id(turn.id)
                         }
+                        if let runID = agent.runID {
+                            FileEditSummaryCard(runID: runID)
+                        }
                     }
                     .padding(.vertical, 4)
                 }
@@ -592,11 +628,17 @@ struct CodeWorkspaceCLIView: View {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
                 }
+                .onChange(of: agent.isWorking) { _, working in
+                    guard !working, let last = agent.turns.last else { return }
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.84)) {
+                        proxy.scrollTo(last.id, anchor: .bottom)
+                    }
+                }
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 4) {
                 TextField("让 Agent 检查或修改代码…", text: $draft, axis: .vertical)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13.5))
                     .lineLimit(1...4)
                     .focused($composerFocused)
                     .submitLabel(.send)
@@ -604,26 +646,69 @@ struct CodeWorkspaceCLIView: View {
                     .padding(.leading, 12)
                     .padding(.vertical, 10)
 
-                Button(action: submitDraft) {
-                    Image(systemName: agent.isWorking ? "ellipsis" : "arrow.up")
+                Button {
+                    if agent.isWorking {
+                        agent.cancel()
+                        Haptics.impact(.light)
+                    } else {
+                        submitDraft()
+                    }
+                } label: {
+                    Image(systemName: agent.isWorking ? "square.fill" : "arrow.up")
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(Color.white)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(accent))
+                        .foregroundStyle(agent.isWorking ? AppUI.textTitle(scheme: scheme) : Color.white)
+                        .frame(width: 34, height: 32)
+                        .nativeGlass(
+                            AnyShape(RoundedRectangle(cornerRadius: 12, style: .continuous)),
+                            tint: agent.isWorking ? nil : accent.opacity(0.55)
+                        )
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
-                .disabled(agent.isWorking || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .accessibilityLabel("发送给代码 Agent")
+                .disabled(!agent.isWorking && draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityLabel(agent.isWorking ? "停止生成" : "发送给代码 Agent")
             }
             .padding(.horizontal, 6)
-            .liquidGlass(.regular, in: .rect(cornerRadius: 18))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
+            .nativeGlassRect(cornerRadius: 22)
         }
         .frame(maxHeight: .infinity)
+    }
+
+    /// 编辑器里正在显示的那份源码，就是 Agent 刚改出来的那份。
+    @ViewBuilder
+    private var liveSourceStrip: some View {
+        if let path = agent.liveFilePath {
+            Button {
+                Haptics.selectionChanged()
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { editorExpanded = true }
+            } label: {
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(Color(red: 0.22, green: 0.78, blue: 0.46))
+                        .frame(width: 6, height: 6)
+                    Text("实时源码")
+                        .font(AppUI.mono(10, .medium))
+                        .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                    Text(path)
+                        .font(AppUI.mono(10.5, .medium))
+                        .foregroundStyle(AppUI.textTitle(scheme: scheme))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 4)
+                    Text("\(agent.liveContent.utf8.count) B")
+                        .font(AppUI.mono(9.5))
+                        .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .nativeGlassRect(cornerRadius: 12, interactive: false)
+            }
+            .buttonStyle(StaticButtonFeedbackStyle())
+            .accessibilityLabel("实时源码 \(path)")
+        }
     }
 
     @ViewBuilder
@@ -631,23 +716,45 @@ struct CodeWorkspaceCLIView: View {
         switch turn.kind {
         case .user:
             Text(turn.text)
-                .font(.system(size: 12.5))
-                .foregroundStyle(Color.white)
-                .padding(.horizontal, 12)
+                .font(.system(size: 13))
+                .foregroundStyle(AppUI.label)
+                .padding(.horizontal, 13)
                 .padding(.vertical, 9)
-                .background(accent.opacity(0.92), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(
+                    scheme == .dark ? Color.white.opacity(0.09) : Color(red: 0.945, green: 0.952, blue: 0.970),
+                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                )
                 .frame(maxWidth: .infinity, alignment: .trailing)
         case .assistant:
-            Text(turn.text.isEmpty ? "正在思考…" : turn.text)
-                .font(.system(size: 12.5))
-                .foregroundStyle(AppUI.textTitle(scheme: scheme))
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 8) {
+                if !turn.reasoning.isEmpty {
+                    CodeReasoningRow(text: turn.reasoning, isStreaming: turn.isStreaming)
+                }
+                if turn.text.isEmpty {
+                    if turn.isStreaming {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.mini)
+                            Text("正在推演…")
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                        }
+                    }
+                } else {
+                    MarkdownText(raw: turn.text, isStreaming: turn.isStreaming)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         case .activity:
-            Label(turn.text, systemImage: "terminal")
-                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(AppUI.textCaption(scheme: scheme))
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 5) {
+                Image(systemName: turn.didWriteFile ? "square.and.pencil" : "terminal")
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(turn.didWriteFile ? accent : AppUI.textCaption(scheme: scheme))
+                Text(turn.text)
+                    .font(AppUI.mono(10.5))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -921,4 +1028,62 @@ struct CodeWorkspaceCLIView: View {
     }
 
 
+}
+
+
+// MARK: - 代码页的思考折叠行
+
+/// 与主对话里的"思考"折叠行同一套观感：默认只显示开头，点开看全程推演。
+private struct CodeReasoningRow: View {
+
+    let text: String
+    let isStreaming: Bool
+
+    @Environment(\.colorScheme) private var scheme
+    @State private var expanded = false
+
+    private var summary: String {
+        let flat = text.replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let head = String(flat.prefix(40))
+        return head.isEmpty ? "正在思考…" : "· " + head
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "brain")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("思考")
+                        .font(.system(size: 11, weight: .medium))
+                    Text(summary)
+                        .font(.system(size: 11))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8.5, weight: .semibold))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                }
+                .foregroundStyle(AppUI.textCaption(scheme: scheme))
+            }
+            .buttonStyle(.plain)
+
+            if expanded {
+                Text(text)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(AppUI.textCaption(scheme: scheme))
+                    .textSelection(.enabled)
+                    .padding(.leading, 10)
+                    .overlay(alignment: .leading) {
+                        Rectangle()
+                            .fill(AppUI.textCaption(scheme: scheme).opacity(0.35))
+                            .frame(width: 1.5)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
 }
