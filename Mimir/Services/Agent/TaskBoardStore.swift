@@ -94,7 +94,7 @@ final class TaskBoardStore {
     }
 
     /// 从 `update_plan` 的参数里解析。
-    static func parse(argumentsJSON: String) -> (steps: [(String, Status?)], explanation: String)? {
+    nonisolated static func parse(argumentsJSON: String) -> (steps: [(String, Status?)], explanation: String)? {
         guard let data = argumentsJSON.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil

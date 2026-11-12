@@ -198,7 +198,7 @@ struct ConsoleHomeView: View {
 
                 Text("v2.4")
                     .font(AppUI.mono(10, weight: .semibold))
-                    .foregroundStyle(accentDim)
+                    .foregroundStyle(accent.opacity(0.72))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(
