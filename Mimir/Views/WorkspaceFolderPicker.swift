@@ -22,6 +22,7 @@ enum WorkspaceFolderAccess {
     ///
     /// 判定与副作用都在后台线程完成，结果回到主线程再记账 / 报错——
     /// 这样既不会在 `Task.detached` 里碰 `@MainActor` 的诊断台，也不阻塞 UI。
+    @MainActor
     static func resolve(_ folder: URL) async throws -> (bookmark: Data?, scopeStarted: Bool) {
         enum Outcome: Sendable {
             case inSandbox(Data?)
