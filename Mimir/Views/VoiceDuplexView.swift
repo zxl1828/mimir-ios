@@ -30,7 +30,7 @@ struct VoiceDuplexView: View {
     @State private var activeSheet: SheetRoute?
 
     // 核心品牌色
-    private let irisViolet = Color(hex: "7D52F4")
+    private let irisViolet = AppUI.consoleSignal
 
     init(chat: ChatViewModel) {
         self.chat = chat
@@ -87,13 +87,13 @@ struct VoiceDuplexView: View {
         ZStack {
             if colorScheme == .dark {
                 LinearGradient(
-                    colors: [Color(hex: "120D1D"), Color(hex: "1B1230"), Color(hex: "120D1D")],
+                    colors: [Color(hex: "0B1120"), Color(hex: "131C31"), Color(hex: "0B1120")],
                     startPoint: .top,
                     endPoint: .bottom
                 )
             } else {
                 LinearGradient(
-                    colors: [Color.white, Color(hex: "F8F6FD"), Color(hex: "F2EBFC")],
+                    colors: [Color.white, Color(hex: "F8FAFC"), Color(hex: "F1F5F9")],
                     startPoint: .top,
                     endPoint: .bottom
                 )

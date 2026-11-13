@@ -26,7 +26,7 @@ struct ModelSegmentedSwitcher: View {
         .scrollClipDisabled()
         .background {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(Color(hex: "F8F6FD").opacity(scheme == .dark ? 0.96 : 0.82))
+                .fill(Color(hex: "F8FAFC").opacity(scheme == .dark ? 0.96 : 0.82))
         }
         .liquidGlass(.regular, in: .rect(cornerRadius: 13))
         .overlay(

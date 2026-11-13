@@ -11,7 +11,7 @@ struct CyberOwlGlassSphereView: View {
 
 
     private let iris = Color(hex: "9C70FF")
-    private let violet = Color(hex: "7D52F4")
+    private let violet = AppUI.consoleSignal
 
     private var orbitWidth: CGFloat { diameter * 1.34 }
 

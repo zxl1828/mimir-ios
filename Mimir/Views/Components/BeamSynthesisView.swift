@@ -59,7 +59,7 @@ struct BeamSynthesisView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(hex: "120D1D").opacity(0.96))
+        .background(Color(hex: "0B1120").opacity(0.96))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
         .padding(.horizontal, 8)
@@ -70,7 +70,7 @@ struct BeamSynthesisView: View {
             Image(systemName: "diamond.inset.filled").foregroundStyle(accent)
             Text("BEAM / \(responses.count) MODELS")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(hex: "F8F6FD"))
+                .foregroundStyle(Color(hex: "F8FAFC"))
             Spacer()
             if isStreaming || isSynthesizing { ProgressView().tint(accent).controlSize(.small) }
             Button(action: onDismiss) {
@@ -126,7 +126,7 @@ struct BeamSynthesisView: View {
                 .foregroundStyle(Color(hex: "C6B4FF"))
             Text(synthesis.isEmpty ? "正在汇总候选回答…" : synthesis)
                 .font(.system(size: 11.5))
-                .foregroundStyle(Color(hex: "F8F6FD"))
+                .foregroundStyle(Color(hex: "F8FAFC"))
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

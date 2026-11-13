@@ -119,9 +119,9 @@ public struct VoiceCodeRefactorOverlay: View {
     public let onReject: () -> Void
 
     @Environment(\.colorScheme) private var scheme
-    private let irisViolet = Color(hex: "7D52F4")
-    private let deepPlumBase = Color(hex: "120D1D")
-    private let paleLavender = Color(hex: "F8F6FD")
+    private let irisViolet = AppUI.consoleSignal
+    private let deepPlumBase = Color(hex: "0B1120")
+    private let paleLavender = Color(hex: "F8FAFC")
     private let deletedTint = Color(hex: "FF453A")
     private let addedTint = Color(hex: "30D158")
 

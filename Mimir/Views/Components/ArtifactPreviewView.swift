@@ -38,13 +38,13 @@ struct ArtifactPreviewView: View {
             Rectangle().fill(accent.opacity(0.25)).frame(height: 0.7)
             content(height: 300)
         }
-        .background(Color(hex: "120D1D"))
+        .background(Color(hex: "0B1120"))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(AppUI.refractionEdge(accent, scheme: scheme), lineWidth: 1))
         .sheet(isPresented: $showsFullscreen) {
             NavigationStack {
                 ArtifactWebView(html: html)
-                    .background(Color(hex: "120D1D"))
+                    .background(Color(hex: "0B1120"))
                     .ignoresSafeArea(edges: .bottom)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
@@ -68,7 +68,7 @@ struct ArtifactPreviewView: View {
             Image(systemName: "globe").foregroundStyle(accent)
             Text("Artifact · \(language.isEmpty ? "HTML" : language.uppercased())")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color(hex: "F8F6FD"))
+                .foregroundStyle(Color(hex: "F8FAFC"))
             Spacer(minLength: 2)
             Picker("视图", selection: $showsCode) {
                 Text("预览").tag(false)

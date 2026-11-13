@@ -19,9 +19,12 @@ final class ConversationListViewModel {
     }
 
     var filteredConversations: [Conversation] {
+        // 空会话一律不进列表：点「新建会话」只是打开一张空白的纸，
+        // 用户真正发出第一条消息之后它才算一条历史记录。
+        let visible = conversations.filter { !$0.messages.isEmpty || $0.isPinned }
         let keyword = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !keyword.isEmpty else { return conversations }
-        return conversations.filter { conversation in
+        guard !keyword.isEmpty else { return visible }
+        return visible.filter { conversation in
             conversation.title.localizedCaseInsensitiveContains(keyword)
                 || conversation.messages.contains { $0.text.localizedCaseInsensitiveContains(keyword) }
         }
@@ -44,6 +47,10 @@ final class ConversationListViewModel {
 
     @discardableResult
     func createConversation() -> Conversation {
+        // 复用已存在的空会话，避免连点「新建会话」堆出一串「新对话 · 空会话」。
+        if let blank = conversations.first(where: { $0.messages.isEmpty && !$0.isPinned }) {
+            return blank
+        }
         let modelID = settings.credential.modelID.isEmpty
             ? settings.credential.format.defaultModelID
             : settings.credential.modelID
@@ -55,6 +62,18 @@ final class ConversationListViewModel {
         save()
         refresh()
         return conversation
+    }
+
+    /// 清掉一天以上没有任何消息的空会话（例如点了新建却没输入就退出）。
+    func pruneEmptyConversations(olderThan interval: TimeInterval = 24 * 60 * 60) {
+        let cutoff = Date().addingTimeInterval(-interval)
+        let stale = conversations.filter { $0.messages.isEmpty && !$0.isPinned && $0.updatedAt < cutoff }
+        guard !stale.isEmpty else { return }
+        for conversation in stale {
+            modelContext.delete(conversation)
+        }
+        save()
+        refresh()
     }
 
     func delete(_ conversation: Conversation) {

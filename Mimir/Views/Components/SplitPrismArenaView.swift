@@ -18,9 +18,9 @@ public struct SplitPrismArenaView: View {
     public let onDismiss: () -> Void
 
     @Environment(\.colorScheme) private var scheme
-    private let irisViolet = Color(hex: "7D52F4")
-    private let deepPlumBase = Color(hex: "120D1D")
-    private let paleLavender = Color(hex: "F8F6FD")
+    private let irisViolet = AppUI.consoleSignal
+    private let deepPlumBase = Color(hex: "0B1120")
+    private let paleLavender = Color(hex: "F8FAFC")
     private let electricViolet = Color(hex: "9B70FF")
 
     /// 分割线位置（0.0 ~ 1.0），默认居中 0.5
@@ -303,7 +303,7 @@ struct PrismDividerView: View {
     let isDragging: Bool
     let splitRatio: CGFloat
 
-    private let irisViolet = Color(hex: "7D52F4")
+    private let irisViolet = AppUI.consoleSignal
 
     var body: some View {
         ZStack {

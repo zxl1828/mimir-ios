@@ -1,19 +1,16 @@
+/// 首页：私人助手的控制台。
+///
+/// 结构自上而下：
+/// 1. 品牌行：MIMIR 标识 + 唯一的设置入口；
+/// 2. 问候区：按时段问候 + 一句工作区概览（不再放版本徽标与设备胶囊）；
+/// 3. 工作区卡片（16 连续圆角）→ 点按进入代码工作台；
+/// 4. 「+ 新建会话」通栏按钮（14 连续圆角）；
+/// 5. 搜索框 + 最近会话列表（左滑删除，空会话不落库）。
+
 import SwiftUI
 import SwiftData
 import UIKit
 
-/// 550C 控制台首页（`ConsoleHomeView`）。
-///
-/// 结构自上而下：
-/// 1. 品牌行：550C 标识 + 版本标签，右侧用户头像与设置；
-/// 2. 设备胶囊：本机名 + 工作区连接状态；
-/// 3. 主视觉：大号粗体「探索未至之境」+ 版本副标；
-/// 4. 工作区卡片（16 连续圆角）→ 点按进入代码工作台；
-/// 5. 「+ 新建会话」通栏按钮（14 连续圆角）；
-/// 6. 搜索框 + 最近会话列表 → 点按 Push 进独立聊天页。
-///
-/// 母子页面：首页只做"控制台"，所有会话都在 Push 出去的子页面里，
-/// 子页面出现时隐藏底部 TabBar（通过 `TabNavigationCoordinator.isTabBarVisible`）。
 struct ConsoleHomeView: View {
 
     @Environment(AppSettings.self) private var settings
@@ -76,7 +73,6 @@ struct ConsoleHomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 brandRow
-                deviceCapsule
                 heroBlock
                 workspaceCard
                 newSessionButton
@@ -114,34 +110,19 @@ struct ConsoleHomeView: View {
 
     private var brandRow: some View {
         HStack(spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "circle.hexagongrid.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(accent)
+            Image(systemName: "circle.hexagongrid.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(accent)
 
-                Text("MIMIR")
-                    .font(AppUI.mono(17, weight: .black))
-                    .tracking(2.2)
-                    .foregroundStyle(AppUI.label)
+            Text("MIMIR")
+                .font(AppUI.mono(17, weight: .black))
+                .tracking(2.2)
+                .foregroundStyle(AppUI.label)
 
-                Text("550C")
-                    .font(AppUI.mono(9.5, weight: .bold))
-                    .tracking(1.4)
-                    .foregroundStyle(accent.opacity(0.85))
-                    // 550C 只是装饰性标识：不加边框，避免被读成"可点的按钮"。
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(accent.opacity(0.10))
-                    )
+            Spacer(minLength: 8)
 
-                Spacer(minLength: 8)
-
-                headerCircleButton(icon: "person.fill") { showSettings = true }
-
-                headerCircleButton(icon: "gearshape.fill") { showSettings = true }
-            }
+            // 全局唯一的设置入口：顶部不再挂版本号、设备名等调试信息。
+            headerCircleButton(icon: "gearshape.fill") { showSettings = true }
         }
     }
 
@@ -160,54 +141,41 @@ struct ConsoleHomeView: View {
         .buttonStyle(StaticButtonFeedbackStyle())
     }
 
-    private var deviceCapsule: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "desktopcomputer")
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(AppUI.label2)
+    private var heroBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(greeting)
+                .font(.system(size: 27, weight: .bold))
+                .tracking(-0.5)
+                .foregroundStyle(AppUI.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
 
-            Text(UIDevice.current.name)
-                .font(AppUI.mono(11, weight: .medium))
+            Text(workspaceSummary)
+                .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(AppUI.label2)
                 .lineLimit(1)
-
-            Circle()
-                .fill(workspaceConnected ? Color(red: 0.22, green: 0.78, blue: 0.46) : AppUI.label3)
-                .frame(width: 5.5, height: 5.5)
-
-            Image(systemName: "chevron.down")
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(AppUI.label3)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .nativeGlassRect(cornerRadius: 15, interactive: false)
+        .padding(.top, 4)
     }
 
-    private var heroBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("探索未至之境")
-                .font(.system(size: 34, weight: .black))
-                .tracking(-0.8)
-                .foregroundStyle(AppUI.label)
-
-            HStack(spacing: 8) {
-                Text("Mimir 私人 AI 控制台")
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(AppUI.label2)
-
-                Text("v2.4")
-                    .font(AppUI.mono(10, weight: .semibold))
-                    .foregroundStyle(accent.opacity(0.72))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(accent.opacity(0.10))
-                    )
-            }
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let prefix: String
+        switch hour {
+        case 5..<11: prefix = "早上好"
+        case 11..<14: prefix = "中午好"
+        case 14..<18: prefix = "下午好"
+        case 18..<23: prefix = "晚上好"
+        default: prefix = "夜深了"
         }
-        .padding(.top, 6)
+        let name = settings.profileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? prefix : "\(prefix)，\(name)"
+    }
+
+    private var workspaceSummary: String {
+        let count = workspace.allFiles.count
+        if count == 0 { return "随时为你处理日程、文档与代码任务" }
+        return "工作区 \(count) 个文件 · 随时可以开始"
     }
 
     private var workspaceCard: some View {
@@ -231,11 +199,10 @@ struct ConsoleHomeView: View {
                         .foregroundStyle(AppUI.label)
                         .lineLimit(1)
 
-                    Text(workspacePath)
-                        .font(AppUI.mono(10))
+                    Text(workspaceConnected ? "本地安全沙盒 · 点击管理文件" : "未挂载 · 点击选择项目文件夹")
+                        .font(.system(size: 11))
                         .foregroundStyle(AppUI.label3)
                         .lineLimit(1)
-                        .truncationMode(.middle)
                 }
 
                 Spacer(minLength: 6)
@@ -250,7 +217,7 @@ struct ConsoleHomeView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 13)
-            .nativeGlassRect(cornerRadius: 20)
+            .nativeGlassRect(cornerRadius: 16)
         }
         .buttonStyle(.plain)
     }
@@ -268,7 +235,7 @@ struct ConsoleHomeView: View {
             }
             .foregroundStyle(AppUI.label)
             .frame(maxWidth: .infinity, minHeight: 48)
-            .nativeGlassRect(cornerRadius: 16, tint: accent.opacity(0.55))
+            .nativeGlassRect(cornerRadius: 14, tint: accent.opacity(0.55))
         }
         .buttonStyle(StaticButtonFeedbackStyle())
     }
@@ -281,12 +248,6 @@ struct ConsoleHomeView: View {
                     .foregroundStyle(AppUI.label)
 
                 Spacer()
-
-                if !(list?.conversations.isEmpty ?? true) {
-                    Text("长按可删除")
-                        .font(AppUI.mono(9.5))
-                        .foregroundStyle(AppUI.label3)
-                }
             }
 
             searchField
@@ -301,7 +262,13 @@ struct ConsoleHomeView: View {
                         .padding(.vertical, 14)
                 } else {
                     ForEach(conversations) { conversation in
-                        conversationRow(conversation)
+                        SwipeToDeleteRow(onDelete: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                list?.delete(conversation)
+                            }
+                        }) {
+                            conversationRow(conversation)
+                        }
                     }
                 }
             }
@@ -328,7 +295,7 @@ struct ConsoleHomeView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
-        .nativeGlassRect(cornerRadius: 15, interactive: false)
+        .nativeGlassRect(cornerRadius: 14, interactive: false)
     }
 
     private func conversationRow(_ conversation: Conversation) -> some View {
@@ -420,6 +387,79 @@ struct ConsoleHomeView: View {
         let viewModel = ConversationListViewModel(modelContext: modelContext, settings: settings)
         viewModel.refresh()
         list = viewModel
+    }
+}
+
+/// 左滑删除容器：SwiftUI 的 `.swipeActions` 只在 `List` 里生效，
+/// 首页是自定义卡片堆叠，所以这里自己实现一份等效手势——
+/// 横向拖动超过阈值时露出右侧删除键，点击别处自动收回。
+private struct SwipeToDeleteRow<Content: View>: View {
+
+    let onDelete: () -> Void
+    @ViewBuilder var content: Content
+
+    @State private var offset: CGFloat = 0
+    @State private var isOpen = false
+
+    private let actionWidth: CGFloat = 76
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button {
+                Haptics.impact(.medium)
+                close()
+                onDelete()
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: actionWidth, height: 44)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color(red: 0.90, green: 0.32, blue: 0.32))
+                    )
+            }
+            .buttonStyle(.plain)
+            .opacity(offset < -8 ? 1 : 0)
+            .allowsHitTesting(isOpen)
+            .padding(.trailing, 4)
+
+            content
+                .background(Color.clear)
+                .offset(x: offset)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 16)
+                        .onChanged { value in
+                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                            let base: CGFloat = isOpen ? -actionWidth : 0
+                            offset = min(0, max(-actionWidth, base + value.translation.width))
+                        }
+                        .onEnded { value in
+                            guard abs(value.translation.width) > abs(value.translation.height) else {
+                                close()
+                                return
+                            }
+                            let base: CGFloat = isOpen ? -actionWidth : 0
+                            let projected = base + value.translation.width
+                            if projected < -actionWidth / 2 {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                                    offset = -actionWidth
+                                    isOpen = true
+                                }
+                            } else {
+                                close()
+                            }
+                        }
+                )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func close() {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            offset = 0
+            isOpen = false
+        }
     }
 }
 

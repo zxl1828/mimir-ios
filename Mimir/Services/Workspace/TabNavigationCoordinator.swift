@@ -54,17 +54,17 @@ enum AppTab: Int, CaseIterable, Identifiable, Sendable {
 
     var icon: String {
         switch self {
-        case .home, .assistant: return "sparkles"
+        case .home, .assistant: return "house"
         case .dashboard: return "square.grid.2x2"
         case .files: return "folder.fill"
-        case .imageGen: return "wand.and.stars"
+        case .imageGen: return "photo.on.rectangle.angled"
         case .code: return "chevron.left.forwardslash.chevron.right"
         }
     }
 
     var functionColor: Color {
         switch self {
-        case .home, .assistant: return Color(hex: "7D52F4") // Iris Violet
+        case .home, .assistant: return AppUI.consoleSignal // Iris Violet
         case .dashboard: return Color(hex: "3977E8")
         case .files: return Color(hex: "28A89B") // Teal
         case .imageGen: return Color(hex: "E056FD") // Iridescent Magenta

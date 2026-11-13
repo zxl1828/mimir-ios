@@ -10,10 +10,7 @@ struct CyberOwlHeaderView: View {
     @Environment(AppSettings.self) private var settings
     @State private var ragManager = RAGContextManager.shared
 
-    // Mimir 严选品牌色基准（严禁 Color.black）
-    private let irisViolet = Color(hex: "7D52F4")
-    private let deepPlumBase = Color(hex: "120D1D")
-    private let paleLavender = Color(hex: "F8F6FD")
+    @Environment(\.appAccent) private var accent
 
     var body: some View {
         VStack(spacing: isCompact ? 6 : 12) {
@@ -38,14 +35,14 @@ struct CyberOwlHeaderView: View {
             Circle().fill(Color.green).frame(width: 5, height: 5)
             Text("知识库已就绪 · \(ragManager.orbitalNodes.count) 个内容片段")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(irisViolet)
+                .foregroundStyle(accent)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(irisViolet.opacity(scheme == .dark ? 0.15 : 0.08))
-                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(irisViolet.opacity(0.25), lineWidth: 0.8))
+                .fill(accent.opacity(scheme == .dark ? 0.15 : 0.08))
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(accent.opacity(0.25), lineWidth: 0.8))
         )
     }
 
@@ -53,14 +50,14 @@ struct CyberOwlHeaderView: View {
         VStack(spacing: 4) {
             Text(greeting)
                 .font(.system(size: isCompact ? 18 : 22, weight: .bold, design: .rounded))
-                .foregroundStyle(scheme == .dark ? paleLavender : deepPlumBase)
+                .foregroundStyle(AppUI.label)
                 .lineLimit(1)
                 .minimumScaleFactor(0.88)
                 .multilineTextAlignment(.center)
 
-            Text("深紫机甲猫头鹰 · 液态玻璃轨道")
+            Text("随时为你处理日程、文档与代码任务")
                 .font(.system(size: isCompact ? 11 : 12.5, weight: .medium))
-                .foregroundStyle(scheme == .dark ? paleLavender.opacity(0.65) : deepPlumBase.opacity(0.65))
+                .foregroundStyle(AppUI.label.opacity(0.65))
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
         }
@@ -80,8 +77,8 @@ struct OrbitalNodeView: View {
     let node: RAGOrbitalNode
     let onTap: () -> Void
 
-    private let irisViolet = Color(hex: "7D52F4")
-    private let deepPlumBase = Color(hex: "120D1D")
+    private let irisViolet = AppUI.consoleSignal
+    private let deepPlumBase = Color(hex: "0B1120")
 
     var body: some View {
         Button(action: onTap) {
@@ -146,8 +143,8 @@ private struct RAGChunkPopoverView: View {
     let onDismiss: () -> Void
     let onOpenFullView: () -> Void
 
-    private let irisViolet = Color(hex: "7D52F4")
-    private let deepPlumBase = Color(hex: "120D1D")
+    private let irisViolet = AppUI.consoleSignal
+    private let deepPlumBase = Color(hex: "0B1120")
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -261,8 +258,8 @@ private struct RAGChunkPopoverView: View {
 private struct FullSliceSheet: View {
     let node: RAGOrbitalNode
     @Environment(\.dismiss) private var dismiss
-    private let irisViolet = Color(hex: "7D52F4")
-    private let deepPlumBase = Color(hex: "120D1D")
+    private let irisViolet = AppUI.consoleSignal
+    private let deepPlumBase = Color(hex: "0B1120")
 
     var body: some View {
         NavigationStack {
@@ -295,7 +292,7 @@ private struct FullSliceSheet: View {
                 }
                 .padding(20)
             }
-            .background(Color(hex: "F8F6FD").ignoresSafeArea())
+            .background(Color(hex: "F8FAFC").ignoresSafeArea())
             .navigationTitle(node.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

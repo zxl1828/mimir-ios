@@ -30,37 +30,38 @@ enum AppUI {
 
     // MARK: - 基础色彩基准（严禁纯黑，统一采用纯白/极淡紫与极深紫）
     static let baseLightWhite = Color.white
-    static let baseLightLavender = Color(hex: "F4F1FA")
-    static let baseDarkDeepPurple = Color(hex: "0B0713")
-    static let baseDarkPlum = Color(hex: "0B0713")
-    static let pressSheenLight = Color(hex: "E2DBF2")
+    static let baseLightLavender = Color(hex: "F8FAFC")
+    static let baseDarkDeepPurple = Color(hex: "0B1120")
+    static let baseDarkPlum = Color(hex: "0B1120")
+    static let pressSheenLight = Color(hex: "E0F2FE")
 
-    // MARK: - 550C 控制台色板（黑紫：统一到应用原有的紫，不再混入蓝色）
+    // MARK: - 品牌色板（极简天蓝）
 
-    /// 主信号色：亮紫，用于状态点、参数、运行指示。
+    /// 主品牌色：按钮与激活态。浅色 #0EA5E9 / 深色 #38BDF8。
     static let consoleSignal = Color.adaptive(
-        light: UIColor(red: 0.47, green: 0.29, blue: 0.93, alpha: 1),
-        dark: UIColor(red: 0.72, green: 0.57, blue: 1.00, alpha: 1)
+        light: UIColor(red: 14.0 / 255, green: 165.0 / 255, blue: 233.0 / 255, alpha: 1),
+        dark: UIColor(red: 56.0 / 255, green: 189.0 / 255, blue: 248.0 / 255, alpha: 1)
     )
 
-    /// 副信号色：更暗的一档，用于次级文字与轨道。
+    /// 次一级品牌色：轨道、次级高亮。
     static let consoleSignalDim = Color.adaptive(
-        light: UIColor(red: 0.40, green: 0.32, blue: 0.68, alpha: 1),
-        dark: UIColor(red: 0.52, green: 0.44, blue: 0.86, alpha: 1)
+        light: UIColor(red: 2.0 / 255, green: 132.0 / 255, blue: 199.0 / 255, alpha: 1),
+        dark: UIColor(red: 125.0 / 255, green: 211.0 / 255, blue: 252.0 / 255, alpha: 1)
     )
 
-    /// 面板底色：高透紫黑，靠一点紫维持纵深，避免死黑。
+    /// 卡片底色：#FFFFFF（浅）× #131C31（深）。
     static func consolePanel(scheme: ColorScheme) -> Color {
-        scheme == .dark
-            ? Color(red: 0.082, green: 0.055, blue: 0.125).opacity(0.72)
-            : Color.white.opacity(0.86)
+        scheme == .dark ? Color(hex: "131C31") : Color.white
     }
 
-    /// 0.5pt 紫微光描边。
+    /// 卡片 1pt 细描边：#E2E8F0（浅）× #1E293B（深）。
     static func consoleHairline(scheme: ColorScheme) -> Color {
-        scheme == .dark
-            ? Color(red: 0.72, green: 0.57, blue: 1.0).opacity(0.24)
-            : Color(red: 0.42, green: 0.30, blue: 0.66).opacity(0.14)
+        scheme == .dark ? Color(hex: "1E293B") : Color(hex: "E2E8F0")
+    }
+
+    /// 选中态底色（Tab、徽标、分段控件）：#E0F2FE（浅）× #0C4A6E（深）。
+    static func selectionFill(scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color(hex: "0C4A6E") : Color(hex: "E0F2FE")
     }
 
     /// 等宽字体：所有参数、计量、状态一律用它。
@@ -70,33 +71,30 @@ enum AppUI {
 
     // MARK: - 颜色（纯白/极淡紫与极深紫基准 + 系统语义色）
 
-    /// 画布主背景：深色使用梅子紫夜色，浅色使用纯白与淡薰衣草紫。
+    /// 画布主背景：#F8FAFC（浅）× #0B1120（深）。
     static var canvas: Color {
         Color.adaptive(
-            light: UIColor(red: 0.957, green: 0.949, blue: 0.984, alpha: 1.0),
-            dark: UIColor(red: 0.043, green: 0.027, blue: 0.075, alpha: 1.0)
+            light: UIColor(red: 248.0 / 255, green: 250.0 / 255, blue: 252.0 / 255, alpha: 1.0),
+            dark: UIColor(red: 11.0 / 255, green: 17.0 / 255, blue: 32.0 / 255, alpha: 1.0)
         )
     }
 
-    /// 分组背景 follows the app's light lavender and deep plum foundations.
-    static var groupCanvas: Color {
-        Color.adaptive(
-            light: UIColor(red: 0.957, green: 0.949, blue: 0.984, alpha: 1.0),
-            dark: UIColor(red: 0.043, green: 0.027, blue: 0.075, alpha: 1.0)
-        )
-    }
+    /// 分组背景：与画布同色，避免分区块之间出现色差断层。
+    static var groupCanvas: Color { canvas }
 
+    /// 卡片容器：白 / 深蓝灰。
     static var secondary: Color {
         Color.adaptive(
-            light: UIColor(red: 0.992, green: 0.988, blue: 1.0, alpha: 1.0),
-            dark: UIColor(red: 0.067, green: 0.043, blue: 0.110, alpha: 1.0)
+            light: UIColor(white: 1.0, alpha: 1.0),
+            dark: UIColor(red: 19.0 / 255, green: 28.0 / 255, blue: 49.0 / 255, alpha: 1.0)
         )
     }
 
+    /// 次级填充：浅灰蓝 / 略亮的深蓝。
     static var fill: Color {
         Color.adaptive(
-            light: UIColor(red: 0.945, green: 0.933, blue: 0.976, alpha: 1),
-            dark: UIColor(red: 0.094, green: 0.063, blue: 0.145, alpha: 1)
+            light: UIColor(red: 241.0 / 255, green: 245.0 / 255, blue: 249.0 / 255, alpha: 1),
+            dark: UIColor(red: 22.0 / 255, green: 32.0 / 255, blue: 58.0 / 255, alpha: 1)
         )
     }
 
@@ -105,40 +103,28 @@ enum AppUI {
     static var label3: Color { Color(uiColor: .tertiaryLabel) }
     static var separator: Color {
         Color.adaptive(
-            light: UIColor(red: 0.86, green: 0.82, blue: 0.93, alpha: 0.7),
-            dark: UIColor(red: 0.60, green: 0.50, blue: 0.72, alpha: 0.42)
+            light: UIColor(red: 226.0 / 255, green: 232.0 / 255, blue: 240.0 / 255, alpha: 0.9),
+            dark: UIColor(red: 30.0 / 255, green: 41.0 / 255, blue: 59.0 / 255, alpha: 0.8)
         )
     }
 
-    /// 品牌紫：浅色模式下足够深，深色模式下在深梅紫上提亮。
-    static let brandPurple = Color.adaptive(
-        light: UIColor(red: 0.50, green: 0.31, blue: 0.96, alpha: 1),
-        dark: UIColor(red: 0.68, green: 0.51, blue: 1.00, alpha: 1)
-    )
+    /// 品牌色：全应用只保留一套天蓝，历史命名保留以免大面积改调用点。
+    static let brandPurple = consoleSignal
 
-    /// 霓虹紫：Codex 桌面端风格的高亮态与星尘激活轨主色。
+    /// 亮天蓝：激活态、星轨。
     static let neonViolet = Color.adaptive(
-        light: UIColor(red: 0.58, green: 0.25, blue: 1.00, alpha: 1),
-        dark: UIColor(red: 0.76, green: 0.50, blue: 1.00, alpha: 1)
+        light: UIColor(red: 56.0 / 255, green: 189.0 / 255, blue: 248.0 / 255, alpha: 1),
+        dark: UIColor(red: 125.0 / 255, green: 211.0 / 255, blue: 252.0 / 255, alpha: 1)
     )
 
-    /// 深紫罗兰：低亮度底色 / 深色模式下的沉稳强调色。
+    /// 深天蓝：低亮度强调。
     static let deepViolet = Color.adaptive(
-        light: UIColor(red: 0.35, green: 0.16, blue: 0.74, alpha: 1),
-        dark: UIColor(red: 0.50, green: 0.28, blue: 0.94, alpha: 1)
+        light: UIColor(red: 3.0 / 255, green: 105.0 / 255, blue: 161.0 / 255, alpha: 1),
+        dark: UIColor(red: 14.0 / 255, green: 165.0 / 255, blue: 233.0 / 255, alpha: 1)
     )
 
-    /// 星尘滑轨电光紫起点。
-    static let stardustElectric = Color.adaptive(
-        light: UIColor(red: 0.36, green: 0.16, blue: 0.96, alpha: 1),
-        dark: UIColor(red: 0.38, green: 0.15, blue: 0.98, alpha: 1)
-    )
-
-    /// 星尘滑轨霓虹紫终点。
-    static let stardustGlow = Color.adaptive(
-        light: UIColor(red: 0.62, green: 0.28, blue: 1.00, alpha: 1),
-        dark: UIColor(red: 0.66, green: 0.32, blue: 1.00, alpha: 1)
-    )
+    static let stardustElectric = consoleSignal
+    static let stardustGlow = consoleSignalDim
 
     /// 品牌强调色（默认紫）。视图里优先用 `@Environment(\.appAccent)`。
     static let accent = brandPurple
@@ -182,44 +168,42 @@ enum AppUI {
     /// 液态玻璃表面底衬色：深色使用紫夜基底，浅色使用通透珠光。
     static func glassTint(scheme: ColorScheme, isHighlighted: Bool = false) -> Color {
         if scheme == .dark {
-            return Color(red: 0.10, green: 0.08, blue: 0.18)
-                .opacity(isHighlighted ? 0.62 : 0.46)
+            return Color(hex: "131C31").opacity(isHighlighted ? 0.92 : 0.78)
         } else {
-            return Color.white.opacity(isHighlighted ? 0.82 : 0.70)
+            return Color.white.opacity(isHighlighted ? 0.96 : 0.86)
         }
     }
 
     // MARK: - 新增全局设计系统规范 (Design Tokens)
 
-    /// 电光紫高亮色（#7C5CFC）。
-    static let electricViolet = Color(red: 0.486, green: 0.361, blue: 0.988)
-    /// 极光淡紫（#A78BFA）。
-    static let auroraViolet = Color(red: 0.655, green: 0.545, blue: 0.980)
+    /// 高亮天蓝（原电光紫，语义保留）。
+    static let electricViolet = Color(red: 0.055, green: 0.647, blue: 0.914)
+    /// 淡天蓝（原极光淡紫）。
+    static let auroraViolet = Color(red: 0.490, green: 0.827, blue: 0.988)
 
     static func textTitle(scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.95, green: 0.94, blue: 0.98) : Color(red: 0.12, green: 0.11, blue: 0.18)
+        scheme == .dark ? Color(red: 0.93, green: 0.95, blue: 0.98) : Color(red: 0.06, green: 0.09, blue: 0.16)
     }
 
     static func textSubtitle(scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.65, green: 0.63, blue: 0.72) : Color(red: 0.36, green: 0.35, blue: 0.44)
+        scheme == .dark ? Color(red: 0.65, green: 0.71, blue: 0.80) : Color(red: 0.33, green: 0.39, blue: 0.47)
     }
 
     static func textCaption(scheme: ColorScheme) -> Color {
-        scheme == .dark ? Color(red: 0.49, green: 0.48, blue: 0.56) : Color(red: 0.61, green: 0.64, blue: 0.69)
+        scheme == .dark ? Color(red: 0.50, green: 0.56, blue: 0.65) : Color(red: 0.58, green: 0.64, blue: 0.71)
     }
 
     /// 规范要求的纯白/极淡紫至极深紫渐变背景（深色模式自适应为极深高级紫 #120D1D -> #1A122B）。
     static func ambientBackground(scheme: ColorScheme) -> LinearGradient {
         if scheme == .dark {
-            // 黑紫：顶部带一点紫气，底部压到近黑，制造纵深而不发灰。
             return LinearGradient(
-                colors: [Color(hex: "170E27"), Color(hex: "0B0713"), Color(hex: "050309")],
+                colors: [Color(hex: "0B1120"), Color(hex: "0E1830"), Color(hex: "0B1120")],
                 startPoint: .top,
                 endPoint: .bottom
             )
         }
         return LinearGradient(
-            colors: [Color(hex: "F7F4FD"), Color(hex: "EEE8F9")],
+            colors: [Color(hex: "F8FAFC"), Color(hex: "F8FAFC")],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -249,7 +233,7 @@ struct SoftGlassCardModifier: ViewModifier {
         content
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(scheme == .dark ? Color(hex: "1A1A19") : Color(hex: "FCFCFB"))
+                    .fill(AppUI.consolePanel(scheme: scheme))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -348,17 +332,8 @@ struct AppBackgroundView: View {
                     .opacity(background.assetName == nil ? 1.0 : 0.55)
             }
 
-            // 4. 细点阵纹理：给均匀的渐变底加一层"纸张"颗粒。
-            //    这是参照截图里最容易忽略、却最像"人做的"的细节——纯渐变永远像程序生成的。
-            DotGridTexture()
-                .opacity(scheme == .dark ? 0.6 : 0.8)
-                .allowsHitTesting(false)
-
-            // 5. 550C 控制台：细网格 + 顶部冷光，工业机柜的"内壁刻度"。
-            if background == .console {
-                ConsoleGridOverlay()
-                    .allowsHitTesting(false)
-            }
+            // 4. 全应用统一纯净底色：不再叠加点阵/网格纹理，
+            //    文件库与生图页也不该长出"草稿纸方格"。
 
         }
         .ignoresSafeArea()
@@ -613,7 +588,7 @@ struct LiquidGlassModifier: ViewModifier {
                 y: 5
             )
             .shadow(
-                color: (scheme == .dark ? Color(hex: "120D1D").opacity(0.32) : accent.opacity(0.08)),
+                color: (scheme == .dark ? Color(hex: "0B1120").opacity(0.32) : accent.opacity(0.08)),
                 radius: 10,
                 y: 4
             )

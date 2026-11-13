@@ -11,7 +11,7 @@ final class ThemeManager: @unchecked Sendable {
 
     static let shared = ThemeManager()
 
-    var accent: AppAccent = .purple
+    var accent: AppAccent = .console
     var appearance: AppAppearance = .system
     var background: AppBackground = .plain
 

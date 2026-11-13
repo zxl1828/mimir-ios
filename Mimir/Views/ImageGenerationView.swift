@@ -7,7 +7,7 @@ import UIKit
 /// 严格满足次世代视觉与交互规范：
 /// 1. 采用原生液态玻璃修饰符 `liquidGlass` / `glassEffect` 与 `GlassContainer`；
 /// 2. 补齐提示词、画幅比例（1:1, 16:9, 9:16, 4:3）及加载重试状态；
-/// 3. Mimir 核心品牌色：Iris Violet (`#7D52F4`), Deep Plum (`#120D1D`), Pale Lavender (`#F8F6FD`)，严禁使用 `Color.black`；
+/// 3. 配色全部走主题令牌（强调色 + `AppUI` 表面/文字色），不写死紫黑色值；
 /// 4. 触控反馈回归 iOS 原生标准，杜绝非标准手写水波纹与异常紫色膨胀光晕。
 public struct ImageGenerationView: View {
 
@@ -24,9 +24,11 @@ public struct ImageGenerationView: View {
     @State private var toastMessage: String? = nil
     @State private var isSavingImage: Bool = false
 
-    private let irisViolet = Color(hex: "7D52F4")
-    private let deepPlumBase = Color(hex: "120D1D")
-    private let paleLavender = Color(hex: "F8F6FD")
+    // 全部走主题令牌，跟随「设置 → 强调色」，不再写死紫色。
+    private var irisViolet: Color { accent }
+    private var deepPlumBase: Color { AppUI.label }
+    private var paleLavender: Color { AppUI.label }
+
 
     public init() {}
 
@@ -92,21 +94,6 @@ public struct ImageGenerationView: View {
             }
 
             Spacer()
-
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(scheme == .dark ? paleLavender.opacity(0.8) : deepPlumBase.opacity(0.8))
-                    .frame(width: 36, height: 36)
-                    .background {
-                        Circle().fill(Color.white.opacity(scheme == .dark ? 0.08 : 0.6))
-                    }
-                    .liquidGlass(.regular, in: .circle)
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.4), lineWidth: 0.8))
-            }
-            .buttonStyle(StaticButtonFeedbackStyle())
         }
         .padding(.horizontal, 18)
         .padding(.top, 10)
@@ -115,7 +102,7 @@ public struct ImageGenerationView: View {
 
     private var currentModelLabel: String {
         let id = settings.imageGenerationModelID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return id.isEmpty ? "DALL-E-3 · OPENAI" : id.uppercased()
+        return id.isEmpty ? "尚未配置生图模型" : id
     }
 
     // MARK: - 画布预览区 (Preview Viewport Card)
@@ -123,7 +110,7 @@ public struct ImageGenerationView: View {
     private var previewViewportCard: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill((scheme == .dark ? deepPlumBase : Color.white).opacity(scheme == .dark ? 0.65 : 0.82))
+                .fill(AppUI.consolePanel(scheme: scheme).opacity(scheme == .dark ? 0.65 : 0.82))
                 .liquidGlass(.regular.tint(irisViolet.opacity(0.08)), in: .rect(cornerRadius: 18))
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -237,7 +224,7 @@ public struct ImageGenerationView: View {
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(deepPlumBase.opacity(0.78)))
+                    .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.black.opacity(0.42)))
                     .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.6), lineWidth: 0.8))
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
@@ -248,7 +235,7 @@ public struct ImageGenerationView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Color.white)
                         .frame(width: 32, height: 32)
-                        .background(Circle().fill(deepPlumBase.opacity(0.78)))
+                        .background(Circle().fill(Color.black.opacity(0.42)))
                         .overlay(Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 0.8))
                 }
                 .buttonStyle(StaticButtonFeedbackStyle())
@@ -322,7 +309,7 @@ public struct ImageGenerationView: View {
                         .padding(.vertical, 8)
                         .background {
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(isSelected ? irisViolet : (scheme == .dark ? deepPlumBase.opacity(0.4) : Color.white.opacity(0.7)))
+                                .fill(isSelected ? irisViolet : (scheme == .dark ? AppUI.fill : Color.white.opacity(0.7)))
                         }
                         .liquidGlass(isSelected ? .regular.tint(irisViolet.opacity(0.3)) : .regular, in: .rect(cornerRadius: 12))
                         .overlay {
@@ -359,7 +346,7 @@ public struct ImageGenerationView: View {
 
             ZStack(alignment: .topLeading) {
                 if promptText.isEmpty {
-                    Text("输入描述文字，如：深空悬浮的机械赛博猫头鹰，折射星轨微光与超流体玻璃焦散...")
+                    Text("输入画面描述，例如：极简风格的天蓝色磨砂玻璃猫头鹰图标")
                         .font(.system(size: 13, weight: .regular))
                         .foregroundStyle(scheme == .dark ? paleLavender.opacity(0.35) : deepPlumBase.opacity(0.35))
                         .padding(.horizontal, 12)
@@ -375,7 +362,7 @@ public struct ImageGenerationView: View {
             }
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill((scheme == .dark ? deepPlumBase : Color.white).opacity(scheme == .dark ? 0.6 : 0.85))
+                    .fill(AppUI.consolePanel(scheme: scheme).opacity(scheme == .dark ? 0.6 : 0.85))
             }
             .liquidGlass(.regular, in: .rect(cornerRadius: 16))
             .overlay {
@@ -525,7 +512,7 @@ public struct ImageGenerationView: View {
         .padding(.vertical, 10)
         .background {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill((scheme == .dark ? deepPlumBase : Color.white).opacity(0.92))
+                .fill(AppUI.consolePanel(scheme: scheme).opacity(0.92))
         }
         .liquidGlass(.regular, in: .rect(cornerRadius: 13))
         .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Color.white.opacity(0.8), lineWidth: 0.8))

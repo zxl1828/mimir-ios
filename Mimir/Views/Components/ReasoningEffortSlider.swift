@@ -82,7 +82,7 @@ struct ReasoningEffortCard: View {
                 .overlay {
                     shape.fill(
                         scheme == .dark
-                            ? Color(hex: "F8F6FD").opacity(0.90)
+                            ? Color(hex: "F8FAFC").opacity(0.90)
                             : Color.white.opacity(0.85)
                     )
                 }
@@ -241,7 +241,7 @@ struct ReasoningEffortSlider: View {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(
                         scheme == .dark
-                            ? Color(hex: "F8F6FD").opacity(0.90)
+                            ? Color(hex: "F8FAFC").opacity(0.90)
                             : Color.white.opacity(0.85)
                     )
             }

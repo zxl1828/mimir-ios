@@ -487,8 +487,8 @@ struct CodeBlockView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(
                     scheme == .dark
-                        ? Color(hex: "120D1D").opacity(0.88)
-                        : Color(hex: "F8F6FD")
+                        ? Color(hex: "0B1120").opacity(0.88)
+                        : Color(hex: "F8FAFC")
                 )
         )
         .overlay(

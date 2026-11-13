@@ -147,8 +147,8 @@ struct AuroraBackground: View {
     private var baseGradient: some View {
         LinearGradient(
             colors: scheme == .dark
-                ? [Color(hex: "120D1D"), Color(hex: "1A122B"), Color(hex: "120D1D")]
-                : [Color.white, Color(hex: "F8F6FD"), Color.white],
+                ? [Color(hex: "0B1120"), Color(hex: "131C31"), Color(hex: "0B1120")]
+                : [Color.white, Color(hex: "F8FAFC"), Color.white],
             startPoint: .top,
             endPoint: .bottom
         )

@@ -1,10 +1,11 @@
 import Foundation
 
-/// 思考程度。左 → 右：Light / High / Extra High / Max (Ultra)。
+/// 思考程度：关闭 / Low / Medium / High / Max 五档。
 ///
-/// 四档**全部带思考**——不再提供"不思考"的模式，全部档位均执行推理。
-/// 档位同时驱动星尘阶梯滑块的视觉表现与发送请求时的模型参数。
+/// 档位同时驱动「思考强度」分段控件的视觉表现与发送请求时的模型参数；
+/// 「关闭」表示不使用深度思考参数（最低 token 预算），并非跳过请求。
 enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
+    case off
     case light
     case thinking
     case expert
@@ -14,6 +15,8 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
 
     init?(rawValue: String) {
         switch rawValue {
+        case "off", "none", "disabled":
+            self = .off
         case "light", "quick":
             self = .light
         case "thinking":
@@ -30,7 +33,9 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let raw = try container.decode(String.self)
-        if raw == "quick" || raw == "light" {
+        if raw == "off" || raw == "none" {
+            self = .off
+        } else if raw == "quick" || raw == "light" {
             self = .light
         } else if let mode = ThinkingMode(rawValue: raw) {
             self = mode
@@ -47,9 +52,10 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
     /// 紧凑徽标名（Light / High / X-High / Max）。
     var title: String {
         switch self {
-        case .light: return "Light"
-        case .thinking: return "High"
-        case .expert: return "X-High"
+        case .off: return "Off"
+        case .light: return "Low"
+        case .thinking: return "Medium"
+        case .expert: return "High"
         case .ultra: return "Max"
         }
     }
@@ -57,10 +63,22 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
     /// 浮动卡片大标题与状态胶囊后缀（与实机参考图 Ultra 对齐）。
     var heroTitle: String {
         switch self {
-        case .light: return "Light"
-        case .thinking: return "High"
-        case .expert: return "X-High"
-        case .ultra: return "Ultra"
+        case .off: return "关闭"
+        case .light: return "Low"
+        case .thinking: return "Medium"
+        case .expert: return "High"
+        case .ultra: return "Max"
+        }
+    }
+
+    /// 分段控件里用的短标签，单行显示，绝不出现「Ultr / a」折行。
+    var segmentLabel: String {
+        switch self {
+        case .off: return "关闭"
+        case .light: return "Low"
+        case .thinking: return "Medium"
+        case .expert: return "High"
+        case .ultra: return "Max"
         }
     }
 
@@ -68,6 +86,7 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var temperature: Double {
         switch self {
+        case .off: return 0.75
         case .light: return 0.70
         case .thinking: return 0.60
         case .expert: return 0.45
@@ -77,6 +96,7 @@ enum ThinkingMode: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var maxTokens: Int {
         switch self {
+        case .off: return 1_536
         case .light: return 2_048
         case .thinking: return 4_096
         case .expert: return 8_192

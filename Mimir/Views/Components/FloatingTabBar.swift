@@ -74,6 +74,6 @@ struct FloatingTabBar: View {
     }
 
     private var inactiveColor: Color {
-        scheme == .dark ? Color.white.opacity(0.56) : Color(hex: "81768D")
+        scheme == .dark ? Color.white.opacity(0.56) : Color(hex: "64748B")
     }
 }

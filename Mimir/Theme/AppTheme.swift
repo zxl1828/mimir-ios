@@ -45,13 +45,13 @@ enum AppAccent: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .console: "550C"
-        case .purple: "紫色"
-        case .neon: "霓虹紫"
-        case .deepViolet: "深紫罗兰"
+        case .console: "天蓝"
+        case .purple: "深蓝"
+        case .neon: "亮蓝"
+        case .deepViolet: "石板蓝"
         case .indigo: "靛蓝"
         case .blue: "蓝色"
-        case .pink: "粉色"
+        case .pink: "珊瑚"
         case .orange: "橙色"
         case .green: "绿色"
         case .teal: "青色"
@@ -66,7 +66,7 @@ enum AppAccent: String, CaseIterable, Identifiable, Sendable {
         case .deepViolet: AppUI.deepViolet
         case .indigo: .indigo
         case .blue: .blue
-        case .pink: .pink
+        case .pink: Color(red: 0.984, green: 0.443, blue: 0.522)
         case .orange: .orange
         case .green: .green
         case .teal: .teal
@@ -90,9 +90,9 @@ enum AppBackground: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .console: "550C 网格"
+        case .console: "默认"
         case .plain: "纯色"
-        case .violetMist: "紫雾"
+        case .violetMist: "雾蓝"
         case .aurora: "极光"
         case .starfield: "星夜"
         }

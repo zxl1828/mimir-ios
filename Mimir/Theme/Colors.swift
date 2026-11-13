@@ -8,9 +8,9 @@ enum AppColor {
 
     // MARK: - 品牌
 
-    static let brandIndigo = Color(red: 0.36, green: 0.35, blue: 0.98)
-    static let brandBlue = Color(red: 0.25, green: 0.52, blue: 1.00)
-    static let brandPurple = Color(red: 0.62, green: 0.34, blue: 0.98)
+    static let brandIndigo = Color(red: 0.01, green: 0.52, blue: 0.78)
+    static let brandBlue = Color(red: 0.05, green: 0.65, blue: 0.91)
+    static let brandPurple = Color(red: 0.22, green: 0.74, blue: 0.97)
     static let brandTeal = Color(red: 0.16, green: 0.74, blue: 0.76)
 
     static var accentGradient: LinearGradient {
@@ -51,7 +51,7 @@ enum AppColor {
     // MARK: - 语音模式
 
     static let listening = Color(red: 0.20, green: 0.72, blue: 0.98)
-    static let thinking = Color(red: 0.62, green: 0.40, blue: 0.98)
+    static let thinking = Color(red: 0.22, green: 0.74, blue: 0.97)
     static let speaking = Color(red: 0.16, green: 0.80, blue: 0.66)
     static let interrupted = Color(red: 1.00, green: 0.62, blue: 0.24)
 }

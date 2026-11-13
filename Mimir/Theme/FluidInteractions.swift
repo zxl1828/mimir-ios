@@ -60,7 +60,7 @@ struct SharedElementImageViewer: View {
     var body: some View {
         ZStack {
             // 背景连续平滑缩放与透明度渐变（使用极深紫，严禁纯黑）
-            Color(hex: "120D1D")
+            Color(hex: "0B1120")
                 .opacity((1.0 - Double(dragProgress) * 0.85) * (isDismissing ? 0 : 0.96))
                 .ignoresSafeArea()
                 .onTapGesture { dismissWithAnimation() }
@@ -89,7 +89,7 @@ struct SharedElementImageViewer: View {
                         RoundedRectangle(cornerRadius: 18 * currentScale, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.24 * (1 - dragProgress)), lineWidth: 1)
                     )
-                    .shadow(color: Color(hex: "120D1D").opacity(0.6 * (1 - dragProgress)), radius: 24, y: 12)
+                    .shadow(color: Color(hex: "0B1120").opacity(0.6 * (1 - dragProgress)), radius: 24, y: 12)
                     .scaleEffect(currentScale)
                     .offset(dragOffset)
                     .gesture(
@@ -145,7 +145,7 @@ struct FluidRubberBandDrawer<Content: View>: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             if isPresented {
-                (scheme == .dark ? Color(hex: "120D1D") : accent)
+                (scheme == .dark ? Color(hex: "0B1120") : accent)
                     .opacity(scheme == .dark ? 0.36 : 0.12)
                     .ignoresSafeArea()
                     .onTapGesture { closeWithAnimation() }

@@ -9,7 +9,7 @@ public struct VoiceWaveformVisualizer: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private let iris = Color(hex: "7D52F4")
+    private let iris = AppUI.consoleSignal
     private let lavender = Color(hex: "B8A2FF")
     private let cyan = Color(hex: "68E1FD")
     private let magenta = Color(hex: "F86ECE")

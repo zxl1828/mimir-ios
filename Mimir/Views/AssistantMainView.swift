@@ -370,24 +370,8 @@ public struct AssistantMainView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
 
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(accent.opacity(0.85))
-                        .frame(width: 5, height: 5)
-                    Text(ModelCatalog.shortLabel(for: currentModelID))
-                        .lineLimit(1)
-                    Text("·")
-                    Text(isConversationEmpty ? "准备就绪" : "标准模式")
-                        .lineLimit(1)
-                }
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(AppUI.label2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-
-            Menu {
-                Section("模型") {
+                // 模型名本身就是下拉菜单：不吃宽度、不截断，点一下就能换模型。
+                Menu {
                     ForEach(currentModelOptions, id: \.id) { option in
                         Button {
                             selectModel(option.id)
@@ -399,10 +383,28 @@ public struct AssistantMainView: View {
                             }
                         }
                     }
+                } label: {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(accent.opacity(0.85))
+                            .frame(width: 5, height: 5)
+                        Text(ModelCatalog.cardLabel(for: currentModelID))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 7.5, weight: .bold))
+                    }
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(AppUI.label2)
                 }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
 
-                Divider()
-
+            // 模型切换已经挪到副标题的下拉菜单里，这里只留会话级操作。
+            Menu {
                 Button {
                     Haptics.impact(.light)
                     titleDraft = chat?.conversation?.title ?? ""
@@ -619,6 +621,13 @@ public struct AssistantMainView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 16)
 
+                // 3. 轻量快捷指令：把"能做什么"直接摆出来，比一句口号有用。
+                if !isCompact {
+                    quickStarterChips
+                        .padding(.top, 12)
+                        .padding(.horizontal, 20)
+                }
+
                 Spacer(minLength: 8)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -634,9 +643,52 @@ public struct AssistantMainView: View {
         }
     }
 
-    // MARK: - 6. 底部控制区（思考强度滑块 + 输入框）
+    // MARK: - 6. 底部控制区（思考强度面板 + 输入框）
 
-    /// 标志性的「思考强度」滑块：单行、贴输入框上方，滑块本身保持原样四档停靠。
+    /// 空对话时给出的三条轻量快捷指令。
+    private struct QuickStarter: Identifiable {
+        let id: String
+        let title: String
+        let icon: String
+    }
+
+    private var quickStarterChips: some View {
+        let starters: [QuickStarter] = [
+            QuickStarter(id: "schedule", title: "总结今天的日程", icon: "calendar"),
+            QuickStarter(id: "files", title: "看看工作区文件", icon: "folder"),
+            QuickStarter(id: "search", title: "帮我查个资料", icon: "magnifyingglass")
+        ]
+        return HStack(spacing: 8) {
+            ForEach(starters) { starter in
+                Button {
+                    Haptics.selectionChanged()
+                    chat?.inputText = starter.title
+                    isFieldFocused = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: starter.icon)
+                            .font(.system(size: 10, weight: .medium))
+                        Text(starter.title)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(AppUI.label2)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .background(
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .fill(AppUI.consolePanel(scheme: scheme))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .strokeBorder(AppUI.consoleHairline(scheme: scheme), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(StaticButtonFeedbackStyle())
+            }
+        }
+    }
+
     /// 长对话被滚动压缩后的一次性提示。说来就够，不用做成可交互的东西。
     private var compressedNotice: some View {
         HStack(spacing: 8) {
@@ -668,39 +720,25 @@ public struct AssistantMainView: View {
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 
+    /// 思考强度入口：当前模型不支持调节推理深度时整条隐藏。
+    @ViewBuilder
     private var reasoningBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "waveform.path.ecg")
-                .font(.system(size: 11.5, weight: .bold))
-                .foregroundStyle(accent)
-
-            Text("思考强度")
-                .font(AppUI.mono(10.5, weight: .medium))
-                .foregroundStyle(AppUI.label2)
-                .fixedSize()
-
-            ReasoningEffortSlider(
-                level: Binding(
+        if ModelCatalog.supportsReasoningControl(for: currentModelID) {
+            ThinkingControl(
+                mode: Binding(
                     get: { chat?.thinkingMode ?? .thinking },
                     set: { chat?.thinkingMode = $0 }
-                )
+                ),
+                modelID: currentModelID,
+                options: currentModelOptions,
+                onSelectModel: selectModel
             )
-            .frame(height: 40)
-
-            Text((chat?.thinkingMode ?? .thinking).heroTitle)
-                .font(AppUI.mono(10.5, weight: .semibold))
-                .foregroundStyle(accent)
-                .frame(width: 32, alignment: .trailing)
-                .contentTransition(.numericText())
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 5)
-        .nativeGlassRect(cornerRadius: 26, interactive: false)
-        .accessibilityElement(children: .contain)
     }
 
     private var bottomControlGroup: some View {
-        VStack(spacing: 8) {            // 任务面板：模型用 update_plan 写下步骤后才出现，平时完全不占位。
+        VStack(spacing: 8) {
+            // 任务面板：模型用 update_plan 写下步骤后才出现，平时完全不占位。
             TaskBoardCard()
 
             if chat?.contextCompressedNotice == true {

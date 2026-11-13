@@ -66,6 +66,17 @@ enum ModelCatalog {
         }
     }
 
+    /// 当前模型是否值得显示「思考强度」控件。
+    ///
+    /// 只对明确不支持推理的模型隐藏（如 deepseek-chat、GPT-4o 系列、Haiku）；
+    /// 用户自己填的第三方模型一律保留，避免误伤中转站模型。
+    static func supportsReasoningControl(for modelID: String) -> Bool {
+        let id = modelID.lowercased()
+        guard !id.isEmpty else { return false }
+        let unsupported = ["deepseek-chat", "gpt-4o", "gpt-4.1", "gpt-3.5", "haiku", "embedding"]
+        return !unsupported.contains { id.contains($0) }
+    }
+
     /// 思考浮动卡片与底部状态胶囊使用的完整展示名。
     static func cardLabel(for modelID: String) -> String {
         switch modelID {

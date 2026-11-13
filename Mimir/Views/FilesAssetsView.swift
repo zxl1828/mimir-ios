@@ -131,9 +131,6 @@ struct FilesAssetsView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("FILES / LIBRARY")
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(accent)
                     Text("知识资产库")
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundStyle(AppUI.textTitle(scheme: scheme))
@@ -168,8 +165,8 @@ struct FilesAssetsView: View {
                     .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                Text("\(workspace.filteredFiles.count) ITEMS")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                Text("\(workspace.filteredFiles.count) 个文件")
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(AppUI.textCaption(scheme: scheme))
                     .monospacedDigit()
             }
@@ -217,7 +214,7 @@ struct FilesAssetsView: View {
                         categoryChip(cat)
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 16)
             }
         }
     }
@@ -593,8 +590,8 @@ struct FilesAssetsView: View {
             Text(isSearching ? "没有匹配项目" : "资料空间为空")
                 .font(.system(size: 19, weight: .bold, design: .rounded))
                 .foregroundStyle(AppUI.textTitle(scheme: scheme))
-            Text(isSearching ? "0 个匹配项目" : "LOCAL LIBRARY  ·  0 ITEMS")
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            Text(isSearching ? "换个关键词试试" : "还没有文件")
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(AppUI.textSubtitle(scheme: scheme))
             if !isSearching {
                 Text("文件留存在本机")
@@ -603,7 +600,8 @@ struct FilesAssetsView: View {
             }
             if !isSearching && workspace.activeWorkspaceURL == nil {
                 Button {
-
+                    Haptics.impact(.light)
+                    presentFolderPicker()
                 } label: {
                     Label("选择项目文件夹", systemImage: "folder.badge.plus")
                         .font(.system(size: 13, weight: .semibold))
@@ -747,8 +745,8 @@ struct FilesAssetsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             scheme == .dark
-                                ? Color(hex: "120D1D").opacity(0.96)
-                                : Color(hex: "F8F6FD")
+                                ? Color(hex: "0B1120").opacity(0.96)
+                                : Color(hex: "F8FAFC")
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }

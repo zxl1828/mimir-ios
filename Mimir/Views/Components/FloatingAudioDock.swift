@@ -29,7 +29,7 @@ public struct FloatingAudioDock: View {
     @Environment(\.colorScheme) private var colorScheme
 
     // 核心色彩令牌
-    private let irisViolet = Color(hex: "7D52F4")
+    private let irisViolet = AppUI.consoleSignal
     private let electricViolet = Color(hex: "9B70FF")
 
     public init(
