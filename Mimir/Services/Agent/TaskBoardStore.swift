@@ -24,6 +24,18 @@ final class TaskBoardStore {
         var status: Status
     }
 
+    /// 从工具参数里解析出来的一步。独立成 Sendable 类型，
+    /// 这样它可以安全地从后台派发线程带进主线程的 apply。
+    struct PlannedStep: Sendable, Hashable {
+        var title: String
+        var status: Status?
+    }
+
+    struct ParsedPlan: Sendable {
+        var steps: [PlannedStep]
+        var explanation: String
+    }
+
     private(set) var items: [Item] = []
     private(set) var updatedAt: Date?
 
@@ -58,7 +70,7 @@ final class TaskBoardStore {
     }
 
     /// 整体替换计划。没给状态的步骤按顺序推断：第一条未完成标成进行中。
-    func apply(steps: [(title: String, status: Status?)]) {
+    func apply(steps: [PlannedStep]) {
         var mapped: [Item] = []
         var hasActive = false
         for step in steps {
@@ -94,13 +106,13 @@ final class TaskBoardStore {
     }
 
     /// 从 `update_plan` 的参数里解析。
-    nonisolated static func parse(argumentsJSON: String) -> (steps: [(String, Status?)], explanation: String)? {
+    nonisolated static func parse(argumentsJSON: String) -> ParsedPlan? {
         guard let data = argumentsJSON.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
         let explanation = (object["explanation"] as? String) ?? ""
-        var steps: [(String, Status?)] = []
+        var steps: [PlannedStep] = []
 
         if let plan = object["plan"] as? [[String: Any]] {
             for entry in plan {
@@ -109,22 +121,22 @@ final class TaskBoardStore {
                     ?? (entry["content"] as? String)
                     ?? ""
                 let status = (entry["status"] as? String).flatMap(Status.init(rawValue:))
-                steps.append((title, status))
+                steps.append(PlannedStep(title: title, status: status))
             }
         }
 
         if steps.isEmpty, let plain = object["steps"] as? [String] {
-            steps = plain.map { ($0, Status?.none) }
+            steps = plain.map { PlannedStep(title: $0, status: nil) }
         }
         if steps.isEmpty, let todos = object["todos"] as? [[String: Any]] {
             for entry in todos {
                 let title = (entry["content"] as? String) ?? (entry["title"] as? String) ?? ""
                 let status = (entry["status"] as? String).flatMap(Status.init(rawValue:))
-                steps.append((title, status))
+                steps.append(PlannedStep(title: title, status: status))
             }
         }
 
         guard !steps.isEmpty else { return nil }
-        return (steps, explanation)
+        return ParsedPlan(steps: steps, explanation: explanation)
     }
 }
